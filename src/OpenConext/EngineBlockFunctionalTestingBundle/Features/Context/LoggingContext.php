@@ -90,6 +90,34 @@ class LoggingContext implements Context
     }
 
     /**
+     * @Then the log message :message should appear after log message :anchor
+     */
+    public function theLogMessageShouldAppearAfterLogMessage(string $message, string $anchor): void
+    {
+        $records = $this->readRecords();
+        $messages = array_column($records, 'message');
+
+        $anchorPos = array_search($anchor, $messages, true);
+        $messagePos = array_search($message, $messages, true);
+
+        if ($anchorPos === false) {
+            throw new RuntimeException(sprintf('Anchor log message "%s" not found in log.', $anchor));
+        }
+        if ($messagePos === false) {
+            throw new RuntimeException(sprintf('Log message "%s" not found in log.', $message));
+        }
+        if ($messagePos <= $anchorPos) {
+            throw new RuntimeException(sprintf(
+                'Expected log message "%s" (pos %d) to appear after "%s" (pos %d), but it appeared before or at the same position.',
+                $message,
+                $messagePos,
+                $anchor,
+                $anchorPos,
+            ));
+        }
+    }
+
+    /**
      * @Then the log should contain multiple distinct request_ids
      */
     public function theLogShouldContainMultipleDistinctRequestIds(): void
@@ -133,8 +161,43 @@ class LoggingContext implements Context
     }
 
     /**
-     * Reads all records from the log file, decodes each JSON line, and returns only
-     * records not belonging to the event channel (Symfony kernel internals).
+     * @Then the login grant log should contain response attribute :label with value :value
+     */
+    public function theLoginGrantLogShouldContainResponseAttribute(string $label, string $value): void
+    {
+        $records = $this->readRecords();
+
+        $loginGranted = array_filter(
+            $records,
+            static fn(array $r) => ($r['message'] ?? '') === 'login granted',
+        );
+
+        if (empty($loginGranted)) {
+            throw new RuntimeException('No "login granted" log record found.');
+        }
+
+        $record = reset($loginGranted);
+        $responseAttributes = $record['context']['response_attributes'] ?? [];
+
+        if (!array_key_exists($label, $responseAttributes)) {
+            throw new RuntimeException(sprintf(
+                'Login grant log has no response_attribute "%s". Available: %s',
+                $label,
+                implode(', ', array_keys($responseAttributes)),
+            ));
+        }
+
+        if ($responseAttributes[$label] !== $value) {
+            throw new RuntimeException(sprintf(
+                'Login grant log response_attribute "%s" expected "%s" but got "%s".',
+                $label,
+                $value,
+                $responseAttributes[$label],
+            ));
+        }
+    }
+
+    /**
      *
      * @return array<int, array<string, mixed>>
      */
