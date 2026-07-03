@@ -38,46 +38,44 @@ class WayfController extends AbstractController
         $this->twig = $twig;
     }
 
-    public function wayfAction(Request $request)
-    {
-        $currentLocale = $request->get('lang', 'en');
-        $request->cookies->set('lang', $currentLocale);
-        $backLink = (bool) $request->get('backLink', false);
-        $displayUnconnectedIdpsWayf = (bool) $request->get('displayUnconnectedIdpsWayf', false);
-        $addDiscoveries = (bool) $request->get('addDiscoveries', true);
-        $rememberChoiceFeature = (bool) $request->get('rememberChoiceFeature', false);
-        $cutoffPointForShowingUnfilteredIdps = $request->get('cutoffPointForShowingUnfilteredIdps', 100);
-        $showIdPBanner = $request->get('showIdPBanner', true);
-        $defaultIdpEntityId = $request->get('defaultIdpEntityId', null);
-        // Casting a string 'true' or 'false' using filter_var (bool) does not work here
-        $showIdPBanner = filter_var($showIdPBanner, FILTER_VALIDATE_BOOLEAN);
+public function wayfAction(Request $request)
+{
+    $currentLocale = $request->get('lang', 'en');
+    $request->cookies->set('lang', $currentLocale);
+    $backLink = $request->get('backLink', false) !== false;
+    $displayUnconnectedIdpsWayf = $request->get('displayUnconnectedIdpsWayf', false) !== false;
+    $addDiscoveries = $request->get('addDiscoveries', true) !== false;
+    $rememberChoiceFeature = $request->get('rememberChoiceFeature', false) !== false;
+    $cutoffPointForShowingUnfilteredIdps = (int) $request->get('cutoffPointForShowingUnfilteredIdps', 100);
+    $showIdPBanner = filter_var($request->get('showIdPBanner', true), FILTER_VALIDATE_BOOLEAN);
+    $defaultIdpEntityId = $request->get('defaultIdpEntityId');
 
-        $connectedIdps = (int) $request->get('connectedIdps', 5);
-        $unconnectedIdps = (int) $request->get('unconnectedIdps', 0);
-        $randomIdps = (int) $request->get('randomIdps', 0);
+    $connectedIdps = (int) $request->get('connectedIdps', 5);
+    $unconnectedIdps = (int) $request->get('unconnectedIdps', 0);
+    $randomIdps = (int) $request->get('randomIdps', 0);
 
-        $idpList = $randomIdps === 0
-            ? TestEntitySeeder::buildIdps($connectedIdps, $unconnectedIdps, $currentLocale, $defaultIdpEntityId, $addDiscoveries)
-            : TestEntitySeeder::buildRandomIdps($randomIdps, $currentLocale, $defaultIdpEntityId);
+    $idpList = $randomIdps === 0
+        ? TestEntitySeeder::buildIdps($connectedIdps, $unconnectedIdps, $currentLocale, $defaultIdpEntityId, $addDiscoveries)
+        : TestEntitySeeder::buildRandomIdps($randomIdps, $currentLocale, $defaultIdpEntityId);
 
-        return new Response($this->twig->render(
-            '@theme/Authentication/View/Proxy/wayf.html.twig',
-            [
-                'action' => $this->generateUrl('functional_testing_handle_wayf'),
-                'greenHeader' => $currentLocale,
-                'helpLink' => '/authentication/idp/help-discover?lang='.$currentLocale,
-                'backLink' => $backLink,
-                'cutoffPointForShowingUnfilteredIdps' => $cutoffPointForShowingUnfilteredIdps,
-                'showIdPBanner' => $showIdPBanner,
-                'rememberChoiceFeature' => $rememberChoiceFeature,
-                'showRequestAccess' => $displayUnconnectedIdpsWayf,
-                'requestId' => 'bogus-request-id',
-                'serviceProvider' => TestEntitySeeder::buildSp(),
-                'idpList' => $idpList,
-                'showRequestAccessContainer' => true,
-            ]
-        ));
-    }
+    return new Response($this->twig->render(
+        '@theme/Authentication/View/Proxy/wayf.html.twig',
+        [
+            'action' => $this->generateUrl('functional_testing_handle_wayf'),
+            'greenHeader' => $currentLocale,
+            'helpLink' => '/authentication/idp/help-discover?lang='.$currentLocale,
+            'backLink' => $backLink,
+            'cutoffPointForShowingUnfilteredIdps' => $cutoffPointForShowingUnfilteredIdps,
+            'showIdPBanner' => $showIdPBanner,
+            'rememberChoiceFeature' => $rememberChoiceFeature,
+            'showRequestAccess' => $displayUnconnectedIdpsWayf,
+            'requestId' => 'bogus-request-id',
+            'serviceProvider' => TestEntitySeeder::buildSp(),
+            'idpList' => $idpList,
+            'showRequestAccessContainer' => true,
+        ]
+    ));
+}
 
     public function handleWayfAction(Request $request)
     {

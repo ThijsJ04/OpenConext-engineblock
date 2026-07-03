@@ -49,91 +49,92 @@ class StepupMockController extends AbstractController
      * @param Request $request
      * @return string|Response
      */
-    public function ssoAction(Request $request)
-    {
-        try {
-            // Check binding
-            if (!$request->isMethod(Request::METHOD_GET)) {
-                throw new BadRequestHttpException(sprintf(
-                    'Could not receive AuthnRequest from HTTP Request: expected a GET method, got %s',
-                    $request->getMethod()
-                ));
-            }
+public function ssoAction(Request $request)
+{
+    try {
+        // Check binding
+        if (!$request->isMethod(Request::METHOD_GET)) {
+            throw new BadRequestHttpException(sprintf(
+                'Could not receive AuthnRequest from HTTP Request: expected a GET method, got %s',
+                $request->getMethod()
+            ));
+        }
 
-            // Parse available responses
-            $responses = $this->getAvailableResponses($request);
+        // Parse available responses
+        $responses = $this->getAvailableResponses($request);
 
-            $redirectBinding = new HTTPRedirect();
-            $message = $redirectBinding->receive();
+        $redirectBinding = new HTTPRedirect();
+        $message = $redirectBinding->receive();
 
-            // Present response
-            $body = $this->twig->render(
+        // Present response
+        return new Response(
+            $this->twig->render(
                 '@OpenConextEngineBlockFunctionalTesting/Sso/consumeAssertion.html.twig',
                 [
                     'receivedAuthnRequest' => $message->toUnsignedXML()->ownerDocument->saveXml(),
                     'responses' => $responses,
                 ]
-            );
-
-            return new Response($body);
-        } catch (BadRequestHttpException $e) {
-            return new Response($e->getMessage(), $e->getStatusCode());
-        } catch (Exception $e) {
-            return new Response($e->getMessage(), 500);
-        }
+            )
+        );
+    } catch (BadRequestHttpException $e) {
+        return new Response($e->getMessage(), $e->getStatusCode());
+    } catch (Exception $e) {
+        return new Response($e->getMessage(), 500);
     }
+}
 
     /**
      * @param Request $request
      * @return mixed
      * @throws Exception
      */
-    private function getAvailableResponses(Request $request)
-    {
-        $results = [];
+private function getAvailableResponses(Request $request)
+{
+    $results = [];
+    $fullRequestUri = $this->getFullRequestUri($request);
 
-        // Parse successfull loa3
-        $samlResponse = $this->mockStepupGateway->handleSsoSuccess($request, $this->getFullRequestUri($request));
-        $results['success'] = $this->getResponseData($request, $samlResponse);
+    // Parse successful loa3
+    $samlResponse = $this->mockStepupGateway->handleSsoSuccess($request, $fullRequestUri);
+    $results['success'] = $this->getResponseData($request, $samlResponse);
 
-        // Parse successfull loa3 with changed audience
-        $samlResponse = $this->mockStepupGateway->handleSsoSuccess($request, $this->getFullRequestUri($request), true);
-        $results['success-audience'] = $this->getResponseData($request, $samlResponse);
+    // Parse successful loa3 with changed audience
+    $samlResponse = $this->mockStepupGateway->handleSsoSuccess($request, $fullRequestUri, true);
+    $results['success-audience'] = $this->getResponseData($request, $samlResponse);
 
-        // Parse successfull loa2
-        $samlResponse = $this->mockStepupGateway->handleSsoSuccessLoa2($request, $this->getFullRequestUri($request));
-        $results['loa2'] = $this->getResponseData($request, $samlResponse);
+    // Parse successful loa2
+    $samlResponse = $this->mockStepupGateway->handleSsoSuccessLoa2($request, $fullRequestUri);
+    $results['loa2'] = $this->getResponseData($request, $samlResponse);
 
-        // Parse user cancelled
-        $samlResponse = $this->mockStepupGateway->handleSsoFailure(
-            $request,
-            $this->getFullRequestUri($request),
-            Constants::STATUS_RESPONDER,
-            Constants::STATUS_AUTHN_FAILED,
-            'Authentication cancelled by user'
-        );
-        $results['user-cancelled'] = $this->getResponseData($request, $samlResponse);
+    // Parse user cancelled
+    $samlResponse = $this->mockStepupGateway->handleSsoFailure(
+        $request,
+        $fullRequestUri,
+        Constants::STATUS_RESPONDER,
+        Constants::STATUS_AUTHN_FAILED,
+        'Authentication cancelled by user'
+    );
+    $results['user-cancelled'] = $this->getResponseData($request, $samlResponse);
 
-        // Parse unmet Loa
-        $samlResponse = $this->mockStepupGateway->handleSsoFailure(
-            $request,
-            $this->getFullRequestUri($request),
-            Constants::STATUS_RESPONDER,
-            Constants::STATUS_NO_AUTHN_CONTEXT
-        );
-        $results['unmet-loa'] = $this->getResponseData($request, $samlResponse);
+    // Parse unmet Loa
+    $samlResponse = $this->mockStepupGateway->handleSsoFailure(
+        $request,
+        $fullRequestUri,
+        Constants::STATUS_RESPONDER,
+        Constants::STATUS_NO_AUTHN_CONTEXT
+    );
+    $results['unmet-loa'] = $this->getResponseData($request, $samlResponse);
 
-        // Parse unknown
-        $samlResponse = $this->mockStepupGateway->handleSsoFailure(
-            $request,
-            $this->getFullRequestUri($request),
-            Constants::STATUS_RESPONDER,
-            Constants::STATUS_AUTHN_FAILED
-        );
-        $results['unknown'] = $this->getResponseData($request, $samlResponse);
+    // Parse unknown
+    $samlResponse = $this->mockStepupGateway->handleSsoFailure(
+        $request,
+        $fullRequestUri,
+        Constants::STATUS_RESPONDER,
+        Constants::STATUS_AUTHN_FAILED
+    );
+    $results['unknown'] = $this->getResponseData($request, $samlResponse);
 
-        return $results;
-    }
+    return $results;
+}
 
     /**
      * @param Request $request

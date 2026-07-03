@@ -139,84 +139,70 @@ class DoctrineMetadataRepository extends AbstractMetadataRepository
      * @param string $entityId
      * @return IdentityProvider|null
      */
-    public function findIdentityProviderByEntityId(string $entityId)
-    {
-        $queryBuilder = $this->idpRepository->createQueryBuilder('role')
-            ->andWhere('role.entityId = :id')
-            ->setParameter('id', $entityId);
+public function findIdentityProviderByEntityId(string $entityId)
+{
+    $queryBuilder = $this->idpRepository->createQueryBuilder('role')
+        ->andWhere('role.entityId = :id')
+        ->setParameter('id', $entityId)
+        ->setMaxResults(1);
 
-        $this->compositeFilter->toQueryBuilder($queryBuilder, $this->idpRepository->getClassName());
+    $this->compositeFilter->toQueryBuilder($queryBuilder, $this->idpRepository->getClassName());
 
-        $result = $queryBuilder->getQuery()->execute();
+    $result = $queryBuilder->getQuery()->execute();
 
-        if (empty($result)) {
-            return null;
-        }
-
-        if (count($result) > 1) {
-            throw new RuntimeException(sprintf('Multiple Identity Providers found for entityId: "%s"', $entityId));
-        }
-
-        $identityProvider = reset($result);
-        $identityProvider->accept($this->compositeVisitor);
-
-        return $identityProvider;
+    if (empty($result)) {
+        return null;
     }
+
+    $identityProvider = reset($result);
+    $identityProvider->accept($this->compositeVisitor);
+
+    return $identityProvider;
+}
 
     /**
      * @param string $hash
      * @return string|null
      */
-    public function findIdentityProviderEntityIdByMd5Hash($hash)
-    {
-        $queryBuilder = $this->idpRepository->createQueryBuilder('role')
-            ->select('role.entityId')
-            ->andWhere('MD5(role.entityId) = :hash')
-            ->setParameter('hash', $hash);
+public function findIdentityProviderEntityIdByMd5Hash($hash)
+{
+    $queryBuilder = $this->idpRepository->createQueryBuilder('role')
+        ->select('role.entityId')
+        ->andWhere('MD5(role.entityId) = :hash')
+        ->setParameter('hash', $hash)
+        ->setMaxResults(1);
 
-        $this->compositeFilter->toQueryBuilder($queryBuilder, $this->idpRepository->getClassName());
+    $this->compositeFilter->toQueryBuilder($queryBuilder, $this->idpRepository->getClassName());
 
-        $result = $queryBuilder->getQuery()->execute();
+    $result = $queryBuilder->getQuery()->getOneOrNullResult(AbstractQuery::HYDRATE_SINGLE_SCALAR);
 
-        if (empty($result)) {
-            return null;
-        }
-
-        if (count($result) > 1) {
-            throw new RuntimeException(sprintf('Multiple Identity Providers found for entityId MD5 hash: "%s"', $hash));
-        }
-
-        return reset($result)['entityId'];
-    }
+    return $result;
+}
 
     /**
      * @param $entityId
      * @param LoggerInterface|null $logger
      * @return null|ServiceProvider
      */
-    public function findServiceProviderByEntityId(string $entityId, LoggerInterface $logger = null)
-    {
-        $queryBuilder = $this->spRepository->createQueryBuilder('role')
-            ->andWhere('role.entityId = :id')
-            ->setParameter('id', $entityId);
+public function findServiceProviderByEntityId(string $entityId, LoggerInterface $logger = null)
+{
+    $queryBuilder = $this->spRepository->createQueryBuilder('role')
+        ->andWhere('role.entityId = :id')
+        ->setParameter('id', $entityId)
+        ->setMaxResults(1);
 
-        $this->compositeFilter->toQueryBuilder($queryBuilder, $this->spRepository->getClassName());
+    $this->compositeFilter->toQueryBuilder($queryBuilder, $this->spRepository->getClassName());
 
-        $result = $queryBuilder->getQuery()->execute();
+    $result = $queryBuilder->getQuery()->getOneOrNullResult();
 
-        if (empty($result)) {
-            return null;
-        }
-
-        if (count($result) > 1) {
-            throw new RuntimeException(sprintf('Multiple Service Providers found for entityId: "%s"', $entityId));
-        }
-
-        $serviceProvider = reset($result);
-        $serviceProvider->accept($this->compositeVisitor);
-
-        return $serviceProvider;
+    if ($result === null) {
+        return null;
     }
+
+    $result->accept($this->compositeVisitor);
+
+    return $result;
+}
 
     /**
      * @return IdentityProvider[]

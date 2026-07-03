@@ -281,24 +281,18 @@ class FeedbackController
     /**
      * @Route("/authentication/feedback/invalid-attribute-value", name="authentication_feedback_invalid_attribute_value", methods={"GET"})
      */
-    public function invalidAttributeValueAction(Request $request)
-    {
-        $feedbackInfo = $request->getSession()->get('feedbackInfo');
+public function invalidAttributeValueAction(Request $request)
+{
+    $feedbackInfo = $request->getSession()->get('feedbackInfo');
 
-        $attributeName = $feedbackInfo['attributeName'];
-        $attributeValue = $feedbackInfo['attributeValue'];
-
-        return new Response(
-            $this->twig->render(
-                '@theme/Authentication/View/Feedback/invalid-attribute-value.html.twig',
-                [
-                    'attributeName' => $attributeName,
-                    'attributeValue' => $attributeValue,
-                ]
-            ),
-            403
-        );
-    }
+    return new Response(
+        $this->twig->render(
+            '@theme/Authentication/View/Feedback/invalid-attribute-value.html.twig',
+            $feedbackInfo
+        ),
+        403
+    );
+}
 
     /**
      * @Route(
@@ -307,62 +301,46 @@ class FeedbackController
      *     methods={"GET"}
      * )
      */
-    public function metadataEntityNotFoundAction(Request $request)
-    {
-        // The exception message is used on the error page. As mostly developers or other tech-savvy people will see
-        // this message. The ExceptionListener is responsible for setting the message on the feedback_custom field.
-        $session = $request->getSession();
-        if ($session->has('feedback_custom')) {
-            $message = $session->get('feedback_custom');
-        } else {
-            // This should never occur, when it does, this error page is called from outside the application context
-            // or the exception that shows this page was triggered elsewhere in code without a message.
-            $message = 'More elaborate error details could not be found..';
-        }
+public function metadataEntityNotFoundAction(Request $request)
+{
+    $session = $request->getSession();
+    $message = $session->get('feedback_custom', 'More elaborate error details could not be found..');
 
-        return new Response(
-            $this->twig->render(
-                '@theme/Authentication/View/Feedback/metadata-entity-not-found.html.twig',
-                [
-                    'message' => $message,
-                ]
-            ),
-            404
-        );
-    }
+    return new Response(
+        $this->twig->render(
+            '@theme/Authentication/View/Feedback/metadata-entity-not-found.html.twig',
+            ['message' => $message]
+        ),
+        404
+    );
+}
 
     /**
      * @Route("/authentication/feedback/custom", name="authentication_feedback_custom", methods={"GET"})
      */
-    public function customAction(Request $request)
-    {
-        $currentLocale = $this->translator->getLocale();
+public function customAction(Request $request)
+{
+    $currentLocale = $this->translator->getLocale();
+    $title = $this->translator->trans('error_generic');
+    $description = $this->translator->trans('error_generic_desc');
 
-        $title = $this->translator->trans('error_generic');
-        $description = $this->translator->trans('error_generic_desc');
-
-        $session = $request->getSession();
-        if ($session->has('feedback_custom')) {
-            $feedbackCustom = $session->get('feedback_custom');
-            if (isset($feedbackCustom['title'][$currentLocale])) {
-                $title = $feedbackCustom['title'][$currentLocale];
-            }
-
-            if (isset($feedbackCustom['description'][$currentLocale])) {
-                $description = $feedbackCustom['description'][$currentLocale];
-            }
-        }
-
-        return new Response(
-            $this->twig->render(
-                '@theme/Authentication/View/Feedback/custom.html.twig',
-                [
-                    'title' => $title,
-                    'description' => $description,
-                ]
-            )
-        );
+    $session = $request->getSession();
+    if ($session->has('feedback_custom')) {
+        $feedbackCustom = $session->get('feedback_custom');
+        $title = $feedbackCustom['title'][$currentLocale] ?? $title;
+        $description = $feedbackCustom['description'][$currentLocale] ?? $description;
     }
+
+    return new Response(
+        $this->twig->render(
+            '@theme/Authentication/View/Feedback/custom.html.twig',
+            [
+                'title' => $title,
+                'description' => $description,
+            ]
+        )
+    );
+}
 
     /**
      * @Route("/authentication/feedback/invalid-acs-binding", name="authentication_feedback_invalid_acs_binding", methods={"GET"})
@@ -437,37 +415,34 @@ class FeedbackController
      *     methods={"GET"}
      * )
      */
-    public function authorizationPolicyViolationAction(Request $request)
-    {
-        $locale = $this->translator->getLocale();
-        $logo = null;
-        $policyDecisionMessage = null;
+public function authorizationPolicyViolationAction(Request $request)
+{
+    $locale = $this->translator->getLocale();
+    $session = $request->getSession();
 
-        $session = $request->getSession();
-        if ($session->has('error_authorization_policy_decision')) {
-            /** @var PolicyDecision $policyDecision */
-            $policyDecision = $session->get('error_authorization_policy_decision');
-
-            if ($policyDecision->hasLocalizedDenyMessage()) {
-                $policyDecisionMessage = $policyDecision->getLocalizedDenyMessage($locale, 'en');
-            } elseif ($policyDecision->hasStatusMessage()) {
-                $policyDecisionMessage = $policyDecision->getStatusMessage();
-            }
-            $logo = $policyDecision->getIdpLogo();
-        }
-
-
+    if (!$session->has('error_authorization_policy_decision')) {
         return new Response(
-            $this->twig->render(
-                '@theme/Authentication/View/Feedback/authorization-policy-violation.html.twig',
-                [
-                    'logo' => $logo,
-                    'policyDecisionMessage' => $policyDecisionMessage,
-                ]
-            ),
+            $this->twig->render('@theme/Authentication/View/Feedback/authorization-policy-violation.html.twig'),
             400
         );
     }
+
+    /** @var PolicyDecision $policyDecision */
+    $policyDecision = $session->get('error_authorization_policy_decision');
+    $policyDecisionMessage = $policyDecision->getLocalizedDenyMessage($locale, 'en') ?: $policyDecision->getStatusMessage();
+    $logo = $policyDecision->getIdpLogo();
+
+    return new Response(
+        $this->twig->render(
+            '@theme/Authentication/View/Feedback/authorization-policy-violation.html.twig',
+            [
+                'logo' => $logo,
+                'policyDecisionMessage' => $policyDecisionMessage,
+            ]
+        ),
+        400
+    );
+}
 
     /**
      * @Route(
@@ -540,29 +515,19 @@ class FeedbackController
      *     methods={"GET"}
      * )
      */
-    public function noAuthenticationRequestReceivedAction(Request $request)
-    {
-        // The exception message is used on the error page. As mostly developers or other tech-savvy people will see
-        // this message. The ExceptionListener is responsible for setting the message on the feedback_custom field.
-        $session = $request->getSession();
-        if ($session->has('feedback_custom')) {
-            $message = $session->get('feedback_custom');
-        } else {
-            // This should never occur, when it does, this error page is called from outside the application context
-            // or the exception that shows this page was triggered elsewhere in code without a message.
-            $message = 'More elaborate error details could not be found..';
-        }
+public function noAuthenticationRequestReceivedAction(Request $request)
+{
+    $session = $request->getSession();
+    $message = $session->get('feedback_custom', 'More elaborate error details could not be found..');
 
-        return new Response(
-            $this->twig->render(
-                '@theme/Authentication/View/Feedback/no-authentication-request-received.html.twig',
-                [
-                    'message' => $message,
-                ]
-            ),
-            400
-        );
-    }
+    return new Response(
+        $this->twig->render(
+            '@theme/Authentication/View/Feedback/no-authentication-request-received.html.twig',
+            ['message' => $message]
+        ),
+        400
+    );
+}
 
     /**
      * @Route("/authentication/feedback/clock-issue", name="authentication_feedback_response_clock_issue", methods={"GET"})

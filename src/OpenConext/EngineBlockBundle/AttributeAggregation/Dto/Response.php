@@ -53,24 +53,26 @@ final class Response
      * @param array $jsonData
      * @return AggregatedAttribute
      */
-    private static function parseAggregatedAttribute(array $attributeData)
-    {
+private static function parseAggregatedAttribute(array $attributeData)
+{
+    if (!isset($attributeData['name'], $attributeData['values'], $attributeData['source'])) {
+        $missing = [];
         if (!isset($attributeData['name'])) {
-            throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute name');
+            $missing[] = 'name';
         }
-
         if (!isset($attributeData['values'])) {
-            throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute value');
+            $missing[] = 'values';
         }
-
         if (!isset($attributeData['source'])) {
-            throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute source');
+            $missing[] = 'source';
         }
-
-        return AggregatedAttribute::from(
-            (string) $attributeData['name'],
-            (array) $attributeData['values'],
-            (string) $attributeData['source']
-        );
+        throw new InvalidAttributeAggregationResponseException(sprintf('Missing aggregated attribute %s', implode(', ', $missing)));
     }
+
+    return AggregatedAttribute::from(
+        $attributeData['name'],
+        $attributeData['values'],
+        $attributeData['source']
+    );
+}
 }

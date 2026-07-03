@@ -70,53 +70,56 @@ final class DeprovisionService implements DeprovisionServiceInterface
      * @param CollabPersonId $id
      * @return array
      */
-    public function read(CollabPersonId $id)
-    {
-        $user = $this->userDirectory->findUserBy($id);
+public function read(CollabPersonId $id)
+{
+    $user = $this->userDirectory->findUserBy($id);
 
-        if ($user === null) {
-            return [];
-        }
-
-        return [
-            [
-                'name'  => 'user',
-                'value' => $user,
-            ],
-            [
-                'name'  => 'saml_persistent_id',
-                'value' => $this->findPersistentIds($user),
-            ],
-            [
-                'name'  => 'consent',
-                'value' => $this->findConsent($user),
-            ],
-        ];
+    if ($user === null) {
+        return [];
     }
+
+    $persistentIds = $this->findPersistentIds($user);
+    $consent = $this->findConsent($user);
+
+    return [
+        [
+            'name'  => 'user',
+            'value' => $user,
+        ],
+        [
+            'name'  => 'saml_persistent_id',
+            'value' => $persistentIds,
+        ],
+        [
+            'name'  => 'consent',
+            'value' => $consent,
+        ],
+    ];
+}
 
     /**
      * @param User $user
      * @return array
      */
-    private function findPersistentIds(User $user)
-    {
-        $idsWithSpEntityId = [];
-        $idsWithoutSpEntityId = $this->persistentIdRepository->findByUuid(
-            $user->getCollabPersonUuid()
-        );
+private function findPersistentIds(User $user)
+{
+    $idsWithSpEntityId = [];
+    $idsWithoutSpEntityId = $this->persistentIdRepository->findByUuid(
+        $user->getCollabPersonUuid()
+    );
 
-        foreach ($idsWithoutSpEntityId as $id) {
-            $idsWithSpEntityId[] = [
-                'persistent_id' => $id->persistentId,
-                'user_uuid' => $id->userUuid,
-                'service_provider_entity_id' => $this->serviceProviderUuidRepository->findEntityIdByUuid(
-                    $id->serviceProviderUuid
-                ),
-            ];
-        }
-
-        return $idsWithSpEntityId;
+    foreach ($idsWithoutSpEntityId as $id) {
+        $idsWithSpEntityId[] = [
+            'persistent_id' => $id->persistentId,
+            'user_uuid' => $id->userUuid,
+            'service_provider_entity_id' => $this->serviceProviderUuidRepository->findEntityIdByUuid(
+                $id->serviceProviderUuid
+            ),
+        ];
     }
+
+    return $idsWithSpEntityId;
+}
 
     /**
      * @param User $user

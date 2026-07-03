@@ -49,28 +49,20 @@ class FeatureConfiguration implements FeatureConfigurationInterface
         return array_key_exists($featureKey, $this->features);
     }
 
-    public function isEnabled($featureKey)
-    {
-        if (!$this->hasFeature($featureKey)) {
-            $features = implode(
-                ', ',
-                array_map(
-                    function (Feature $feature) {
-                        return $feature->getFeatureKey();
-                    },
-                    $this->features
-                )
-            );
-            throw new LogicException(
-                sprintf(
-                    'Cannot state if feature "%s" is enabled as it does not exist. Please ensure that you configured it '
-                    .'correctly or verify with hasFeature() that the feature exists. Features configured: "%s"',
-                    $featureKey,
-                    $features
-                )
-            );
-        }
-
-        return $this->features[$featureKey]->isEnabled();
+public function isEnabled($featureKey)
+{
+    if (!$this->hasFeature($featureKey)) {
+        $features = implode(', ', array_keys($this->features));
+        throw new LogicException(
+            sprintf(
+                'Cannot state if feature "%s" is enabled as it does not exist. Please ensure that you configured it '
+                .'correctly or verify with hasFeature() that the feature exists. Features configured: "%s"',
+                $featureKey,
+                $features
+            )
+        );
     }
+
+    return $this->features[$featureKey]->isEnabled();
+}
 }

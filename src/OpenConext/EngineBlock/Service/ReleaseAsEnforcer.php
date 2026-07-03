@@ -33,44 +33,43 @@ class ReleaseAsEnforcer implements ReleaseAsEnforcerInterface
         $this->logger = $logger;
     }
 
-    public function enforce(array $attributes, array $releaseAsOverrides)
-    {
-        foreach ($releaseAsOverrides as $oldAttributeName => $overrideValue) {
-            $newAttributeName = $overrideValue[0]['release_as'];
-            if (!array_key_exists($oldAttributeName, $attributes)) {
-                $this->logger->notice(
-                    sprintf(
-                        'Releasing "%s" as "%s" is not possible, "%s" is not in assertion',
-                        $oldAttributeName,
-                        $newAttributeName,
-                        $oldAttributeName
-                    )
-                );
-                continue;
-            }
-            if (is_null($attributes[$oldAttributeName])) {
-                $this->logger->warning(
-                    sprintf(
-                        'Releasing "%s" as "%s" is not possible, value for "%s" is null',
-                        $oldAttributeName,
-                        $newAttributeName,
-                        $oldAttributeName
-                    )
-                );
-                unset($attributes[$oldAttributeName]);
-                continue;
-            }
-            $attributeValue = $attributes[$oldAttributeName];
-            unset($attributes[$oldAttributeName]);
+public function enforce(array $attributes, array $releaseAsOverrides)
+{
+    foreach ($releaseAsOverrides as $oldAttributeName => $overrideValue) {
+        $newAttributeName = $overrideValue[0]['release_as'];
+        if (!array_key_exists($oldAttributeName, $attributes)) {
             $this->logger->notice(
                 sprintf(
-                    'Releasing attribute "%s" as "%s" as specified in the release_as ARP setting',
+                    'Releasing "%s" as "%s" is not possible, "%s" is not in assertion',
                     $oldAttributeName,
-                    $newAttributeName
+                    $newAttributeName,
+                    $oldAttributeName
                 )
             );
-            $attributes[$newAttributeName] = $attributeValue;
+            continue;
         }
-        return $attributes;
+        if ($attributes[$oldAttributeName] === null) {
+            $this->logger->warning(
+                sprintf(
+                    'Releasing "%s" as "%s" is not possible, value for "%s" is null',
+                    $oldAttributeName,
+                    $newAttributeName,
+                    $oldAttributeName
+                )
+            );
+            unset($attributes[$oldAttributeName]);
+            continue;
+        }
+        $attributes[$newAttributeName] = $attributes[$oldAttributeName];
+        unset($attributes[$oldAttributeName]);
+        $this->logger->notice(
+            sprintf(
+                'Releasing attribute "%s" as "%s" as specified in the release_as ARP setting',
+                $oldAttributeName,
+                $newAttributeName
+            )
+        );
     }
+    return $attributes;
+}
 }
