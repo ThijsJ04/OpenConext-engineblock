@@ -73,10 +73,14 @@ TPL;
      * @param $email
      * @param $comment
      */
-    public function sendRequestAccessEmailForIdp($spName, $spEntityId, $institution, $idpEntityId, $name, $email, $comment)
-    {
-        $subject = self::REQUEST_IDP_ACCESS_SUBJECT;
-        $body = sprintf(
+public function sendRequestAccessEmailForIdp($spName, $spEntityId, $institution, $idpEntityId, $name, $email, $comment)
+{
+    $message = new Email();
+    $message
+        ->subject(self::REQUEST_IDP_ACCESS_SUBJECT)
+        ->from($this->requestAccessEmailAddress)
+        ->to($this->requestAccessEmailAddress)
+        ->text(sprintf(
             self::REQUEST_IDP_ACCESS_TEMPLATE,
             $institution,
             $idpEntityId,
@@ -85,19 +89,10 @@ TPL;
             $name,
             $email,
             $comment
-        );
+        ));
 
-        // We use the destination email address also as a From since we do
-        // not have a better generic sender address available currently.
-        $message = new Email();
-        $message
-            ->subject($subject)
-            ->from($this->requestAccessEmailAddress)
-            ->to($this->requestAccessEmailAddress)
-            ->text($body);
-
-        $this->mailer->send($message);
-    }
+    $this->mailer->send($message);
+}
 
     /**
      * Request access for a institution perhaps not yet available to OpenConext.
@@ -109,10 +104,14 @@ TPL;
      * @param $email
      * @param $comment
      */
-    public function sendRequestAccessEmailForInstitution($spName, $spEntityId, $institution, $name, $email, $comment)
-    {
-        $subject = self::REQUEST_INSTITUTION_ACCESS_SUBJECT;
-        $body = sprintf(
+public function sendRequestAccessEmailForInstitution($spName, $spEntityId, $institution, $name, $email, $comment)
+{
+    $message = new Email();
+    $message
+        ->subject(self::REQUEST_INSTITUTION_ACCESS_SUBJECT)
+        ->from($this->requestAccessEmailAddress)
+        ->to($this->requestAccessEmailAddress)
+        ->text(sprintf(
             self::REQUEST_INSTITUTION_ACCESS_TEMPLATE,
             $institution,
             $spName,
@@ -120,16 +119,8 @@ TPL;
             $name,
             $email,
             $comment
-        );
+        ));
 
-        $message = new Email();
-        $message
-            ->subject($subject)
-            ->from($this->requestAccessEmailAddress)
-            ->to($this->requestAccessEmailAddress)
-            ->text($body);
-
-
-        $this->mailer->send($message);
-    }
+    $this->mailer->send($message);
+}
 }

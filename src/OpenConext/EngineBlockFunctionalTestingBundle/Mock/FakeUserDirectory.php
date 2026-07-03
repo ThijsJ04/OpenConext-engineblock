@@ -55,61 +55,59 @@ class FakeUserDirectory extends UserDirectoryAdapter
      * overriding constructor so we can instantiate without arguments and load a possible cached
      * userdirectory
      */
-    public function __construct(Filesystem $filesystem)
-    {
-        $this->filesystem = $filesystem;
+public function __construct(Filesystem $filesystem)
+{
+    $this->filesystem = $filesystem;
+    $filePath = self::$directory . self::$fileName;
 
-        $filePath = self::$directory . self::$fileName;
-        if (!$this->filesystem->exists($filePath) || !is_readable($filePath)) {
-            return;
+    if ($this->filesystem->exists($filePath) && is_readable($filePath)) {
+        $content = @file_get_contents($filePath);
+        if ($content !== false) {
+            $users = json_decode($content, true);
+            if (is_array($users)) {
+                foreach ($users as &$user) {
+                    $user = new User(
+                        new CollabPersonId($user['collab_person_id']),
+                        new CollabPersonUuid($user['collab_person_uuid'])
+                    );
+                }
+                $this->users = $users;
+            }
         }
+    }
+}
 
-        $content = file_get_contents($filePath);
-        if ($content === false) {
-            throw new RuntimeException(sprintf('Cannot read UserDirectory dump from "%s"', $filePath));
-        }
-
-        $users = json_decode($content, true);
-        array_walk($users, function (&$user): void {
-            $user = new User(
-                new CollabPersonId($user['collab_person_id']),
-                new CollabPersonUuid($user['collab_person_uuid'])
-            );
-        });
-        $this->users = $users;
+public function identifyUser(array $attributes)
+{
+    if (!isset($attributes[Uid::URN_MACE][0])) {
+        throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
+            'Missing required SAML2 field "%s" in attributes',
+            Uid::URN_MACE
+        ));
+    }
+    if (!isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
+        throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
+            'Missing required SAML2 field "%s" in attributes',
+            SchacHomeOrganization::URN_MACE
+        ));
     }
 
-    public function identifyUser(array $attributes)
-    {
-        if (!isset($attributes[Uid::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                Uid::URN_MACE
-            ));
-        }
-        if (!isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                SchacHomeOrganization::URN_MACE
-            ));
-        }
+    $uid = $attributes[Uid::URN_MACE][0];
+    $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
 
-        $uid                   = $attributes[Uid::URN_MACE][0];
-        $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
+    $collabPersonUuid = CollabPersonUuid::generate();
+    $collabPersonId = CollabPersonId::generateWithReplacedAtSignFrom(
+        new Uid($uid),
+        new SchacHomeOrganization($schacHomeOrganization)
+    );
 
-        $collabPersonUuid = CollabPersonUuid::generate();
-        $collabPersonId   = CollabPersonId::generateWithReplacedAtSignFrom(
-            new Uid($uid),
-            new SchacHomeOrganization($schacHomeOrganization)
-        );
+    $user = new User($collabPersonId, $collabPersonUuid);
+    $this->users[$collabPersonId->getCollabPersonId()] = $user;
 
-        $user = new User($collabPersonId, $collabPersonUuid);
-        $this->users[$collabPersonId->getCollabPersonId()] = $user;
+    $this->saveToDisk();
 
-        $this->saveToDisk();
-
-        return $user;
-    }
+    return $user;
+}
 
     public function registerUser($uid, $schacHomeOrganization)
     {
@@ -156,22 +154,22 @@ class FakeUserDirectory extends UserDirectoryAdapter
     /**
      * Write the user directory so it can be reused when visiting consent etc.
      */
-    private function saveToDisk()
-    {
-        if (!$this->filesystem->exists(self::$directory)) {
-            $this->filesystem->mkdir(self::$directory);
-        }
-
-        $filePath = self::$directory . self::$fileName;
-
-        $users = $this->users;
-        array_walk($users, function (&$user): void {
-            $user = [
-                'collab_person_id' => $user->getCollabPersonId()->getCollabPersonId(),
-                'collab_person_uuid' => $user->getCollabPersonUuid()->getUuid()
-            ];
-        });
-
-        $this->filesystem->dumpFile($filePath, json_encode($users));
+private function saveToDisk()
+{
+    if (!$this->filesystem->exists(self::$directory)) {
+        $this->filesystem->mkdir(self::$directory);
     }
+
+    $filePath = self::$directory . self::$fileName;
+    $users = [];
+
+    foreach ($this->users as $user) {
+        $users[] = [
+            'collab_person_id' => $user->getCollabPersonId()->getCollabPersonId(),
+            'collab_person_uuid' => $user->getCollabPersonUuid()->getUuid()
+        ];
+    }
+
+    $this->filesystem->dumpFile($filePath, json_encode($users));
+}
 }

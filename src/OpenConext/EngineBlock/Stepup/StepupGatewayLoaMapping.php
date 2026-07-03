@@ -31,37 +31,41 @@ class StepupGatewayLoaMapping
     /**
      * @throws \Assert\AssertionFailedException
      */
-    public function __construct(array $loaMapping, string $gatewayLoa1, LoaRepository $loaRepository)
-    {
-        Assertion::string($gatewayLoa1, 'The stepup.loa.loa1 configuration must be a string');
-        $this->gatewayLoa1 = $loaRepository->getByIdentifier($gatewayLoa1);
+public function __construct(array $loaMapping, string $gatewayLoa1, LoaRepository $loaRepository)
+{
+    Assertion::string($gatewayLoa1, 'The stepup.loa.loa1 configuration must be a string');
+    $this->gatewayLoa1 = $loaRepository->getByIdentifier($gatewayLoa1);
 
-        foreach ($loaMapping as $mapping) {
-            Assertion::nonEmptyString(
-                $mapping['gateway'],
-                sprintf('The gateway LoA must be a non empty string. "%s" given', $mapping['gateway'])
-            );
-            Assertion::nonEmptyString(
-                $mapping['engineblock'],
-                sprintf('The engineblock LoA must be a non empty string. "%s" given', $mapping['engineblock'])
-            );
+    $gatewayToEngine = [];
+    $engineToGateway = [];
 
-            $gwLoa = $loaRepository->getByIdentifier($mapping['gateway']);
-            $ebLoa = $loaRepository->getByIdentifier($mapping['engineblock']);
-            Assertion::keyNotExists(
-                $this->gatewayToEngine,
-                $gwLoa->getIdentifier(),
-                'Found a duplicate Gateway LoA identifier, this is not allowed.'
-            );
-            Assertion::keyNotExists(
-                $this->engineToGateway,
-                $ebLoa->getIdentifier(),
-                'Found a duplicate EngineBlock LoA identifier, this is not allowed.'
-            );
-            $this->gatewayToEngine[$gwLoa->getIdentifier()] = $ebLoa;
-            $this->engineToGateway[$ebLoa->getIdentifier()] = $gwLoa;
+    foreach ($loaMapping as $mapping) {
+        Assertion::nonEmptyString(
+            $mapping['gateway'],
+            sprintf('The gateway LoA must be a non empty string. "%s" given', $mapping['gateway'])
+        );
+        Assertion::nonEmptyString(
+            $mapping['engineblock'],
+            sprintf('The engineblock LoA must be a non empty string. "%s" given', $mapping['engineblock'])
+        );
+
+        $gwLoa = $loaRepository->getByIdentifier($mapping['gateway']);
+        $ebLoa = $loaRepository->getByIdentifier($mapping['engineblock']);
+
+        if (isset($gatewayToEngine[$gwLoa->getIdentifier()])) {
+            throw new \OpenConext\EngineBlock\Exception\InvalidArgumentException('Found a duplicate Gateway LoA identifier, this is not allowed.', 0);
         }
+        if (isset($engineToGateway[$ebLoa->getIdentifier()])) {
+            throw new \OpenConext\EngineBlock\Exception\InvalidArgumentException('Found a duplicate EngineBlock LoA identifier, this is not allowed.', 0);
+        }
+
+        $gatewayToEngine[$gwLoa->getIdentifier()] = $ebLoa;
+        $engineToGateway[$ebLoa->getIdentifier()] = $gwLoa;
     }
+
+    $this->gatewayToEngine = $gatewayToEngine;
+    $this->engineToGateway = $engineToGateway;
+}
 
     public function transformToGatewayLoa(Loa $engineBlockLoa) : Loa
     {

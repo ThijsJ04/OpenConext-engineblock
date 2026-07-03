@@ -32,84 +32,80 @@ use stdClass;
  */
 class MduiPushAssemblerFactory
 {
-    public static function buildFrom(array $properties, stdClass $connection): Mdui
-    {
-        $displayNameElement = self::assembleElement(
-            'DisplayName',
-            $properties['displayNameEn'] ?? null,
-            $properties['displayNameNl'] ?? null,
-            $properties['displayNamePt'] ?? null
-        );
-        $descriptionElement = self::assembleElement(
-            'Description',
-            $properties['descriptionEn'] ?? null,
-            $properties['descriptionNl'] ?? null,
-            $properties['descriptionPt'] ?? null
-        );
-        $keywordsElement = self::assembleElement(
-            'Keywords',
-            $properties['keywordsEn'] ?? null,
-            $properties['keywordsNl'] ?? null,
-            $properties['keywordsPt'] ?? null
-        );
+public static function buildFrom(array $properties, stdClass $connection): Mdui
+{
+    $displayNameElement = self::assembleElement(
+        'DisplayName',
+        $properties['displayNameEn'] ?? null,
+        $properties['displayNameNl'] ?? null,
+        $properties['displayNamePt'] ?? null
+    );
 
-        $privacyStatementUrlElement = self::assemblePrivacyStatement($connection);
+    $descriptionElement = self::assembleElement(
+        'Description',
+        $properties['descriptionEn'] ?? null,
+        $properties['descriptionNl'] ?? null,
+        $properties['descriptionPt'] ?? null
+    );
 
-        // The logo element is already assembled on the properties object
-        $logoElement = new EmptyMduiElement('Logo');
-        if (array_key_exists('logo', $properties)) {
-            $logoElement = $properties['logo'];
-        }
+    $keywordsElement = self::assembleElement(
+        'Keywords',
+        $properties['keywordsEn'] ?? null,
+        $properties['keywordsNl'] ?? null,
+        $properties['keywordsPt'] ?? null
+    );
 
-        return Mdui::fromMetadata(
-            $displayNameElement,
-            $descriptionElement,
-            $keywordsElement,
-            $logoElement,
-            $privacyStatementUrlElement
-        );
-    }
+    $privacyStatementUrlElement = self::assemblePrivacyStatement($connection);
+
+    $logoElement = $properties['logo'] ?? new EmptyMduiElement('Logo');
+
+    return Mdui::fromMetadata(
+        $displayNameElement,
+        $descriptionElement,
+        $keywordsElement,
+        $logoElement,
+        $privacyStatementUrlElement
+    );
+}
 
     /**
      * Creates a MduiElement (or EmptyMduiElement when no appropriate data
      * is available). Consisting of MultilingualValue objects.
      */
-    private static function assembleElement(
-        string $elementName,
-        ?string $enValue,
-        ?string $nlValue,
-        ?string $ptValue
-    ): MultilingualElement {
-        // When the main language is not set, we consider the element not to be set
-        if (is_null($enValue) || $enValue === '') {
-            return new EmptyMduiElement($elementName);
-        }
-
-        $enValue = new MultilingualValue($enValue, 'en');
-        $nlValue = new MultilingualValue($nlValue, 'nl');
-        $ptValue = new MultilingualValue($ptValue, 'pt');
-
-        return new MduiElement($elementName, [$enValue, $nlValue, $ptValue]);
+private static function assembleElement(
+    string $elementName,
+    ?string $enValue,
+    ?string $nlValue,
+    ?string $ptValue
+): MultilingualElement {
+    if (is_null($enValue) || $enValue === '') {
+        return new EmptyMduiElement($elementName);
     }
 
-    private static function assemblePrivacyStatement(stdClass $connection): MultilingualElement
-    {
-        $privacyStatementUrlElement = new EmptyMduiElement('PrivacyStatementURL');
-        if (!empty($connection->metadata->PrivacyStatementURL)) {
-            $enValue = null;
-            if (!empty($connection->metadata->PrivacyStatementURL->en)) {
-                $enValue = $connection->metadata->PrivacyStatementURL->en;
-            }
-            $nlValue = null;
-            if (!empty($connection->metadata->PrivacyStatementURL->nl)) {
-                $nlValue = $connection->metadata->PrivacyStatementURL->nl;
-            }
-            $ptValue = null;
-            if (!empty($connection->metadata->PrivacyStatementURL->pt)) {
-                $ptValue = $connection->metadata->PrivacyStatementURL->pt;
-            }
-            $privacyStatementUrlElement = self::assembleElement('PrivacyStatementURL', $enValue, $nlValue, $ptValue);
-        }
-        return $privacyStatementUrlElement;
+    $values = [];
+    $values[] = new MultilingualValue($enValue, 'en');
+
+    if (!is_null($nlValue) && $nlValue !== '') {
+        $values[] = new MultilingualValue($nlValue, 'nl');
     }
+
+    if (!is_null($ptValue) && $ptValue !== '') {
+        $values[] = new MultilingualValue($ptValue, 'pt');
+    }
+
+    return new MduiElement($elementName, $values);
+}
+
+private static function assemblePrivacyStatement(stdClass $connection): MultilingualElement
+{
+    if (empty($connection->metadata->PrivacyStatementURL)) {
+        return new EmptyMduiElement('PrivacyStatementURL');
+    }
+
+    $enValue = $connection->metadata->PrivacyStatementURL->en ?? null;
+    $nlValue = $connection->metadata->PrivacyStatementURL->nl ?? null;
+    $ptValue = $connection->metadata->PrivacyStatementURL->pt ?? null;
+
+    return self::assembleElement('PrivacyStatementURL', $enValue, $nlValue, $ptValue);
+}
 }
