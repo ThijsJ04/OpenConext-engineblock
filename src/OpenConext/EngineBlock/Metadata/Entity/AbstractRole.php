@@ -236,64 +236,66 @@ abstract class AbstractRole
     #[ORM\Column(name: 'mdui', type: 'engineblock_metadata_mdui')]
     protected $mdui;
 
-    public function __construct(
-        $entityId,
-        Mdui $mdui,
-        Organization $organizationEn = null,
-        Organization $organizationNl = null,
-        Organization $organizationPt = null,
-        Service $singleLogoutService = null,
-        array $certificates = array(),
-        array $contactPersons = array(),
-        ?string $descriptionEn = '',
-        ?string $descriptionNl = '',
-        ?string $descriptionPt = '',
-        ?string $displayNameEn = '',
-        ?string $displayNameNl = '',
-        ?string $displayNamePt = '',
-        ?string $keywordsEn = '',
-        ?string $keywordsNl = '',
-        ?string $keywordsPt = '',
-        ?Logo $logo = null,
-        ?string $nameEn = '',
-        ?string $nameNl = '',
-        ?string $namePt = '',
-        ?string $nameIdFormat = null,
-        array $supportedNameIdFormats = array(
-            Constants::NAMEID_TRANSIENT,
-            Constants::NAMEID_PERSISTENT,
-        ),
-        bool $requestsMustBeSigned = false,
-        string $workflowState = self::WORKFLOW_STATE_DEFAULT,
-        string $manipulation = ''
-    ) {
-        $this->mdui = $mdui;
-        $this->certificates = $certificates;
-        $this->contactPersons = $contactPersons;
-        $this->descriptionEn = $descriptionEn;
-        $this->descriptionNl = $descriptionNl;
-        $this->descriptionPt = $descriptionPt;
-        $this->displayNameEn = $displayNameEn;
-        $this->displayNameNl = $displayNameNl;
-        $this->displayNamePt = $displayNamePt;
-        $this->entityId = $entityId;
-        $this->keywordsEn = $keywordsEn;
-        $this->keywordsNl = $keywordsNl;
-        $this->keywordsPt = $keywordsPt;
-        $this->logo = $logo;
-        $this->nameEn = $nameEn;
-        $this->nameNl = $nameNl;
-        $this->namePt = $namePt;
-        $this->nameIdFormat = $nameIdFormat;
-        $this->supportedNameIdFormats = $supportedNameIdFormats;
-        $this->organizationEn = $organizationEn;
-        $this->organizationNl = $organizationNl;
-        $this->organizationPt = $organizationPt;
-        $this->requestsMustBeSigned = $requestsMustBeSigned;
-        $this->singleLogoutService = $singleLogoutService;
-        $this->workflowState = $workflowState;
-        $this->manipulation = $manipulation;
-    }
+public function __construct(
+    $entityId,
+    Mdui $mdui,
+    Organization $organizationEn = null,
+    Organization $organizationNl = null,
+    Organization $organizationPt = null,
+    Service $singleLogoutService = null,
+    array $certificates = array(),
+    array $contactPersons = array(),
+    ?string $descriptionEn = '',
+    ?string $descriptionNl = '',
+    ?string $descriptionPt = '',
+    ?string $displayNameEn = '',
+    ?string $displayNameNl = '',
+    ?string $displayNamePt = '',
+    ?string $keywordsEn = '',
+    ?string $keywordsNl = '',
+    ?string $keywordsPt = '',
+    ?Logo $logo = null,
+    ?string $nameEn = '',
+    ?string $nameNl = '',
+    ?string $namePt = '',
+    ?string $nameIdFormat = null,
+    array $supportedNameIdFormats = array(
+        Constants::NAMEID_TRANSIENT,
+        Constants::NAMEID_PERSISTENT,
+    ),
+    bool $requestsMustBeSigned = false,
+    string $workflowState = self::WORKFLOW_STATE_DEFAULT,
+    string $manipulation = ''
+) {
+    $this->entityId = $entityId;
+    $this->mdui = $mdui;
+    $this->certificates = $certificates;
+    $this->contactPersons = $contactPersons;
+    $this->organizationEn = $organizationEn;
+    $this->organizationNl = $organizationNl;
+    $this->organizationPt = $organizationPt;
+    $this->singleLogoutService = $singleLogoutService;
+    $this->requestsMustBeSigned = $requestsMustBeSigned;
+    $this->workflowState = $workflowState;
+    $this->manipulation = $manipulation;
+
+    // Only set deprecated fields if they are not null to avoid unnecessary assignments
+    if ($descriptionEn !== null) $this->descriptionEn = $descriptionEn;
+    if ($descriptionNl !== null) $this->descriptionNl = $descriptionNl;
+    if ($descriptionPt !== null) $this->descriptionPt = $descriptionPt;
+    if ($displayNameEn !== null) $this->displayNameEn = $displayNameEn;
+    if ($displayNameNl !== null) $this->displayNameNl = $displayNameNl;
+    if ($displayNamePt !== null) $this->displayNamePt = $displayNamePt;
+    if ($keywordsEn !== null) $this->keywordsEn = $keywordsEn;
+    if ($keywordsNl !== null) $this->keywordsNl = $keywordsNl;
+    if ($keywordsPt !== null) $this->keywordsPt = $keywordsPt;
+    if ($logo !== null) $this->logo = $logo;
+    if ($nameEn !== null) $this->nameEn = $nameEn;
+    if ($nameNl !== null) $this->nameNl = $nameNl;
+    if ($namePt !== null) $this->namePt = $namePt;
+    if ($nameIdFormat !== null) $this->nameIdFormat = $nameIdFormat;
+    $this->supportedNameIdFormats = $supportedNameIdFormats;
+}
 
     /**
      * @param VisitorInterface $visitor

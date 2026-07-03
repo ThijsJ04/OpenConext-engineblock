@@ -171,25 +171,16 @@ class ConsentSettings implements JsonSerializable
      * @param object $setting
      * @return MultilingualValue[]
      */
-    private function extractExplanations($setting)
-    {
-        $fieldNames = get_object_vars($setting);
-        $explanationFieldNames = preg_grep('/^explanation:/', array_keys($fieldNames));
+private function extractExplanations($setting)
+{
+    $fieldNames = get_object_vars($setting);
+    $explanationFieldNames = preg_grep('/^explanation:/', array_keys($fieldNames));
 
-        // The explanations will be pulled from the settings object and turned into a multi lang array of explanations.
-        $multilingualValues = array_map(
-            function ($langField) use ($setting) {
-                $langCode = explode(':', $langField)[1];
-                return new MultilingualValue($setting->$langField, $langCode);
-            },
-            $explanationFieldNames
-        );
-
-        // Index the explanations array on the language
-        $explanations = [];
-        foreach ($multilingualValues as $explanation) {
-            $explanations[$explanation->getLanguage()] = $explanation;
-        }
-        return $explanations;
+    $explanations = [];
+    foreach ($explanationFieldNames as $langField) {
+        $langCode = substr($langField, 12); // More efficient than explode for this specific case
+        $explanations[$langCode] = new MultilingualValue($setting->$langField, $langCode);
     }
+    return $explanations;
+}
 }

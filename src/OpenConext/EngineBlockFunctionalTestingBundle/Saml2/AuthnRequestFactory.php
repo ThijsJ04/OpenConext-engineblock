@@ -34,25 +34,23 @@ class AuthnRequestFactory
      * @return AuthnRequest
      * @throws \Exception
      */
-    public function createForRequestFromTo(MockServiceProvider $mockSp, EngineBlock $engineBlock)
-    {
-        $request = $mockSp->getAuthnRequest();
+public function createForRequestFromTo(MockServiceProvider $mockSp, EngineBlock $engineBlock)
+{
+    $request = $mockSp->getAuthnRequest();
 
-        // Set / override the Destination
-        $transparentIdp = $mockSp->getTransparentIdp();
-        if (!empty($transparentIdp)) {
-            $destination = $engineBlock->transparentSsoLocation($transparentIdp);
-        } else {
-            $destination = $engineBlock->singleSignOnLocation();
-        }
-        $request->setDestination($destination);
+    // Set / override the Destination
+    $transparentIdp = $mockSp->getTransparentIdp();
+    $destination = !empty($transparentIdp)
+        ? $engineBlock->transparentSsoLocation($transparentIdp)
+        : $engineBlock->singleSignOnLocation();
+    $request->setDestination($destination);
 
-        if ($mockSp->mustSignAuthnRequests()) {
-            $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, ['type' => 'private']);
-            $key->loadKey($mockSp->getPrivateKeyPem());
-            $request->setSignatureKey($key);
-        }
-
-        return $request;
+    if ($mockSp->mustSignAuthnRequests()) {
+        $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, ['type' => 'private']);
+        $key->loadKey($mockSp->getPrivateKeyPem());
+        $request->setSignatureKey($key);
     }
+
+    return $request;
+}
 }

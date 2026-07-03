@@ -59,111 +59,114 @@ final class DbalConsentRepository extends ServiceEntityRepository implements Con
      *
      * @throws RuntimeException
      */
-    public function findAllFor($userId)
-    {
-        $sql       = '
-            SELECT
-                service_id
-            ,   consent_date
-            ,   consent_type
-            ,   attribute
-            FROM
-                consent
-            WHERE
-                hashed_user_id=:hashed_user_id
-            AND
-                deleted_at IS NULL
-        ';
+public function findAllFor($userId)
+{
+    $hashedUserId = sha1($userId);
+    $sql = '
+        SELECT
+            service_id
+        ,   consent_date
+        ,   consent_type
+        ,   attribute
+        FROM
+            consent
+        WHERE
+            hashed_user_id=:hashed_user_id
+        AND
+            deleted_at IS NULL
+    ';
 
-        try {
-            $statement = $this->connection->executeQuery($sql, ['hashed_user_id' => sha1($userId)]);
-            $rows = $statement->fetchAllAssociative();
-        } catch (\Doctrine\DBAL\Exception $exception) {
-            throw new RuntimeException('Could not fetch user consents from the database', 0, $exception);
-        }
+    try {
+        $statement = $this->connection->executeQuery($sql, ['hashed_user_id' => $hashedUserId], ['hashed_user_id' => \PDO::PARAM_STR]);
+        $rows = $statement->fetchAllAssociative();
+    } catch (\Doctrine\DBAL\Exception $exception) {
+        throw new RuntimeException('Could not fetch user consents from the database', 0, $exception);
+    }
 
-        return array_map(
-            function (array $row) use ($userId) {
-                return new Consent(
-                    $userId,
-                    $row['service_id'],
-                    new DateTime($row['consent_date']),
-                    new ConsentType($row['consent_type']),
-                    $row['attribute']
-                );
-            },
-            $rows
+    $consents = [];
+    foreach ($rows as $row) {
+        $consents[] = new Consent(
+            $userId,
+            $row['service_id'],
+            new DateTime($row['consent_date']),
+            new ConsentType($row['consent_type']),
+            $row['attribute']
         );
     }
+
+    return $consents;
+}
 
     /**
      * @param string $userId
      *
      * @throws RuntimeException
      */
-    public function deleteAllFor($userId)
-    {
-        $sql = 'DELETE FROM consent WHERE hashed_user_id = :hashed_user_id';
+public function deleteAllFor($userId)
+{
+    $hashedUserId = sha1($userId);
+    $sql = 'UPDATE consent SET deleted_at = NOW() WHERE hashed_user_id = :hashed_user_id AND deleted_at IS NULL';
 
-        try {
-            $this->connection->executeQuery($sql, ['hashed_user_id' => sha1($userId)]);
-            $this->logger->notice(sprintf('Removed consent for hashed user id %s (%s)', sha1($userId), $userId));
-        } catch (\Doctrine\DBAL\Exception $exception) {
-            throw new RuntimeException(
-                sprintf(
-                    'Could not delete user consents from the database for user %s',
-                    $userId
-                ),
-                0,
-                $exception
-            );
-        }
+    try {
+        $result = $this->connection->executeQuery($sql, ['hashed_user_id' => $hashedUserId]);
+        $this->logger->notice(sprintf('Removed consent for hashed user id %s (%s)', $hashedUserId, $userId));
+    } catch (\Doctrine\DBAL\Exception $exception) {
+        throw new RuntimeException(
+            sprintf(
+                'Could not delete user consents from the database for user %s',
+                $userId
+            ),
+            0,
+            $exception
+        );
     }
+}
 
     /**
      * @throws RuntimeException
      */
-    public function deleteOneFor(string $userId, string $serviceProviderEntityId): bool
-    {
-        $sql = '
-            UPDATE
-                consent
-            SET
-                deleted_at = NOW()
-            WHERE
-                hashed_user_id = :hashed_user_id
-            AND
-                service_id = :service_id
-            AND deleted_at IS NULL
-        ';
-        try {
-            $result = $this->connection->executeQuery(
-                $sql,
-                [
-                    'hashed_user_id' => sha1($userId),
-                    'service_id' => $serviceProviderEntityId
-                ]
-            );
-            $this->logger->info(
-                sprintf(
-                    'Removed (soft delete) consent for hashed user id %s (%s), for service %s',
-                    sha1($userId),
-                    $userId,
-                    $serviceProviderEntityId
-                )
-            );
+public function deleteOneFor(string $userId, string $serviceProviderEntityId): bool
+{
+    $hashedUserId = sha1($userId);
+    $sql = '
+        UPDATE
+            consent
+        SET
+            deleted_at = NOW()
+        WHERE
+            hashed_user_id = :hashed_user_id
+        AND
+            service_id = :service_id
+        AND deleted_at IS NULL
+    ';
+    try {
+        $result = $this->connection->executeStatement(
+            $sql,
+            [
+                'hashed_user_id' => $hashedUserId,
+                'service_id' => $serviceProviderEntityId
+            ]
+        );
+        $this->logger->info(
+            sprintf(
+                'Removed (soft delete) consent for hashed user id %s (%s), for service %s',
+                $hashedUserId,
+                $userId,
+                $serviceProviderEntityId
+            )
+        );
 
-            return $result->rowCount() > 0;
-        } catch (\Doctrine\DBAL\Exception $exception) {
-            throw new RuntimeException(
-                sprintf(
-                    'Could not delete user %s consent from the database for a specific SP %s',
-                    $userId,
-                    $serviceProviderEntityId
-                ),
-                0,
-                $exception
-            );
-        }
+        return $result > 0;
+    } catch (\Doctrine\DBAL\Exception $exception) {
+        throw new RuntimeException(
+            sprintf(
+                'Could not delete user %s consent from the database for a specific SP %s',
+                $userId,
+                $serviceProviderEntityId
+            ),
+            0,
+            $exception
+        );
     }
+}
 }
