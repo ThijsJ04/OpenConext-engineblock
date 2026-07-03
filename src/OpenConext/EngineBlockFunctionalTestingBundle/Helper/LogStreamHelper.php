@@ -51,37 +51,37 @@ class LogStreamHelper
         return $this;
     }
 
-    public function foreachLineReverse($fn)
-    {
-        $line = '';
-        $pos = -2;
+public function foreachLineReverse($fn)
+{
+    $line = '';
+    $pos = -2;
 
-        if (feof($this->stream)) {
-            fseek($this->stream, -1, SEEK_CUR);
-            $line = fgetc($this->stream);
-        }
+    if (feof($this->stream)) {
+        fseek($this->stream, -1, SEEK_END);
+        $line = fgetc($this->stream);
+    }
 
-        while (fseek($this->stream, $pos, SEEK_CUR) !== -1) {
-            $char = fgetc($this->stream);
+    while (fseek($this->stream, $pos, SEEK_CUR) !== -1) {
+        $char = fgetc($this->stream);
 
-            if ($char !== "\n") {
-                $line = $char . $line;
-                continue;
-            }
-            $line = $line . $char;
-
+        if ($char === "\n") {
+            $line = $char . $line;
             if ($fn($line) === static::STOP) {
                 return $this;
             }
-
             $line = '';
+        } else {
+            $line = $char . $line;
         }
-        $fn($line);
-
-        $this->rewind();
-
-        return $this;
     }
+
+    if (!empty($line)) {
+        $fn($line);
+    }
+
+    $this->rewind();
+    return $this;
+}
 
     public function write($content)
     {

@@ -76,23 +76,20 @@ class Locale extends AbstractExtension
      * @param $locale
      * @return string
      */
-    public function getQueryStringFor($locale)
-    {
-        $params = ['lang' => $locale];
-        // re-create URL from GET parameters
-        $params = array_merge(
-            $this->request->query->all(),
-            $params
-        );
+public function getQueryStringFor($locale)
+{
+    $params = ['lang' => $locale];
+    $query = '';
 
-        $query = '';
-        foreach ($params as $key => $value) {
-            $query .= (strlen($query) == 0) ? '?' : '&' ;
-            $query .= $key. '=' .urlencode($value);
-        }
-
-        return $query;
+    if ($this->request->query->count() > 0) {
+        $params = array_merge($this->request->query->all(), $params);
+        $query = http_build_query($params);
+    } else {
+        $query = '?' . http_build_query($params);
     }
+
+    return $query;
+}
 
     public function getLocale()
     {

@@ -48,25 +48,37 @@ final class FilesystemAdapter implements FileHandler
         }
     }
 
-    public function readFrom($filePath)
-    {
-        Assertion::nonEmptyString($filePath, 'filePath');
+public function readFrom($filePath)
+{
+    Assertion::nonEmptyString($filePath, 'filePath');
 
-        if (!$this->filesystem->exists($filePath)) {
-            throw new RuntimeException(sprintf('Cannot read from file "%s" as it does not exist', $filePath));
-        }
-
-        if (!is_readable($filePath)) {
-            throw new RuntimeException(sprintf('Cannot read from file "%s" as it is not readable', $filePath));
-        }
-
-        $data = file_get_contents($filePath);
-        if ($data === false) {
-            throw new RuntimeException(sprintf('Could not read data from file "%s"', $filePath));
-        }
-
-        return $data;
+    if (!$this->filesystem->exists($filePath)) {
+        throw new RuntimeException(sprintf('Cannot read from file "%s" as it does not exist', $filePath));
     }
+
+    if (!is_readable($filePath)) {
+        throw new RuntimeException(sprintf('Cannot read from file "%s" as it is not readable', $filePath));
+    }
+
+    $fileHandle = fopen($filePath, 'rb');
+    if ($fileHandle === false) {
+        throw new RuntimeException(sprintf('Could not open file "%s" for reading', $filePath));
+    }
+
+    try {
+        $data = '';
+        while (!feof($fileHandle)) {
+            $chunk = fread($fileHandle, 8192);
+            if ($chunk === false) {
+                throw new RuntimeException(sprintf('Error reading from file "%s"', $filePath));
+            }
+            $data .= $chunk;
+        }
+        return $data;
+    } finally {
+        fclose($fileHandle);
+    }
+}
 
     public function remove($filePath)
     {

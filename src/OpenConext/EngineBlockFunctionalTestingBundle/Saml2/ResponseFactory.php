@@ -27,39 +27,42 @@ use SAML2\XML\saml\SubjectConfirmation;
 
 class ResponseFactory
 {
-    public function createForEntityWithRequest(
-        MockIdentityProvider $mockIdp,
-        SAMLAuthnRequest $request
-    ) {
-        // Note that we expect the Mock IdP to always have a 'template' Response.
-        $response = $mockIdp->getResponse();
+public function createForEntityWithRequest(
+    MockIdentityProvider $mockIdp,
+    SAMLAuthnRequest $request
+) {
+    $response = $mockIdp->getResponse();
 
-        $this->setResponseReferencesToRequest($request, $response);
+    $this->setResponseReferencesToRequest($request, $response);
+    $this->setResponseStatus($mockIdp, $response);
+    $this->setResponseSignatureKey($mockIdp, $response);
+    $this->setResponseIssuer($mockIdp, $response);
 
-        $this->setResponseStatus($mockIdp, $response);
-
-        $this->setResponseSignatureKey($mockIdp, $response);
-
-        $this->setResponseIssuer($mockIdp, $response);
-
+    if (!$mockIdp->shouldNotSendAssertions()) {
         $this->encryptAssertions($mockIdp, $response);
-
-        if ($mockIdp->shouldNotSendAssertions()) {
-            $response->setAssertions([]);
-        }
-
-        if ($mockIdp->shouldTurnBackTheTime()) {
-            // Set the timestamp to Unix Epoch
-            $response->getAssertions()[0]->setNotOnOrAfter(0);
-        }
-
-        if ($mockIdp->isFromTheFuture()) {
-            // Set the timestamp to current time + i year
-            $response->getAssertions()[0]->setNotBefore(strtotime(date('Y-m-d H:i:s', strtotime('+1 year'))));
-        }
-
-        return $response;
+        $this->adjustTimestamps($mockIdp, $response);
+    } else {
+        $response->setAssertions([]);
     }
+
+    return $response;
+}
+
+private function adjustTimestamps(MockIdentityProvider $mockIdp, Response $response) {
+    $assertions = $response->getAssertions();
+    if (empty($assertions)) {
+        return;
+    }
+
+    $assertion = $assertions[0];
+    if ($mockIdp->shouldTurnBackTheTime()) {
+        $assertion->setNotOnOrAfter(0);
+    }
+
+    if ($mockIdp->isFromTheFuture()) {
+        $assertion->setNotBefore(strtotime('+1 year'));
+    }
+}
 
     /**
      * @param SAMLAuthnRequest $request
@@ -83,31 +86,27 @@ class ResponseFactory
      * @param MockIdentityProvider $mockIdp
      * @param Response $response
      */
-    private function setResponseStatus(MockIdentityProvider $mockIdp, Response $response)
-    {
-        $responseStatus = $response->getStatus();
+private function setResponseStatus(MockIdentityProvider $mockIdp, Response $response)
+{
+    $responseStatus = $response->getStatus();
+    $statusOverride = ['Code' => $mockIdp->getStatusCodeTop()];
 
-        $statusOverride = [];
-        $mockIdpTopStatusCode = $mockIdp->getStatusCodeTop();
-        $mockIdpSubStatusCode = $mockIdp->getStatusCodeSecond();
-        $mockIdpStatusMessage = $mockIdp->getStatusMessage();
-
-        $statusOverride['Code'] = $mockIdpTopStatusCode;
-
-        if (!empty($mockIdpSubStatusCode)) {
-            $statusOverride['SubCode'] = $mockIdpSubStatusCode;
-        } else {
-            $statusOverride['SubCode'] = $responseStatus['SubCode'];
-        }
-
-        if ($mockIdpStatusMessage !== null) {
-            $statusOverride['Message'] = $mockIdpStatusMessage;
-        } elseif ($responseStatus['Message'] !== null) {
-            $statusOverride['Message'] = $responseStatus['Message'];
-        }
-
-        $response->setStatus($statusOverride);
+    $mockIdpSubStatusCode = $mockIdp->getStatusCodeSecond();
+    if (!empty($mockIdpSubStatusCode)) {
+        $statusOverride['SubCode'] = $mockIdpSubStatusCode;
+    } elseif (isset($responseStatus['SubCode'])) {
+        $statusOverride['SubCode'] = $responseStatus['SubCode'];
     }
+
+    $mockIdpStatusMessage = $mockIdp->getStatusMessage();
+    if ($mockIdpStatusMessage !== null) {
+        $statusOverride['Message'] = $mockIdpStatusMessage;
+    } elseif (isset($responseStatus['Message'])) {
+        $statusOverride['Message'] = $responseStatus['Message'];
+    }
+
+    $response->setStatus($statusOverride);
+}
 
     /**
      * @param MockIdentityProvider $mockIdp
@@ -137,20 +136,20 @@ class ResponseFactory
         $response->setIssuer($issuer);
     }
 
-    private function encryptAssertions(MockIdentityProvider $mockIdp, Response $response)
-    {
-        $encryptionKey = $mockIdp->getEncryptionKey();
-        if (!$encryptionKey) {
-            return;
-        }
-
-        $encryptedAssertions = [];
-        $assertions = $response->getAssertions();
-        foreach ($assertions as $assertion) {
-            $encryptedAssertion = new EncryptedAssertion();
-            $encryptedAssertion->setAssertion($assertion, $encryptionKey);
-            $encryptedAssertions[] = $encryptedAssertion;
-        }
-        $response->setAssertions($encryptedAssertions);
+private function encryptAssertions(MockIdentityProvider $mockIdp, Response $response)
+{
+    $encryptionKey = $mockIdp->getEncryptionKey();
+    if (!$encryptionKey) {
+        return;
     }
+
+    $assertions = $response->getAssertions();
+    $encryptedAssertions = array_map(function($assertion) use ($encryptionKey) {
+        $encryptedAssertion = new EncryptedAssertion();
+        $encryptedAssertion->setAssertion($assertion, $encryptionKey);
+        return $encryptedAssertion;
+    }, $assertions);
+
+    $response->setAssertions($encryptedAssertions);
+}
 }
