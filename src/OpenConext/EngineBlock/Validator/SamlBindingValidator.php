@@ -37,23 +37,24 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class SamlBindingValidator implements RequestValidator
 {
-    public function isValid(Request $request)
-    {
-        try {
-            $binding = Binding::getCurrentBinding();
-        } catch (Exception $e) {
-            throw new InvalidBindingException(
-                sprintf('No SAMLRequest or SAMLResponse parameter was found in the HTTP "%s" request parameters', $request->getMethod()),
-                0,
-                $e
-            );
-        }
+public function isValid(Request $request)
+{
+    try {
+        $binding = Binding::getCurrentBinding();
         if (!($binding instanceof HTTPRedirect || $binding instanceof HTTPPost)) {
-            // We only support HTTP Redirect binding
             throw new InvalidBindingException(
                 sprintf('The binding type "%s" is not supported on this endpoint', get_class($binding))
             );
         }
         return true;
+    } catch (InvalidBindingException $e) {
+        throw $e;
+    } catch (Exception $e) {
+        throw new InvalidBindingException(
+            sprintf('No SAMLRequest or SAMLResponse parameter was found in the HTTP "%s" request parameters', $request->getMethod()),
+            0,
+            $e
+        );
     }
+}
 }

@@ -67,47 +67,41 @@ final class ExecutionTimePaddingListener
         $this->minimumExecutionTime = $minimumExecutionTime;
     }
 
-    public function onKernelException(ExceptionEvent $event)
-    {
-        $exception = $event->getThrowable();
+public function onKernelException(ExceptionEvent $event)
+{
+    $exception = $event->getThrowable();
 
-        if (!$exception instanceof AddExecutionTimePadding) {
-            return;
-        }
-
-        if (!$this->executionTimeTracker->isTracking()) {
-            return;
-        }
-
-        $this->logger->warning(
-            sprintf('Handling exception: "%s": "%s"', get_class($exception), $exception->getMessage())
-        );
-
-        if ($this->executionTimeTracker->currentExecutionTimeExceeds($this->minimumExecutionTime)) {
-            $this->logger->warning(sprintf(
-                'Not padding response time: it exceeds the configured padded response time (%d milliseconds)',
-                $this->minimumExecutionTime->getExecutionTime()
-            ));
-        } else {
-            $requiredPadding = $this->executionTimeTracker->timeRemainingUntil($this->minimumExecutionTime);
-
-            $this->logger->info(sprintf(
-                'Padding response time with %d milliseconds',
-                $requiredPadding->getExecutionTime()
-            ));
-
-            usleep($requiredPadding->toMicroseconds());
-        }
-
-        $message         = 'Unable to verify message';
-        $redirectToRoute = 'authentication_feedback_verification_failed';
-
-        $this->logger->debug(sprintf('Redirecting to route "%s"', $redirectToRoute));
-        $this->logger->notice($message);
-        $this->errorReporter->reportError($exception, '-> Redirecting to feedback page');
-
-        $event->setResponse(new RedirectResponse(
-            $this->urlGenerator->generate($redirectToRoute, [], UrlGeneratorInterface::ABSOLUTE_PATH)
-        ));
+    if (!$exception instanceof AddExecutionTimePadding || !$this->executionTimeTracker->isTracking()) {
+        return;
     }
+
+    $this->logger->warning(
+        sprintf('Handling exception: "%s": "%s"', get_class($exception), $exception->getMessage())
+    );
+
+    if ($this->executionTimeTracker->currentExecutionTimeExceeds($this->minimumExecutionTime)) {
+        $this->logger->warning(sprintf(
+            'Not padding response time: it exceeds the configured padded response time (%d milliseconds)',
+            $this->minimumExecutionTime->getExecutionTime()
+        ));
+    } else {
+        $requiredPadding = $this->executionTimeTracker->timeRemainingUntil($this->minimumExecutionTime);
+        $this->logger->info(sprintf(
+            'Padding response time with %d milliseconds',
+            $requiredPadding->getExecutionTime()
+        ));
+        usleep($requiredPadding->toMicroseconds());
+    }
+
+    $message         = 'Unable to verify message';
+    $redirectToRoute = 'authentication_feedback_verification_failed';
+
+    $this->logger->debug(sprintf('Redirecting to route "%s"', $redirectToRoute));
+    $this->logger->notice($message);
+    $this->errorReporter->reportError($exception, '-> Redirecting to feedback page');
+
+    $event->setResponse(new RedirectResponse(
+        $this->urlGenerator->generate($redirectToRoute, [], UrlGeneratorInterface::ABSOLUTE_PATH)
+    ));
+}
 }

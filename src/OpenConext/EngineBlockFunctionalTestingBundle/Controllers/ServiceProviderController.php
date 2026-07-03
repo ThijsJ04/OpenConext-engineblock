@@ -61,102 +61,93 @@ class ServiceProviderController extends AbstractController
      * @return RedirectResponse
      * @throws \Symfony\Component\HttpKernel\Exception\BadRequestHttpException
      */
-    public function triggerLoginRedirectAction($spName)
-    {
-        if (!$this->mockSpRegistry->has($spName)) {
-            throw new BadRequestHttpException(sprintf('No SP found for "%s"', $spName));
-        }
-
-        /** @var MockServiceProvider $sp */
-        $sp = $this->mockSpRegistry->get($spName);
-
-        $factory = new AuthnRequestFactory();
-        $authnRequest = $factory->createForRequestFromTo(
-            $sp,
-            $this->engineBlock
-        );
-
-        $redirect = new HTTPRedirect();
-        $url = $redirect->getRedirectURL($authnRequest);
-
-        if (isset($sp->getEntityDescriptor()->getExtensions()['Malformed'])) {
-            $url = str_replace('SAMLRequest', 'AuthNRequest', $url);
-        }
-
-        return new RedirectResponse($url);
+public function triggerLoginRedirectAction($spName)
+{
+    if (!$this->mockSpRegistry->has($spName)) {
+        throw new BadRequestHttpException(sprintf('No SP found for "%s"', $spName));
     }
+
+    $sp = $this->mockSpRegistry->get($spName);
+    $factory = new AuthnRequestFactory();
+    $authnRequest = $factory->createForRequestFromTo($sp, $this->engineBlock);
+    $redirect = new HTTPRedirect();
+    $url = $redirect->getRedirectURL($authnRequest);
+
+    if (isset($sp->getEntityDescriptor()->getExtensions()['Malformed'])) {
+        $url = str_replace('SAMLRequest', 'AuthNRequest', $url);
+    }
+
+    return new RedirectResponse($url);
+}
 
     /**
      * @param $spName
      * @return Response
      * @throws \Symfony\Component\HttpKernel\Exception\BadRequestHttpException
      */
-    public function triggerLoginPostAction($spName)
-    {
-        if (!$this->mockSpRegistry->has($spName)) {
-            throw new BadRequestHttpException(sprintf('No SP found for "%s"', $spName));
-        }
-
-        $factory = new AuthnRequestFactory();
-        $sp = $this->mockSpRegistry->get($spName);
-        $authnRequest = $factory->createForRequestFromTo(
-            $sp,
-            $this->engineBlock
-        );
-
-        $redirect = new HTTPPost();
-        $redirect->send($authnRequest);
-
-        /** @var Container $container */
-        $container = Utils::getContainer();
-        $response = $container->getPostResponse();
-
-        if (isset($sp->getEntityDescriptor()->getExtensions()['Malformed'])) {
-            $body = $response->getContent();
-            $response->setContent(str_replace('SAMLRequest', 'AuthNRequest', $body));
-        }
-
-        return $response;
+public function triggerLoginPostAction($spName)
+{
+    if (!$this->mockSpRegistry->has($spName)) {
+        throw new BadRequestHttpException(sprintf('No SP found for "%s"', $spName));
     }
+
+    $factory = new AuthnRequestFactory();
+    $sp = $this->mockSpRegistry->get($spName);
+    $authnRequest = $factory->createForRequestFromTo($sp, $this->engineBlock);
+
+    $redirect = new HTTPPost();
+    $redirect->send($authnRequest);
+
+    $container = Utils::getContainer();
+    $response = $container->getPostResponse();
+
+    $extensions = $sp->getEntityDescriptor()->getExtensions();
+    if (isset($extensions['Malformed'])) {
+        $body = $response->getContent();
+        $response->setContent(str_replace('SAMLRequest', 'AuthNRequest', $body));
+    }
+
+    return $response;
+}
 
     /**
      * @param Request $request
      * @return Response
      * @throws \RuntimeException
      */
-    public function assertionConsumerAction(Request $request)
-    {
+public function assertionConsumerAction(Request $request)
+{
+    try {
+        $httpPostBinding = new HTTPPost();
+        $message = $httpPostBinding->receive();
+    } catch (\Exception $e1) {
         try {
-            $httpPostBinding = new HTTPPost();
-            $message = $httpPostBinding->receive();
-        } catch (\Exception $e1) {
-            try {
-                $httpRedirectBinding = new HTTPRedirect();
-                $message = $httpRedirectBinding->receive();
-            } catch (\Exception $e2) {
-                throw new \RuntimeException('Unable to retrieve SAML message?', 1, $e1);
-            }
+            $httpRedirectBinding = new HTTPRedirect();
+            $message = $httpRedirectBinding->receive();
+        } catch (\Exception $e2) {
+            throw new \RuntimeException('Unable to retrieve SAML message?', 1, $e1);
         }
-
-        if (!$message instanceof SAMLResponse) {
-            throw new \RuntimeException(sprintf('Unrecognized message type received: "%s"', get_class($message)));
-        }
-
-        $xml = base64_decode($request->get('SAMLResponse'));
-
-        // Format the XML
-        $doc = new DomDocument('1.0');
-        $doc->preserveWhiteSpace = false;
-        $doc->formatOutput = true;
-        $doc->loadXML($xml);
-        $xml = $doc->saveXML();
-
-        return new Response(
-            $xml,
-            200,
-            ['Content-Type' => 'application/xml']
-        );
     }
+
+    if (!$message instanceof SAMLResponse) {
+        throw new \RuntimeException(sprintf('Unrecognized message type received: "%s"', get_class($message)));
+    }
+
+    $xml = base64_decode($request->get('SAMLResponse'));
+
+    // Only format XML if needed for output
+    $doc = new DomDocument('1.0');
+    $doc->preserveWhiteSpace = false;
+    $doc->formatOutput = true;
+    $doc->loadXML($xml);
+    $xml = $doc->saveXML();
+
+    return new Response(
+        $xml,
+        200,
+        ['Content-Type' => 'application/xml']
+    );
+}
 
     /**
      * @param $spName

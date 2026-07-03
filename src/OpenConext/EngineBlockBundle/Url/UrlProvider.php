@@ -41,25 +41,27 @@ class UrlProvider
      * @param string|null $remoteEntityId
      * @return string
      */
-    public function getUrl(string $name, bool $processingMode, ?string $keyId, ?string $remoteEntityId): string
-    {
-        try {
-            // Build the absolute URL based on the route name
-            $url = $this->urlGenerator->generate($name, [], UrlGeneratorInterface::ABSOLUTE_URL);
-        } catch (InvalidArgumentException $e) {
-            throw new UnableToCreateUrlException($e->getMessage());
-        }
-
-        // Append the key identifier
-        if (!$processingMode && $keyId && $name === 'authentication_idp_sso') {
-            $url .= '/key:' . $keyId;
-        }
-
-        // Append the Transparent identifier
-        if ($remoteEntityId && !$processingMode && $name !== 'metadata_idp' && $name !== 'authentication_logout') {
-            $url .= '/' . md5($remoteEntityId);
-        }
-
-        return $url;
+public function getUrl(string $name, bool $processingMode, ?string $keyId, ?string $remoteEntityId): string
+{
+    try {
+        $url = $this->urlGenerator->generate($name, [], UrlGeneratorInterface::ABSOLUTE_URL);
+    } catch (InvalidArgumentException $e) {
+        throw new UnableToCreateUrlException($e->getMessage());
     }
+
+    if (!$processingMode) {
+        $urlParts = [];
+        if ($keyId && $name === 'authentication_idp_sso') {
+            $urlParts[] = 'key:' . $keyId;
+        }
+        if ($remoteEntityId && $name !== 'metadata_idp' && $name !== 'authentication_logout') {
+            $urlParts[] = md5($remoteEntityId);
+        }
+        if (!empty($urlParts)) {
+            $url .= '/' . implode('/', $urlParts);
+        }
+    }
+
+    return $url;
+}
 }

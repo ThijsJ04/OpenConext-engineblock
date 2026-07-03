@@ -53,38 +53,31 @@ class StepupDecision
     /**
      * @throws InvalidStepupConfigurationException
      */
-    public function __construct(
-        IdentityProvider $idp,
-        ServiceProvider $sp,
-        array $authnRequestLoas,
-        array $pdpLoas,
-        LoaRepository $loaRepository,
-        LoggerInterface $logger
-    ) {
+public function __construct(
+    IdentityProvider $idp,
+    ServiceProvider $sp,
+    array $authnRequestLoas,
+    array $pdpLoas,
+    LoaRepository $loaRepository,
+    LoggerInterface $logger
+) {
+    $this->logger = $logger;
 
-        $this->logger = $logger;
-
-        $idpLoa = $idp->getCoins()->stepupConnections()->getLoa($sp->entityId);
-        // Only load the IdP LoA if configured in the stepup connection coin data
-        if ($idpLoa) {
-            $this->idpLoa = $loaRepository->getByIdentifier($idpLoa);
-        }
-
-        $spLoa = $sp->getCoins()->stepupRequireLoa();
-        // Only load the SP LoA if configured in Manage
-        if ($spLoa) {
-            $this->spLoa = $loaRepository->getByIdentifier($spLoa);
-        }
-
-        $this->spNoToken = $sp->getCoins()->stepupAllowNoToken();
-
-        foreach ($pdpLoas as $loaId) {
-            $this->pdpLoas[] = $loaRepository->getByIdentifier($loaId);
-        }
-        foreach ($authnRequestLoas as $loa) {
-            $this->authnRequestLoas[] = $loa;
-        }
+    $idpLoa = $idp->getCoins()->stepupConnections()->getLoa($sp->entityId);
+    if ($idpLoa) {
+        $this->idpLoa = $loaRepository->getByIdentifier($idpLoa);
     }
+
+    $spLoa = $sp->getCoins()->stepupRequireLoa();
+    if ($spLoa) {
+        $this->spLoa = $loaRepository->getByIdentifier($spLoa);
+    }
+
+    $this->spNoToken = $sp->getCoins()->stepupAllowNoToken();
+
+    $this->pdpLoas = array_map([$loaRepository, 'getByIdentifier'], $pdpLoas);
+    $this->authnRequestLoas = $authnRequestLoas;
+}
 
     public function shouldUseStepup(): bool
     {
@@ -108,44 +101,43 @@ class StepupDecision
     /**
      * Find the highest level among all ways to configure a LoA.
      */
-    public function getStepupLoa(): ?Loa
-    {
-        $this->logger->debug('StepupDecision: determine highest LoA');
+public function getStepupLoa(): ?Loa
+{
+    $this->logger->debug('StepupDecision: determine highest LoA');
 
-        $desiredLevels = $this->pdpLoas;
-        $desiredLevels += $this->authnRequestLoas;
-        if ($this->spLoa) {
-            $desiredLevels[] = $this->spLoa;
-        }
-        if ($this->idpLoa) {
-            $desiredLevels[] = $this->idpLoa;
-        }
-
-        if (count($desiredLevels) == 0) {
-            $this->logger->info('StepupDecision: no level set, no Stepup required');
-            return null;
-        }
-
-        $highestLevel = reset($desiredLevels);
-        foreach ($desiredLevels as $level) {
-            if ($level->levelIsHigherOrEqualTo($highestLevel)) {
-                $highestLevel = $level;
-            }
-        }
-
-        $logData = [
-            'pdp' => array_map(function (Loa $l):string {
-                return $l->getIdentifier();
-            }, $this->pdpLoas),
-            'authnRequest' => array_map(function (Loa $l):string {
-                return $l->getIdentifier();
-            }, $this->authnRequestLoas),
-            'metadata_sp' => $this->spLoa ? [$this->spLoa->getIdentifier()] : [],
-            'metadata_idp' => $this->idpLoa ? [$this->idpLoa->getIdentifier()] : [],
-        ];
-        $this->logger->info(sprintf('StepupDecision: requiring LoA %s', $highestLevel->getIdentifier()), $logData);
-        return $highestLevel;
+    $desiredLevels = array_merge($this->pdpLoas, $this->authnRequestLoas);
+    if ($this->spLoa) {
+        $desiredLevels[] = $this->spLoa;
     }
+    if ($this->idpLoa) {
+        $desiredLevels[] = $this->idpLoa;
+    }
+
+    if (empty($desiredLevels)) {
+        $this->logger->info('StepupDecision: no level set, no Stepup required');
+        return null;
+    }
+
+    $highestLevel = array_shift($desiredLevels);
+    foreach ($desiredLevels as $level) {
+        if ($level->levelIsHigherOrEqualTo($highestLevel)) {
+            $highestLevel = $level;
+        }
+    }
+
+    $logData = [
+        'pdp' => array_map(function (Loa $l): string {
+            return $l->getIdentifier();
+        }, $this->pdpLoas),
+        'authnRequest' => array_map(function (Loa $l): string {
+            return $l->getIdentifier();
+        }, $this->authnRequestLoas),
+        'metadata_sp' => $this->spLoa ? [$this->spLoa->getIdentifier()] : [],
+        'metadata_idp' => $this->idpLoa ? [$this->idpLoa->getIdentifier()] : [],
+    ];
+    $this->logger->info(sprintf('StepupDecision: requiring LoA %s', $highestLevel->getIdentifier()), $logData);
+    return $highestLevel;
+}
 
     public function allowNoToken(): bool
     {

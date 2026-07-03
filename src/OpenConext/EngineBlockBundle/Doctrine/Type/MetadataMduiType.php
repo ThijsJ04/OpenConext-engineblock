@@ -36,47 +36,42 @@ class MetadataMduiType extends Type
         return $platform->getJsonTypeDeclarationSQL($column);
     }
 
-    public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
-    {
-        if (is_null($value)) {
-            return $value;
-        }
+public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
+{
+    if (is_null($value)) {
+        return null;
+    }
 
-        if (!$value instanceof Mdui) {
+    if (!$value instanceof Mdui) {
+        throw new ConversionException(
+            'Value must be null or an instance of Mdui to be able to convert it to a database value'
+        );
+    }
+
+    return $value->toJson();
+}
+
+public function convertToPHPValue($value, AbstractPlatform $platform): mixed
+{
+    if (is_null($value)) {
+        return $value;
+    }
+
+    try {
+        return Mdui::fromJson($value);
+    } catch (InvalidArgumentException $e) {
             throw new ConversionException(
                 sprintf(
-                    'Value "%s" must be null or an instance of Mdui to be able to ' .
-                    'convert it to a database value',
-                    is_object($value) ? get_class($value) : (string)$value
-                )
+                    'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
+                    $value,
+                    $this->getName(),
+                    'valid serialized mdui json'
+                ),
+                0,
+                $e
             );
-        }
-
-        return $value->toJson();
     }
-
-    public function convertToPHPValue($value, AbstractPlatform $platform): mixed
-    {
-        if (is_null($value)) {
-            return $value;
-        }
-
-        try {
-            $mdui = Mdui::fromJson($value);
-        } catch (InvalidArgumentException $e) {
-            // get nice standard message, so we can throw it keeping the exception chain
-            $doctrineExceptionMessage = sprintf(
-                'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
-                $value,
-                $this->getName(),
-                'valid serialized mdui json'
-            );
-
-            throw new ConversionException($doctrineExceptionMessage, 0, $e);
-        }
-
-        return $mdui;
-    }
+}
 
     public function getName(): string
     {

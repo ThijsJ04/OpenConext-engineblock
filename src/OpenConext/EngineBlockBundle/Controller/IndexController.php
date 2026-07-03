@@ -45,25 +45,24 @@ class IndexController extends AbstractController
     /**
      * @Route("/", name="open_conext_engine_block_authentication_homepage")
      */
-    public function indexAction()
-    {
-        $keyPairIds = [];
-        if ($this->keyPairs) {
-            // Do not include the default key, as this duplicates the metadata URLs without a keyslug
-            unset($this->keyPairs[KeyPairFactory::DEFAULT_KEY_PAIR_IDENTIFIER]);
-            $keyPairIds = array_keys($this->keyPairs);
-        }
-
-        return new Response(
-            $this->twig->render(
-                '@theme/Authentication/View/Index/index.html.twig',
-                [
-                    'subHeader' => 'IdP Certificate and Metadata',
-                    'wide' => true,
-                    'displayLanguageSwitcher' => false,
-                    'keyPairIds' => $keyPairIds
-                ]
-            )
-        );
+public function indexAction()
+{
+    $keyPairIds = [];
+    if (!empty($this->keyPairs)) {
+        unset($this->keyPairs[KeyPairFactory::DEFAULT_KEY_PAIR_IDENTIFIER]);
+        $keyPairIds = array_keys($this->keyPairs);
     }
+
+    return new Response(
+        $this->twig->render(
+            '@theme/Authentication/View/Index/index.html.twig',
+            [
+                'subHeader' => 'IdP Certificate and Metadata',
+                'wide' => true,
+                'displayLanguageSwitcher' => false,
+                'keyPairIds' => $keyPairIds
+            ]
+        )
+    );
+}
 }

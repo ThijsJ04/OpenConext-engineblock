@@ -96,105 +96,104 @@ class IdentityProvider extends AbstractRole
      * WARNING: Please don't use this entity directly but use the dedicated factory instead.
      * @see \OpenConext\EngineBlock\Metadata\Factory\Factory\IdentityProviderFactory
      */
-    public function __construct(
+public function __construct(
+    $entityId,
+    ?Mdui $mdui = null,
+    Organization $organizationEn = null,
+    Organization $organizationNl = null,
+    Organization $organizationPt = null,
+    Service $singleLogoutService = null,
+    bool $additionalLogging = false,
+    array $certificates = array(),
+    array $contactPersons = array(),
+    string $descriptionEn = '',
+    string $descriptionNl = '',
+    string $descriptionPt = '',
+    bool $disableScoping = false,
+    string $displayNameEn = '',
+    string $displayNameNl = '',
+    string $displayNamePt = '',
+    string $keywordsEn = '',
+    string $keywordsNl = '',
+    string $keywordsPt = '',
+    Logo $logo = null,
+    string $nameEn = '',
+    string $nameNl = '',
+    string $namePt = '',
+    ?string $nameIdFormat = null,
+    array $supportedNameIdFormats = array(
+        Constants::NAMEID_TRANSIENT,
+        Constants::NAMEID_PERSISTENT,
+    ),
+    bool $requestsMustBeSigned = false,
+    string $signatureMethod = XMLSecurityKey::RSA_SHA256,
+    string $workflowState = self::WORKFLOW_STATE_DEFAULT,
+    string $manipulation = '',
+    bool $enabledInWayf = true,
+    string $guestQualifier = self::GUEST_QUALIFIER_ALL,
+    bool $hidden = false,
+    ?string $schacHomeOrganization = null,
+    array $shibMdScopes = array(),
+    array $singleSignOnServices = array(),
+    ConsentSettings $consentSettings = null,
+    StepupConnections $stepupConnections = null,
+    MfaEntityCollection $mfaEntities = null,
+    array $discoveries = [],
+    ?string $defaultRAC = null,
+    bool $policyEnforcementDecisionRequired = false
+) {
+    $mdui = $mdui ?? Mdui::emptyMdui();
+
+    parent::__construct(
         $entityId,
-        ?Mdui $mdui = null,
-        Organization $organizationEn = null,
-        Organization $organizationNl = null,
-        Organization $organizationPt = null,
-        Service $singleLogoutService = null,
-        bool $additionalLogging = false,
-        array $certificates = array(),
-        array $contactPersons = array(),
-        string $descriptionEn = '',
-        string $descriptionNl = '',
-        string $descriptionPt = '',
-        bool $disableScoping = false,
-        string $displayNameEn = '',
-        string $displayNameNl = '',
-        string $displayNamePt = '',
-        string $keywordsEn = '',
-        string $keywordsNl = '',
-        string $keywordsPt = '',
-        Logo $logo = null,
-        string $nameEn = '',
-        string $nameNl = '',
-        string $namePt = '',
-        ?string $nameIdFormat = null,
-        array $supportedNameIdFormats = array(
-            Constants::NAMEID_TRANSIENT,
-            Constants::NAMEID_PERSISTENT,
-        ),
-        bool $requestsMustBeSigned = false,
-        string $signatureMethod = XMLSecurityKey::RSA_SHA256,
-        string $workflowState = self::WORKFLOW_STATE_DEFAULT,
-        string $manipulation = '',
-        bool $enabledInWayf = true,
-        string $guestQualifier = self::GUEST_QUALIFIER_ALL,
-        bool $hidden = false,
-        ?string $schacHomeOrganization = null,
-        array $shibMdScopes = array(),
-        array $singleSignOnServices = array(),
-        ConsentSettings $consentSettings = null,
-        StepupConnections $stepupConnections = null,
-        MfaEntityCollection $mfaEntities = null,
-        array $discoveries = [],
-        ?string $defaultRAC = null,
-        bool $policyEnforcementDecisionRequired = false
-    ) {
-        if (is_null($mdui)) {
-            $mdui = Mdui::emptyMdui();
-        }
-        parent::__construct(
-            $entityId,
-            $mdui,
-            $organizationEn,
-            $organizationNl,
-            $organizationPt,
-            $singleLogoutService,
-            $certificates,
-            $contactPersons,
-            $descriptionEn,
-            $descriptionNl,
-            $descriptionPt,
-            $displayNameEn,
-            $displayNameNl,
-            $displayNamePt,
-            $keywordsEn,
-            $keywordsNl,
-            $keywordsPt,
-            $logo,
-            $nameEn,
-            $nameNl,
-            $namePt,
-            $nameIdFormat,
-            $supportedNameIdFormats,
-            $requestsMustBeSigned,
-            $workflowState,
-            $manipulation
-        );
+        $mdui,
+        $organizationEn,
+        $organizationNl,
+        $organizationPt,
+        $singleLogoutService,
+        $certificates,
+        $contactPersons,
+        $descriptionEn,
+        $descriptionNl,
+        $descriptionPt,
+        $displayNameEn,
+        $displayNameNl,
+        $displayNamePt,
+        $keywordsEn,
+        $keywordsNl,
+        $keywordsPt,
+        $logo,
+        $nameEn,
+        $nameNl,
+        $namePt,
+        $nameIdFormat,
+        $supportedNameIdFormats,
+        $requestsMustBeSigned,
+        $workflowState,
+        $manipulation
+    );
 
-        $this->enabledInWayf = $enabledInWayf;
-        $this->shibMdScopes = $shibMdScopes;
-        $this->singleSignOnServices = $singleSignOnServices;
-        $this->consentSettings = $consentSettings;
+    $this->enabledInWayf = $enabledInWayf;
+    $this->shibMdScopes = $shibMdScopes;
+    $this->singleSignOnServices = $singleSignOnServices;
+    $this->consentSettings = $consentSettings;
 
-        $this->coins = Coins::createForIdentityProvider(
-            $guestQualifier,
-            $schacHomeOrganization,
-            $hidden,
-            $stepupConnections,
-            $disableScoping,
-            $additionalLogging,
-            $signatureMethod,
-            $mfaEntities,
-            $defaultRAC,
-            $policyEnforcementDecisionRequired
-        );
+    $this->coins = Coins::createForIdentityProvider(
+        $guestQualifier,
+        $schacHomeOrganization,
+        $hidden,
+        $stepupConnections,
+        $disableScoping,
+        $additionalLogging,
+        $signatureMethod,
+        $mfaEntities,
+        $defaultRAC,
+        $policyEnforcementDecisionRequired
+    );
 
-        $this->assertAllDiscoveries($discoveries);
-        $this->discoveries = $discoveries;
-    }
+    $this->assertAllDiscoveries($discoveries);
+    $this->discoveries = $discoveries;
+}
 
     /**
      * {@inheritdoc}
@@ -208,21 +207,17 @@ class IdentityProvider extends AbstractRole
      * @param string $preferredLocale
      * @return string
      */
-    public function getDisplayName($preferredLocale = '')
-    {
-        $idpName = '';
-        if ($preferredLocale === 'nl') {
-            $idpName = $this->nameNl;
-        } elseif ($preferredLocale === 'en') {
-            $idpName = $this->nameEn;
-        } elseif ($preferredLocale === 'pt') {
-            $idpName = $this->namePt;
-        }
-        if (empty($idpName)) {
-            $idpName = $this->entityId;
-        }
-        return $idpName;
-    }
+public function getDisplayName($preferredLocale = '')
+{
+    $idpName = match ($preferredLocale) {
+        'nl' => $this->nameNl,
+        'en' => $this->nameEn,
+        'pt' => $this->namePt,
+        default => null,
+    };
+
+    return $idpName ?: $this->entityId;
+}
 
     /**
      * @param ConsentSettings $settings
@@ -269,34 +264,40 @@ class IdentityProvider extends AbstractRole
         $this->discoveries = $discoveries;
     }
 
-    private function ensureDiscoveriesDeserialized(): void
-    {
-        if (!is_array($this->discoveries)) {
-            $this->discoveries = [];
-            return;
-        }
+private function ensureDiscoveriesDeserialized(): void
+{
+    if (!is_array($this->discoveries)) {
+        $this->discoveries = [];
+        return;
+    }
 
-        foreach ($this->discoveries as $index => $discovery) {
-            try {
-                if (!$discovery instanceof Discovery) {
-                    $logo = null;
-                    if (isset($discovery['logo']) && is_array($discovery['logo'])) {
-                        $logo = new Logo($discovery['logo']['url']);
-                        $logo->width = $discovery['logo']['width'];
-                        $logo->height = $discovery['logo']['height'];
-                    }
-
-                    $this->discoveries[$index] = Discovery::create(
-                        $discovery['names'] ?? [],
-                        $discovery['keywords'] ?? [],
-                        $logo
-                    );
-                }
-            } catch (InvalidDiscoveryException $e) {
-                unset($this->discoveries[$index]);
+    $result = [];
+    foreach ($this->discoveries as $discovery) {
+        try {
+            if ($discovery instanceof Discovery) {
+                $result[] = $discovery;
+                continue;
             }
+
+            $logo = null;
+            if (isset($discovery['logo']) && is_array($discovery['logo'])) {
+                $logo = new Logo($discovery['logo']['url']);
+                $logo->width = $discovery['logo']['width'] ?? null;
+                $logo->height = $discovery['logo']['height'] ?? null;
+            }
+
+            $result[] = Discovery::create(
+                $discovery['names'] ?? [],
+                $discovery['keywords'] ?? [],
+                $logo
+            );
+        } catch (InvalidDiscoveryException $e) {
+            // Skip invalid discoveries
         }
     }
+
+    $this->discoveries = $result;
+}
 
     private function assertAllDiscoveries(array $discoveries): void
     {
@@ -312,41 +313,41 @@ class IdentityProvider extends AbstractRole
      *
      * @return array
      */
-    public function __sleep()
-    {
-        return [
-            'enabledInWayf',
-            'singleSignOnServices',
-            'consentSettings',
-            'shibMdScopes',
-            'discoveries',
-            'id',
-            'entityId',
-            'nameNl',
-            'nameEn',
-            'namePt',
-            'descriptionNl',
-            'descriptionEn',
-            'descriptionPt',
-            'displayNameNl',
-            'displayNameEn',
-            'displayNamePt',
-            'logo',
-            'organizationNl',
-            'organizationEn',
-            'organizationPt',
-            'keywordsNl',
-            'keywordsEn',
-            'keywordsPt',
-            'workflowState',
-            'contactPersons',
-            'nameIdFormat',
-            'supportedNameIdFormats',
-            'singleLogoutService',
-            'requestsMustBeSigned',
-            'manipulation',
-            'coins',
-            'mdui',
-        ];
-    }
+public function __sleep()
+{
+    return [
+        'enabledInWayf',
+        'singleSignOnServices',
+        'consentSettings',
+        'shibMdScopes',
+        'discoveries',
+        'id',
+        'entityId',
+        'nameNl',
+        'nameEn',
+        'namePt',
+        'descriptionNl',
+        'descriptionEn',
+        'descriptionPt',
+        'displayNameNl',
+        'displayNameEn',
+        'displayNamePt',
+        'logo',
+        'organizationNl',
+        'organizationEn',
+        'organizationPt',
+        'keywordsNl',
+        'keywordsEn',
+        'keywordsPt',
+        'workflowState',
+        'contactPersons',
+        'nameIdFormat',
+        'supportedNameIdFormats',
+        'singleLogoutService',
+        'requestsMustBeSigned',
+        'manipulation',
+        'coins',
+        'mdui',
+    ];
+}
 }
