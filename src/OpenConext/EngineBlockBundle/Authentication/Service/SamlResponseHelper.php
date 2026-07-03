@@ -38,51 +38,54 @@ class SamlResponseHelper
         $this->metaDataRepository = $metaDataRepository;
     }
 
-    public function createAuthnFailedResponse(
-        string $spEntityId,
-        string $idpEntityId,
-        string $originalRequestId,
-        string $message,
-        EngineBlock_Saml2_ResponseAnnotationDecorator $originalResponse
-    ): string {
-        $response = new SAMLResponse();
-        $response->setDestination($this->getAcu($spEntityId));
-        $response->setIssuer($originalResponse->getIssuer());
-        $response->setIssueInstant(time());
-        $response->setInResponseTo($originalRequestId);
-        $status = $originalResponse->getStatus();
-        $response->setStatus([
-            'Code' => array_key_exists('Code', $status) ? $status['Code'] : Constants::STATUS_RESPONDER,
-            'SubCode' => array_key_exists('SubCode', $status) ? $status['SubCode'] : Constants::STATUS_AUTHN_FAILED,
-            'Message' => $message
-        ]);
+public function createAuthnFailedResponse(
+    string $spEntityId,
+    string $idpEntityId,
+    string $originalRequestId,
+    string $message,
+    EngineBlock_Saml2_ResponseAnnotationDecorator $originalResponse
+): string {
+    $response = new SAMLResponse();
+    $response->setDestination($this->getAcu($spEntityId));
+    $response->setIssuer($originalResponse->getIssuer());
+    $response->setIssueInstant(time());
+    $response->setInResponseTo($originalRequestId);
 
-        // Copy of behavior found in: https://github.com/OpenConext/OpenConext-engineblock/blob/8aea9cdaa8162d92b391c35c7c66ce6802273f72/library/EngineBlock/Corto/ProxyServer.php#L582-L598
-        $serviceProvider = $this->metaDataRepository->findServiceProviderByEntityId($spEntityId);
-        $isTransparant = $serviceProvider->getCoins()->isTransparentIssuer();
-        if ($isTransparant) {
-            $issuer = new Issuer();
-            $issuer->setValue($originalResponse->getOriginalIssuer());
-            $response->setIssuer($issuer);
-        }
+    $status = $originalResponse->getStatus();
+    $statusCode = $status['Code'] ?? Constants::STATUS_RESPONDER;
+    $statusSubCode = $status['SubCode'] ?? Constants::STATUS_AUTHN_FAILED;
+    $response->setStatus([
+        'Code' => $statusCode,
+        'SubCode' => $statusSubCode,
+        'Message' => $message
+    ]);
 
-        return base64_encode($response->toUnsignedXML()->ownerDocument->saveXML());
+    $serviceProvider = $this->metaDataRepository->findServiceProviderByEntityId($spEntityId);
+    if ($serviceProvider->getCoins()->isTransparentIssuer()) {
+        $issuer = new Issuer();
+        $issuer->setValue($originalResponse->getOriginalIssuer());
+        $response->setIssuer($issuer);
     }
 
-    public function getAcu(string $spEntityId)
-    {
-        $sp = $this->metaDataRepository->findServiceProviderByEntityId($spEntityId);
-        if ($sp) {
-            $acsLocations = $sp->assertionConsumerServices;
-            foreach ($acsLocations as $acsLocation) {
-                if ($acsLocation->binding === Constants::BINDING_HTTP_POST) {
-                    return $acsLocation->location;
-                }
-            }
-            throw new RuntimeException('No suitable ACS location could be find, no HTTP-POST binding available');
-        }
+    $xml = $response->toUnsignedXML()->ownerDocument->saveXML();
+    return base64_encode($xml);
+}
+
+public function getAcu(string $spEntityId)
+{
+    $sp = $this->metaDataRepository->findServiceProviderByEntityId($spEntityId);
+    if (!$sp) {
         throw new RuntimeException(
             sprintf('The SP with entity id "%s" could not be found while building the error response', $spEntityId)
         );
     }
+
+    foreach ($sp->assertionConsumerServices as $acsLocation) {
+        if ($acsLocation->binding === Constants::BINDING_HTTP_POST) {
+            return $acsLocation->location;
+        }
+    }
+
+    throw new RuntimeException('No suitable ACS location could be find, no HTTP-POST binding available');
+}
 }

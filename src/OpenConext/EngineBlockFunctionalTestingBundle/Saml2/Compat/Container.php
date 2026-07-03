@@ -110,53 +110,45 @@ class Container extends AbstractContainer
      * @param string $url
      * @param array $data
      */
-    public function postRedirect($url, $data = []): void
-    {
-        $formData = '';
-        foreach ($data as $name => $value) {
-            $value = htmlentities($value, ENT_COMPAT, 'utf-8');
-            $formData .= "            <input name=\"$name\" type=\"text\" value=\"$value\" />" . PHP_EOL;
-        }
+public function postRedirect($url, $data = []): void
+{
+    $formData = '';
+    foreach ($data as $name => $value) {
+        $value = htmlentities($value, ENT_COMPAT, 'utf-8');
+        $formData .= "            <input name=\"$name\" type=\"text\" value=\"$value\" />" . PHP_EOL;
+    }
 
-        if (isset($data['SAMLRequest'])) {
-            $requestXml = base64_decode($data['SAMLRequest']);
+    $requestXml = 'N/A';
+    if (isset($data['SAMLRequest'])) {
+        $requestXml = base64_decode($data['SAMLRequest']);
+        $requestXml = self::formatXml($requestXml);
+    }
 
-            $requestXml = self::formatXml($requestXml);
+    $responseDebug = '';
+    if (isset($data['SAMLResponse'])) {
+        $responseXml = base64_decode($data['SAMLResponse']);
+        $responseXml = self::formatXml($responseXml);
+        $responseDebug = '<pre id="responseDebug">' . htmlentities($responseXml, ENT_QUOTES, 'utf-8') . '</pre>';
+    }
 
-            $data['authnRequestXml'] = $requestXml;
-        }
-        if (!isset($data['authnRequestXml'])) {
-            $data['authnRequestXml'] = 'N/A';
-        }
-
-        $responseDebug = '';
-        if (isset($data['SAMLResponse'])) {
-            $responseXml = base64_decode($data['SAMLResponse']);
-
-            $responseXml = self::formatXml($responseXml);
-
-            $responseDebug = '<pre id="responseDebug">' . htmlentities($responseXml, ENT_QUOTES, 'utf-8')  . '</pre>';
-        }
-
-        $this->response = new Response(<<<HTML
+    $this->response = new Response(<<<HTML
 <html>
     <head>
         <title>Redirecting...</title>
     </head>
     <body>
-        <pre id="authnRequestXml">{$data['authnRequestXml']}</pre>
+        <pre id="authnRequestXml">$requestXml</pre>
         $responseDebug
-        <form id="postform" action="{$url}" method="post">
+        <form id="postform" action="$url" method="post">
             $formData
-
             <input type="submit" value="GO" />
         </form>
         <script>setTimeout(function() {document.getElementById('postform').submit();}, 1500);</script>
     </body>
 </html>
 HTML
-        );
-    }
+    );
+}
 
     public function getPostResponse()
     {

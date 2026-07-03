@@ -97,121 +97,119 @@ class ServiceProvider extends AbstractRole
      * WARNING: Please don't use this entity directly but use the dedicated factory instead.
      * @see \OpenConext\EngineBlock\Factory\Factory\ServiceProviderFactory
      */
-    public function __construct(
+public function __construct(
+    $entityId,
+    ?Mdui $mdui = null,
+    Organization $organizationEn = null,
+    Organization $organizationNl = null,
+    Organization $organizationPt = null,
+    Service $singleLogoutService = null,
+    bool $additionalLogging = false,
+    array $certificates = [],
+    array $contactPersons = [],
+    ?string $descriptionEn = '',
+    ?string $descriptionNl = '',
+    ?string $descriptionPt = '',
+    bool $disableScoping = false,
+    ?string $displayNameEn = '',
+    ?string $displayNameNl = '',
+    ?string $displayNamePt = '',
+    ?string $keywordsEn = '',
+    ?string $keywordsNl = '',
+    ?string $keywordsPt = '',
+    ?Logo $logo = null,
+    ?string $nameEn = '',
+    ?string $nameNl = '',
+    ?string $namePt = '',
+    ?string $nameIdFormat = null,
+    array $supportedNameIdFormats = [
+        Constants::NAMEID_TRANSIENT,
+        Constants::NAMEID_PERSISTENT,
+    ],
+    bool $requestsMustBeSigned = false,
+    string $signatureMethod = XMLSecurityKey::RSA_SHA256,
+    string $workflowState = self::WORKFLOW_STATE_DEFAULT,
+    array $allowedIdpEntityIds = [],
+    bool $allowAll = false,
+    array $assertionConsumerServices = [],
+    bool $displayUnconnectedIdpsWayf = false,
+    ?string $termsOfServiceUrl = null,
+    bool $isConsentRequired = true,
+    bool $isTransparentIssuer = false,
+    bool $isTrustedProxy = false,
+    ?array $requestedAttributes = null,
+    bool $skipDenormalization = false,
+    bool $policyEnforcementDecisionRequired = false,
+    bool $requesteridRequired = false,
+    bool $signResponse = false,
+    string $manipulation = '',
+    ?AttributeReleasePolicy $attributeReleasePolicy = null,
+    ?string $supportUrlEn = null,
+    ?string $supportUrlNl = null,
+    ?string $supportUrlPt = null,
+    ?bool $stepupAllowNoToken = null,
+    ?string $stepupRequireLoa = null,
+    bool $stepupForceAuthn = false,
+    bool $collabEnabled = false
+) {
+    $mdui = $mdui ?? Mdui::emptyMdui();
+    parent::__construct(
         $entityId,
-        ?Mdui $mdui = null,
-        Organization $organizationEn = null,
-        Organization $organizationNl = null,
-        Organization $organizationPt = null,
-        Service $singleLogoutService = null,
-        bool $additionalLogging = false,
-        array $certificates = array(),
-        array $contactPersons = array(),
-        ?string $descriptionEn = '',
-        ?string $descriptionNl = '',
-        ?string $descriptionPt = '',
-        bool $disableScoping = false,
-        ?string $displayNameEn = '',
-        ?string $displayNameNl = '',
-        ?string $displayNamePt = '',
-        ?string $keywordsEn = '',
-        ?string $keywordsNl = '',
-        ?string $keywordsPt = '',
-        ?Logo $logo = null,
-        ?string $nameEn = '',
-        ?string $nameNl = '',
-        ?string $namePt = '',
-        ?string $nameIdFormat = null,
-        array $supportedNameIdFormats = array(
-            Constants::NAMEID_TRANSIENT,
-            Constants::NAMEID_PERSISTENT,
-        ),
-        bool $requestsMustBeSigned = false,
-        string $signatureMethod = XMLSecurityKey::RSA_SHA256,
-        string $workflowState = self::WORKFLOW_STATE_DEFAULT,
-        array $allowedIdpEntityIds = array(),
-        bool $allowAll = false,
-        array $assertionConsumerServices = array(),
-        bool $displayUnconnectedIdpsWayf = false,
-        ?string $termsOfServiceUrl = null,
-        bool $isConsentRequired = true,
-        bool $isTransparentIssuer = false,
-        bool $isTrustedProxy = false,
-        ?array $requestedAttributes = null,
-        bool $skipDenormalization = false,
-        bool $policyEnforcementDecisionRequired = false,
-        bool $requesteridRequired = false,
-        bool $signResponse = false,
-        string $manipulation = '',
-        ?AttributeReleasePolicy $attributeReleasePolicy = null,
-        ?string $supportUrlEn = null,
-        ?string $supportUrlNl = null,
-        ?string $supportUrlPt = null,
-        ?bool $stepupAllowNoToken = null,
-        ?string $stepupRequireLoa = null,
-        bool $stepupForceAuthn = false,
-        bool $collabEnabled = false
-    ) {
-        if (is_null($mdui)) {
-            $mdui = Mdui::emptyMdui();
-        }
-        parent::__construct(
-            $entityId,
-            $mdui,
-            $organizationEn,
-            $organizationNl,
-            $organizationPt,
-            $singleLogoutService,
-            $certificates,
-            $contactPersons,
-            $descriptionEn,
-            $descriptionNl,
-            $descriptionPt,
-            $displayNameEn,
-            $displayNameNl,
-            $displayNamePt,
-            $keywordsEn,
-            $keywordsNl,
-            $keywordsPt,
-            $logo,
-            $nameEn,
-            $nameNl,
-            $namePt,
-            $nameIdFormat,
-            $supportedNameIdFormats,
-            $requestsMustBeSigned,
-            $workflowState,
-            $manipulation
-        );
+        $mdui,
+        $organizationEn,
+        $organizationNl,
+        $organizationPt,
+        $singleLogoutService,
+        $certificates,
+        $contactPersons,
+        $descriptionEn,
+        $descriptionNl,
+        $descriptionPt,
+        $displayNameEn,
+        $displayNameNl,
+        $displayNamePt,
+        $keywordsEn,
+        $keywordsNl,
+        $keywordsPt,
+        $logo,
+        $nameEn,
+        $nameNl,
+        $namePt,
+        $nameIdFormat,
+        $supportedNameIdFormats,
+        $requestsMustBeSigned,
+        $workflowState,
+        $manipulation
+    );
 
-        $this->attributeReleasePolicy = $attributeReleasePolicy;
-        $this->allowedIdpEntityIds = $allowedIdpEntityIds;
-        $this->allowAll = $allowAll;
-        $this->assertionConsumerServices = $assertionConsumerServices;
-        $this->requestedAttributes = $requestedAttributes;
-        $this->supportUrlEn = $supportUrlEn;
-        $this->supportUrlNl = $supportUrlNl;
-        $this->supportUrlPt = $supportUrlPt;
+    $this->attributeReleasePolicy = $attributeReleasePolicy;
+    $this->allowedIdpEntityIds = $allowedIdpEntityIds;
+    $this->allowAll = $allowAll;
+    $this->assertionConsumerServices = $assertionConsumerServices;
+    $this->requestedAttributes = $requestedAttributes;
+    $this->supportUrlEn = $supportUrlEn;
+    $this->supportUrlNl = $supportUrlNl;
+    $this->supportUrlPt = $supportUrlPt;
 
-        $this->coins = Coins::createForServiceProvider(
-            $isConsentRequired,
-            $isTransparentIssuer,
-            $isTrustedProxy,
-            $displayUnconnectedIdpsWayf,
-            $termsOfServiceUrl,
-            $skipDenormalization,
-            $policyEnforcementDecisionRequired,
-            $requesteridRequired,
-            $signResponse,
-            $stepupAllowNoToken,
-            $stepupRequireLoa,
-            $disableScoping,
-            $additionalLogging,
-            $signatureMethod,
-            $stepupForceAuthn,
-            $collabEnabled
-        );
-    }
+    $this->coins = Coins::createForServiceProvider(
+        $isConsentRequired,
+        $isTransparentIssuer,
+        $isTrustedProxy,
+        $displayUnconnectedIdpsWayf,
+        $termsOfServiceUrl,
+        $skipDenormalization,
+        $policyEnforcementDecisionRequired,
+        $requesteridRequired,
+        $signResponse,
+        $stepupAllowNoToken,
+        $stepupRequireLoa,
+        $disableScoping,
+        $additionalLogging,
+        $signatureMethod,
+        $stepupForceAuthn,
+        $collabEnabled
+    );
+}
 
     /**
      * This is a factory method to convert the immutable ServiceProviderEntityInterface to the legacy domain entity.
@@ -219,48 +217,65 @@ class ServiceProvider extends AbstractRole
      * @param ServiceProviderEntityInterface $serviceProvider
      * @return ServiceProvider
      */
-    public static function fromServiceProviderEntity(ServiceProviderEntityInterface $serviceProvider): ServiceProvider
-    {
-        $entity = new self($serviceProvider->getEntityId(), $serviceProvider->getMdui());
-        $entity->id = $serviceProvider->getId();
-        $entity->entityId = $serviceProvider->getEntityId();
-        $entity->nameNl = $serviceProvider->getName('nl');
-        $entity->nameEn = $serviceProvider->getName('en');
-        $entity->namePt = $serviceProvider->getName('pt');
-        $entity->descriptionNl = $serviceProvider->getDescription('nl');
-        $entity->descriptionEn = $serviceProvider->getDescription('en');
-        $entity->descriptionPt = $serviceProvider->getDescription('pt');
-        $entity->displayNameNl = $serviceProvider->getDisplayName('nl');
-        $entity->displayNameEn = $serviceProvider->getDisplayName('en');
-        $entity->displayNamePt = $serviceProvider->getDisplayName('pt');
-        $entity->getMdui()->setLogo($serviceProvider->getLogo());
+public static function fromServiceProviderEntity(ServiceProviderEntityInterface $serviceProvider): ServiceProvider
+{
+    $entity = new self(
+        $serviceProvider->getEntityId(),
+        $serviceProvider->getMdui(),
+        $serviceProvider->getOrganization('en'),
+        $serviceProvider->getOrganization('nl'),
+        $serviceProvider->getOrganization('pt'),
+        $serviceProvider->getSingleLogoutService(),
+        $serviceProvider->isRequestsMustBeSigned(),
+        $serviceProvider->getCertificates(),
+        $serviceProvider->getContactPersons(),
+        $serviceProvider->getDescription('en'),
+        $serviceProvider->getDescription('nl'),
+        $serviceProvider->getDescription('pt'),
+        false,
+        $serviceProvider->getDisplayName('en'),
+        $serviceProvider->getDisplayName('nl'),
+        $serviceProvider->getDisplayName('pt'),
+        $serviceProvider->getKeywords('en'),
+        $serviceProvider->getKeywords('nl'),
+        $serviceProvider->getKeywords('pt'),
+        $serviceProvider->getLogo(),
+        $serviceProvider->getName('en'),
+        $serviceProvider->getName('nl'),
+        $serviceProvider->getName('pt'),
+        $serviceProvider->getNameIdFormat(),
+        $serviceProvider->getSupportedNameIdFormats(),
+        $serviceProvider->isRequestsMustBeSigned(),
+        $serviceProvider->getWorkflowState(),
+        $serviceProvider->getAllowedIdpEntityIds(),
+        $serviceProvider->isAllowAll(),
+        $serviceProvider->getAssertionConsumerServices(),
+        false,
+        $serviceProvider->getCoins()->getTermsOfServiceUrl(),
+        $serviceProvider->getCoins()->isConsentRequired(),
+        $serviceProvider->getCoins()->isTransparentIssuer(),
+        $serviceProvider->getCoins()->isTrustedProxy(),
+        $serviceProvider->getRequestedAttributes(),
+        false,
+        $serviceProvider->getCoins()->isPolicyEnforcementDecisionRequired(),
+        $serviceProvider->getCoins()->isRequesteridRequired(),
+        $serviceProvider->getCoins()->isSignResponse(),
+        $serviceProvider->getManipulation(),
+        $serviceProvider->getAttributeReleasePolicy(),
+        $serviceProvider->getSupportUrl('en'),
+        $serviceProvider->getSupportUrl('nl'),
+        $serviceProvider->getSupportUrl('pt'),
+        $serviceProvider->getCoins()->isStepupAllowNoToken(),
+        $serviceProvider->getCoins()->getStepupRequireLoa(),
+        $serviceProvider->getCoins()->isStepupForceAuthn(),
+        $serviceProvider->getCoins()->isCollabEnabled()
+    );
 
-        $entity->organizationNl = $serviceProvider->getOrganization('nl');
-        $entity->organizationEn = $serviceProvider->getOrganization('en');
-        $entity->organizationPt = $serviceProvider->getOrganization('pt');
-        $entity->keywordsNl = $serviceProvider->getKeywords('nl');
-        $entity->keywordsEn = $serviceProvider->getKeywords('en');
-        $entity->keywordsPt = $serviceProvider->getKeywords('pt');
-        $entity->certificates = $serviceProvider->getCertificates();
-        $entity->workflowState = $serviceProvider->getWorkflowState();
-        $entity->contactPersons = $serviceProvider->getContactPersons();
-        $entity->nameIdFormat = $serviceProvider->getNameIdFormat();
-        $entity->supportedNameIdFormats = $serviceProvider->getSupportedNameIdFormats();
-        $entity->singleLogoutService = $serviceProvider->getSingleLogoutService();
-        $entity->requestsMustBeSigned = $serviceProvider->isRequestsMustBeSigned();
-        $entity->manipulation = $serviceProvider->getManipulation();
-        $entity->coins = $serviceProvider->getCoins();
-        $entity->attributeReleasePolicy = $serviceProvider->getAttributeReleasePolicy();
-        $entity->assertionConsumerServices = $serviceProvider->getAssertionConsumerServices();
-        $entity->allowedIdpEntityIds = $serviceProvider->getAllowedIdpEntityIds();
-        $entity->allowAll = $serviceProvider->isAllowAll();
-        $entity->requestedAttributes = $serviceProvider->getRequestedAttributes();
-        $entity->supportUrlNl = $serviceProvider->getSupportUrl('nl');
-        $entity->supportUrlEn = $serviceProvider->getSupportUrl('en');
-        $entity->supportUrlPt = $serviceProvider->getSupportUrl('pt');
+    $entity->id = $serviceProvider->getId();
+    $entity->getMdui()->setLogo($serviceProvider->getLogo());
 
-        return $entity;
-    }
+    return $entity;
+}
 
     /**
      * {@inheritdoc}
@@ -327,28 +342,21 @@ class ServiceProvider extends AbstractRole
      * 4. English organization name
      * 5. Empty string (will be set to the locale-specific variant of 'unknown' in the template)
      */
-    public function getOrganizationName(string $preferredLocale = 'en'): string
-    {
-        $orgLocale = 'organization' . ucfirst($preferredLocale);
-        // Load the preferred locale org. display name, falling back on org. name
-        if (isset($this->$orgLocale)) {
-            $orgName = !empty($this->$orgLocale->displayName)
-                ? $this->$orgLocale->displayName
-                : $this->$orgLocale->name;
-        }
+public function getOrganizationName(string $preferredLocale = 'en'): string
+{
+    $orgLocale = 'organization' . ucfirst($preferredLocale);
+    $orgName = '';
 
-        // Fallback to EN naming preferences when the preferred locale was not set or yielded no value
-        if ((($preferredLocale !== 'en' && empty($orgName)) || empty($orgName)) && isset($this->organizationEn)) {
-            $orgName = !empty($this->organizationEn->displayName) ? $this->organizationEn->displayName : $this->organizationEn->name;
-        }
-
-        // Show empty string when no translation was found (virtually impossible)
-        if (empty($orgName)) {
-            $orgName = '';
-        }
-
-        return $orgName;
+    if (isset($this->$orgLocale) && $this->$orgLocale !== null) {
+        $orgName = $this->$orgLocale->displayName ?: ($this->$orgLocale->name ?? '');
     }
+
+    if (empty($orgName) && $preferredLocale !== 'en' && isset($this->organizationEn) && $this->organizationEn !== null) {
+        $orgName = $this->organizationEn->displayName ?: ($this->organizationEn->name ?? '');
+    }
+
+    return $orgName;
+}
 
     /**
      * @return bool
@@ -369,44 +377,44 @@ class ServiceProvider extends AbstractRole
      *
      * @return array
      */
-    public function __sleep()
-    {
-        return [
-            'attributeReleasePolicy',
-            'assertionConsumerServices',
-            'allowedIdpEntityIds',
-            'allowAll',
-            'requestedAttributes',
-            'supportUrlEn',
-            'supportUrlNl',
-            'supportUrlPt',
-            'id',
-            'entityId',
-            'nameNl',
-            'nameEn',
-            'namePt',
-            'descriptionNl',
-            'descriptionEn',
-            'descriptionPt',
-            'displayNameNl',
-            'displayNameEn',
-            'displayNamePt',
-            'logo',
-            'organizationNl',
-            'organizationEn',
-            'organizationPt',
-            'keywordsNl',
-            'keywordsEn',
-            'keywordsPt',
-            'workflowState',
-            'contactPersons',
-            'nameIdFormat',
-            'supportedNameIdFormats',
-            'singleLogoutService',
-            'requestsMustBeSigned',
-            'manipulation',
-            'coins',
-            'mdui',
-        ];
-    }
+public function __sleep()
+{
+    return [
+        'id',
+        'entityId',
+        'nameNl',
+        'nameEn',
+        'namePt',
+        'descriptionNl',
+        'descriptionEn',
+        'descriptionPt',
+        'displayNameNl',
+        'displayNameEn',
+        'displayNamePt',
+        'logo',
+        'organizationNl',
+        'organizationEn',
+        'organizationPt',
+        'keywordsNl',
+        'keywordsEn',
+        'keywordsPt',
+        'workflowState',
+        'contactPersons',
+        'nameIdFormat',
+        'supportedNameIdFormats',
+        'singleLogoutService',
+        'requestsMustBeSigned',
+        'manipulation',
+        'coins',
+        'mdui',
+        'attributeReleasePolicy',
+        'assertionConsumerServices',
+        'allowedIdpEntityIds',
+        'allowAll',
+        'requestedAttributes',
+        'supportUrlEn',
+        'supportUrlNl',
+        'supportUrlPt',
+    ];
+}
 }

@@ -43,101 +43,74 @@ final class Consent
         $this->serviceProvider = $serviceProvider;
     }
 
-    public function jsonSerialize(): array
-    {
-        $supportContacts = array_values(
-            array_filter(
-                $this->serviceProvider->contactPersons,
-                function (ContactPerson $contact) {
-                    return $contact->contactType === Consent::CONTACT_TYPE_SUPPORT;
-                }
-            )
-        );
-
-        $supportEmail = null;
-        if (count($supportContacts) > 0) {
-            $supportEmail = $supportContacts[0]->emailAddress;
+public function jsonSerialize(): array
+{
+    $supportContacts = array_filter(
+        $this->serviceProvider->contactPersons,
+        function (ContactPerson $contact) {
+            return $contact->contactType === Consent::CONTACT_TYPE_SUPPORT;
         }
+    );
 
-        $serviceProvider = [
-            'entity_id'    => $this->serviceProvider->entityId,
-            'support_url' => [
-                'en' => $this->serviceProvider->supportUrlEn,
-                'nl' => $this->serviceProvider->supportUrlNl,
-                'pt' => $this->serviceProvider->supportUrlPt,
-            ],
-            'eula_url' => $this->serviceProvider->getCoins()->termsOfServiceUrl(),
-            'support_email' => $supportEmail,
-            'name_id_format' => $this->serviceProvider->nameIdFormat,
-        ];
+    $supportEmail = reset($supportContacts) ? reset($supportContacts)->emailAddress : null;
 
-        $serviceProvider += $this->getDisplayNameFields();
-        $serviceProvider += $this->getOrganizationDisplayNameFields();
+    $serviceProvider = [
+        'entity_id'    => $this->serviceProvider->entityId,
+        'support_url' => [
+            'en' => $this->serviceProvider->supportUrlEn,
+            'nl' => $this->serviceProvider->supportUrlNl,
+            'pt' => $this->serviceProvider->supportUrlPt,
+        ],
+        'eula_url' => $this->serviceProvider->getCoins()->termsOfServiceUrl(),
+        'support_email' => $supportEmail,
+        'name_id_format' => $this->serviceProvider->nameIdFormat,
+    ];
 
-        return [
-            'service_provider' => $serviceProvider,
-            'consent_given_on' => $this->consent->getDateConsentWasGivenOn()->format(DateTime::ATOM),
-            'consent_type'     => $this->consent->getConsentType()->jsonSerialize(),
-        ];
+    $serviceProvider += $this->getDisplayNameFields();
+    $serviceProvider += $this->getOrganizationDisplayNameFields();
+
+    return [
+        'service_provider' => $serviceProvider,
+        'consent_given_on' => $this->consent->getDateConsentWasGivenOn()->format(DateTime::ATOM),
+        'consent_type'     => $this->consent->getConsentType()->jsonSerialize(),
+    ];
+}
+
+private function getDisplayNameFields(): array
+{
+    $fields = [];
+    $languages = ['en', 'nl', 'pt'];
+
+    foreach ($languages as $lang) {
+        $displayName = $this->serviceProvider->getMdui()->hasDisplayName($lang)
+            ? $this->serviceProvider->getMdui()->getDisplayName($lang)
+            : ($this->serviceProvider->{"name$lang"} ?? $this->serviceProvider->entityId);
+
+        $fields['display_name'][$lang] = $displayName;
     }
 
-    private function getDisplayNameFields(): array
-    {
-        $fields = [];
-        if (!empty($this->serviceProvider->getMdui()->hasDisplayName('en'))) {
-            $fields['display_name']['en'] = $this->serviceProvider->getMdui()->getDisplayName('en');
-        } elseif (!empty($this->serviceProvider->nameEn)) {
-            $fields['display_name']['en'] = $this->serviceProvider->nameEn;
-        } else {
-            $fields['display_name']['en'] = $this->serviceProvider->entityId;
-        }
+    return $fields;
+}
 
-        if (!empty($this->serviceProvider->getMdui()->hasDisplayName('nl'))) {
-            $fields['display_name']['nl'] = $this->serviceProvider->getMdui()->getDisplayName('nl');
-        } elseif (!empty($this->serviceProvider->nameNl)) {
-            $fields['display_name']['nl'] = $this->serviceProvider->nameNl;
-        } else {
-            $fields['display_name']['nl'] = $this->serviceProvider->entityId;
-        }
+private function getOrganizationDisplayNameFields(): array
+{
+    $fields = [];
+    $organizations = [
+        'en' => $this->serviceProvider->organizationEn,
+        'nl' => $this->serviceProvider->organizationNl,
+        'pt' => $this->serviceProvider->organizationPt,
+    ];
 
-        if (!empty($this->serviceProvider->getMdui()->hasDisplayName('pt'))) {
-            $fields['display_name']['pt'] = $this->serviceProvider->getMdui()->getDisplayName('pt');
-        } elseif (!empty($this->serviceProvider->namePt)) {
-            $fields['display_name']['pt'] = $this->serviceProvider->namePt;
+    foreach ($organizations as $lang => $organization) {
+        if (!empty($organization->displayName)) {
+            $fields['organization_display_name'][$lang] = $organization->displayName;
+        } elseif (!empty($organization->name)) {
+            $fields['organization_display_name'][$lang] = $organization->name;
         } else {
-            $fields['display_name']['pt'] = $this->serviceProvider->entityId;
+            $fields['organization_display_name'][$lang] = $lang === 'en' ? 'unknown' : ($fields['organization_display_name']['en'] ?? '');
         }
-
-        return $fields;
     }
 
-    private function getOrganizationDisplayNameFields(): array
-    {
-        $fields = [];
-        if (!empty($this->serviceProvider->organizationEn->displayName)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->displayName;
-        } elseif (!empty($this->serviceProvider->organizationEn->name)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->name;
-        } else {
-            $fields['organization_display_name']['en'] = "unknown";
-        }
-
-        if (!empty($this->serviceProvider->organizationNl->displayName)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->displayName;
-        } elseif (!empty($this->serviceProvider->organizationNl->name)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->name;
-        } else {
-            $fields['organization_display_name']['nl'] = $fields['organization_display_name']['en'];
-        }
-
-        if (!empty($this->serviceProvider->organizationPt->displayName)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->displayName;
-        } elseif (!empty($this->serviceProvider->organizationPt->name)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->name;
-        } else {
-            $fields['organization_display_name']['pt'] = $fields['organization_display_name']['en'];
-        }
-
-        return $fields;
-    }
+    return $fields;
+}
 }

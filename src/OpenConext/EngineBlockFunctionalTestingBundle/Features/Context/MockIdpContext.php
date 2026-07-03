@@ -95,26 +95,26 @@ class MockIdpContext extends AbstractSubContext
      * @Given /^an Identity Provider named "([^"]*)"$/
      * @Given /^an Identity Provider named "([^"]*)" with discovery "([^"]*)"$/
      */
-    public function anIdentityProviderNamed($name, string $discoveryName = null)
-    {
-        $discoveries = [];
-        if ($discoveryName !== null) {
-            $discoveries[] = Discovery::create(['en' => $discoveryName], [], null);
-        } else {
-            $discoveries[] = Discovery::create(['en' => $name], [], null);
-        }
+/**
+ * @Given /^an Identity Provider named "([^"]*)"$/
+ * @Given /^an Identity Provider named "([^"]*)" with discovery "([^"]*)"$/
+ */
+public function anIdentityProviderNamed($name, string $discoveryName = null)
+{
+    $discoveryName = $discoveryName ?? $name;
+    $discoveries = [Discovery::create(['en' => $discoveryName], [], null)];
 
-        $mockIdp = $this->mockIdpFactory->createNew($name);
-        $this->mockIdpRegistry->set($name, $mockIdp);
-        $this->mockIdpRegistry->save();
-        $this->serviceRegistryFixture->registerIdp(
-            $name,
-            $mockIdp->entityId(),
-            $mockIdp->singleSignOnLocation(),
-            $mockIdp->publicKeyCertData(),
-            $discoveries
-        )->save();
-    }
+    $mockIdp = $this->mockIdpFactory->createNew($name);
+    $this->mockIdpRegistry->set($name, $mockIdp);
+    $this->serviceRegistryFixture->registerIdp(
+        $name,
+        $mockIdp->entityId(),
+        $mockIdp->singleSignOnLocation(),
+        $mockIdp->publicKeyCertData(),
+        $discoveries
+    )->save();
+    $this->mockIdpRegistry->save();
+}
 
     /**
      * @Given /^IDP "([^"]*)" requires a policy enforcement decision$/
