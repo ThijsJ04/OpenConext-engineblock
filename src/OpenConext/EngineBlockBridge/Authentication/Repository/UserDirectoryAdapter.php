@@ -54,40 +54,33 @@ class UserDirectoryAdapter
      *             UserDirectory. It contains Backwards Compatible code that should not be relied on (e.g. the throwing
      *             of an EngineBlock_Exception)
      */
-    public function identifyUser(array $attributes)
-    {
-        if (!isset($attributes[Uid::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                Uid::URN_MACE
-            ));
-        }
-        if (!isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                SchacHomeOrganization::URN_MACE
-            ));
-        }
-
-        $uid                   = $attributes[Uid::URN_MACE][0];
-        $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
-
-        $collabPersonUuid      = CollabPersonUuid::generate();
-        $collabPersonId        = CollabPersonId::generateWithReplacedAtSignFrom(
-            new Uid($uid),
-            new SchacHomeOrganization($schacHomeOrganization)
-        );
-
-        $user = $this->userDirectory->findUserBy($collabPersonId);
-        if ($user === null) {
-            $this->logger->debug('User not found in database UserDirectory, registering User in database');
-
-            $user = new User($collabPersonId, $collabPersonUuid);
-            $this->userDirectory->register($user);
-        }
-
-        return $user;
+public function identifyUser(array $attributes)
+{
+    if (!isset($attributes[Uid::URN_MACE][0]) || !isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
+        $missingField = !isset($attributes[Uid::URN_MACE][0]) ? Uid::URN_MACE : SchacHomeOrganization::URN_MACE;
+        throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
+            'Missing required SAML2 field "%s" in attributes',
+            $missingField
+        ));
     }
+
+    $uid = $attributes[Uid::URN_MACE][0];
+    $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
+
+    $collabPersonId = CollabPersonId::generateWithReplacedAtSignFrom(
+        new Uid($uid),
+        new SchacHomeOrganization($schacHomeOrganization)
+    );
+
+    $user = $this->userDirectory->findUserBy($collabPersonId);
+    if ($user === null) {
+        $this->logger->debug('User not found in database UserDirectory, registering User in database');
+        $user = new User($collabPersonId, CollabPersonUuid::generate());
+        $this->userDirectory->register($user);
+    }
+
+    return $user;
+}
 
     /**
      * @param string $uid

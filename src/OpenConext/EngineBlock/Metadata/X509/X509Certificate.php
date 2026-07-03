@@ -74,28 +74,15 @@ class X509Certificate
     /**
      * @return string
      */
-    public function toCertData()
-    {
-        $pemKey = $this->toPem();
+public function toCertData()
+{
+    $pemKey = $this->toPem();
 
-        $lines = explode("\n", $pemKey);
-        $data = '';
-        foreach ($lines as $line) {
-            $line = rtrim($line);
+    $startPos = strpos($pemKey, self::PEM_HEADER) + strlen(self::PEM_HEADER);
+    $endPos = strpos($pemKey, self::PEM_FOOTER);
+    $data = substr($pemKey, $startPos, $endPos - $startPos);
 
-            // Skip the header
-            if ($line === self::PEM_HEADER) {
-                continue;
-            }
-
-            // End transformation on footer
-            if ($line === self::PEM_FOOTER) {
-                break;
-            }
-
-            $data .= $line;
-        }
-
-        return $data;
-    }
+    // Remove any remaining whitespace characters
+    return preg_replace('/\s+/', '', $data);
+}
 }

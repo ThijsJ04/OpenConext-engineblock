@@ -53,9 +53,9 @@ class FunctionalTestingGlobalSiteNotice extends AbstractExtension implements Glo
         return (bool) $this->request->get('showGlobalSiteNotice', false);
     }
 
-    public function getGlobalSiteNotice(): string
-    {
-        $message = <<<MSG
+public function getGlobalSiteNotice(): string
+{
+    $defaultMessage = <<<MSG
 <p>
     There is nothing wrong with your television set.
     <strong>Do not attempt to adjust the picture.</strong>
@@ -70,8 +70,9 @@ class FunctionalTestingGlobalSiteNotice extends AbstractExtension implements Glo
     You are about to experience the awe and mystery which reaches from the inner mind to... The Outer Limits.
 </p>
 MSG;
-        return (string) $this->request->get('globalSiteNotice', $message);
-    }
+
+    return $this->request->get('globalSiteNotice', $defaultMessage);
+}
 
     public function getAllowedHtmlForNotice(): string
     {

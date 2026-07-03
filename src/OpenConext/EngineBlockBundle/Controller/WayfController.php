@@ -77,29 +77,25 @@ class WayfController
     /**
      * @Route("/authentication/idp/process-wayf", name="authentication_wayf_process_wayf", methods={"GET", "POST"})
      */
-    public function processWayfAction(Request $request)
-    {
-        $proxyServer = new EngineBlock_Corto_Adapter();
-        $proxyServer->processWayf();
+public function processWayfAction(Request $request)
+{
+    $proxyServer = new EngineBlock_Corto_Adapter();
+    $proxyServer->processWayf();
 
-        $response = ResponseFactory::fromEngineBlockResponse($this->engineBlockApplicationSingleton->getHttpResponse());
-
-        $session = $request->getSession();
-        if ($session === null) {
-            throw new EngineBlock_Exception('Could not set discovery override, no session available!');
-        }
-
-        if ($request->request->get(DiscoverySelectionService::USED_DISCOVERY_HASH_PARAM, '') !== '') {
-            $this->discoverySelectionService->registerDiscoveryHash(
-                $session,
-                $request->request->get(DiscoverySelectionService::USED_DISCOVERY_HASH_PARAM)
-            );
-        } else {
-            $this->discoverySelectionService->clearDiscoveryHash($session);
-        }
-
-        return $response;
+    $session = $request->getSession();
+    if ($session === null) {
+        throw new EngineBlock_Exception('Could not set discovery override, no session available!');
     }
+
+    $discoveryHash = $request->request->get(DiscoverySelectionService::USED_DISCOVERY_HASH_PARAM, '');
+    if ($discoveryHash !== '') {
+        $this->discoverySelectionService->registerDiscoveryHash($session, $discoveryHash);
+    } else {
+        $this->discoverySelectionService->clearDiscoveryHash($session);
+    }
+
+    return ResponseFactory::fromEngineBlockResponse($this->engineBlockApplicationSingleton->getHttpResponse());
+}
 
     /**
      * @Route("/authentication/idp/help-discover", name="authentication_wayf_help_discover", methods={"GET"})
@@ -124,57 +120,53 @@ class WayfController
     /**
      * @Route("/authentication/idp/remove-cookies", name="authentication_wayf_remove_cookie", methods={"GET", "POST"})
      */
-    public function cookieAction(Request $request)
-    {
-        $application = $this->engineBlockApplicationSingleton;
-        if (($application->getDiContainer()->getRememberChoice() === true)) {
-            $postData = $request->request->all();
-            $cookiesSet = $request->cookies->all();
-            $cookies = $this->getCookies();
-            $response = new Response();
-            $removal = false;
-            $all = false;
-            if (array_key_exists('remove_all', $postData)) {
-                foreach ($cookies as $cookie) {
-                    if (array_key_exists($cookie, $cookiesSet)) {
-                        unset($cookiesSet[$cookie]);
-                        $response->headers->clearCookie($cookie);
-                    }
-                }
-                // Clear all session-data on the server
-                session_start();
-                session_destroy();
-                $removal = true;
-                $all = true;
-            } else {
-                if (!empty($postData)) {
-                    foreach ($cookies as $cookie) {
-                        if (array_key_exists('remove_'.$cookie, $postData)) {
-                            unset($cookiesSet[$cookie]);
-                            $response->headers->clearCookie($cookie);
-                            if ($cookie === SsoSessionService::SSO_SESSION_COOKIE_NAME) {
-                                $this->sessionService->clearSsoSessionCookie();
-                            }
-                            $removal = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            return $response->setContent(
-                $this->twig->render(
-                    '@theme/Authentication/View/IdentityProvider/remove-cookies.html.twig',
-                    [
-                        'removal' => $removal,
-                        'all' => $all,
-                        'cookies' => $cookies,
-                        'cookiesSet' => $cookiesSet,
-                    ]
-                )
-            );
-        }
-
+public function cookieAction(Request $request)
+{
+    $application = $this->engineBlockApplicationSingleton;
+    if (!$application->getDiContainer()->getRememberChoice()) {
         return new Response($this->twig->render('@theme/Default/View/Error/not-found.html.twig'), 404);
     }
+
+    $postData = $request->request->all();
+    $cookiesSet = $request->cookies->all();
+    $cookies = $this->getCookies();
+    $response = new Response();
+    $removal = false;
+    $all = false;
+
+    if (isset($postData['remove_all'])) {
+        foreach ($cookies as $cookie) {
+            if (isset($cookiesSet[$cookie])) {
+                $response->headers->clearCookie($cookie);
+            }
+        }
+        session_start();
+        session_destroy();
+        $removal = true;
+        $all = true;
+    } elseif (!empty($postData)) {
+        foreach ($cookies as $cookie) {
+            if (isset($postData['remove_' . $cookie])) {
+                $response->headers->clearCookie($cookie);
+                if ($cookie === SsoSessionService::SSO_SESSION_COOKIE_NAME) {
+                    $this->sessionService->clearSsoSessionCookie();
+                }
+                $removal = true;
+                break;
+            }
+        }
+    }
+
+    return $response->setContent(
+        $this->twig->render(
+            '@theme/Authentication/View/IdentityProvider/remove-cookies.html.twig',
+            [
+                'removal' => $removal,
+                'all' => $all,
+                'cookies' => $cookies,
+                'cookiesSet' => $cookiesSet,
+            ]
+        )
+    );
+}
 }
