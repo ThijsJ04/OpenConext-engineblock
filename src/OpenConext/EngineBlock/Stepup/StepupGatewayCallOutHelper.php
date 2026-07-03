@@ -49,39 +49,39 @@ final class StepupGatewayCallOutHelper
         $this->logger = $logger;
     }
 
-    public function shouldUseStepup(
-        IdentityProvider $identityProvider,
-        ServiceProvider $serviceProvider,
-        array $authnRequestLoas,
-        array $pdpLoas
-    ) : bool {
-        $stepupDecision = new StepupDecision(
-            $identityProvider,
-            $serviceProvider,
-            $authnRequestLoas,
-            $pdpLoas,
-            $this->loaRepository,
-            $this->logger
-        );
-        return $stepupDecision->shouldUseStepup();
-    }
+public function shouldUseStepup(
+    IdentityProvider $identityProvider,
+    ServiceProvider $serviceProvider,
+    array $authnRequestLoas,
+    array $pdpLoas
+) : bool {
+    return (new StepupDecision(
+        $identityProvider,
+        $serviceProvider,
+        $authnRequestLoas,
+        $pdpLoas,
+        $this->loaRepository,
+        $this->logger
+    ))->shouldUseStepup();
+}
 
-    public function getStepupLoa(
-        IdentityProvider $identityProvider,
-        ServiceProvider $serviceProvider,
-        array $authnRequestLoas,
-        array $pdpLoas
-    ) : ?Loa {
-        $stepupDecision = new StepupDecision(
-            $identityProvider,
-            $serviceProvider,
-            $authnRequestLoas,
-            $pdpLoas,
-            $this->loaRepository,
-            $this->logger
-        );
-        return $this->gatewayLoaMapping->transformToGatewayLoa($stepupDecision->getStepupLoa());
-    }
+public function getStepupLoa(
+    IdentityProvider $identityProvider,
+    ServiceProvider $serviceProvider,
+    array $authnRequestLoas,
+    array $pdpLoas
+) : ?Loa {
+    $stepupDecision = new StepupDecision(
+        $identityProvider,
+        $serviceProvider,
+        $authnRequestLoas,
+        $pdpLoas,
+        $this->loaRepository,
+        $this->logger
+    );
+    $stepupLoa = $stepupDecision->getStepupLoa();
+    return $stepupLoa === null ? null : $this->gatewayLoaMapping->transformToGatewayLoa($stepupLoa);
+}
 
     public function getStepupLoa1() : Loa
     {

@@ -41,20 +41,21 @@ class MfaHelper implements MfaHelperInterface
         $this->metadataRepository = $metadataRepository;
     }
 
-    public function isTransparent(string $spEntityId, string $idpEntityId): bool
-    {
-        $this->logger->debug(sprintf('Test if SP %s is configured with transparant_authn_context via the IdP', $spEntityId));
-        $remoteIdP = $this->metadataRepository->findIdentityProviderByEntityId($idpEntityId);
-        if (!$remoteIdP) {
-            $this->logger->warning('The IdP can not be found');
-            return false;
-        }
-        $mfaEntities = $remoteIdP->getCoins()->mfaEntities();
-        $mfaEntity = $mfaEntities->findByEntityId($spEntityId);
-        if (!$mfaEntity) {
-            $this->logger->debug('The SP is not an MFA entity');
-            return false;
-        }
-        return $mfaEntity instanceof TransparentMfaEntity;
+public function isTransparent(string $spEntityId, string $idpEntityId): bool
+{
+    $remoteIdP = $this->metadataRepository->findIdentityProviderByEntityId($idpEntityId);
+    if (!$remoteIdP) {
+        $this->logger->warning('The IdP can not be found');
+        return false;
     }
+
+    $mfaEntity = $remoteIdP->getCoins()->mfaEntities()->findByEntityId($spEntityId);
+    if (!$mfaEntity) {
+        $this->logger->debug('The SP is not an MFA entity');
+        return false;
+    }
+
+    $this->logger->debug(sprintf('Test if SP %s is configured with transparant_authn_context via the IdP', $spEntityId));
+    return $mfaEntity instanceof TransparentMfaEntity;
+}
 }

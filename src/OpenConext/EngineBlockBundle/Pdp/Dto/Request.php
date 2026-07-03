@@ -46,61 +46,70 @@ final class Request implements JsonSerializable
      */
     public $resource;
 
-    public static function from(
-        string $clientId,
-        string $subjectId,
-        string $idpEntityId,
-        string $spEntityId,
-        array $responseAttributes,
-        string $remoteIp
-    ) : Request {
-        Assertion::allString(
-            array_keys($responseAttributes),
-            'The keys of the Response attributes must be strings'
-        );
-        Assertion::allIsArray($responseAttributes, 'The values of the Response attributes must be arrays');
+public static function from(
+    string $clientId,
+    string $subjectId,
+    string $idpEntityId,
+    string $spEntityId,
+    array $responseAttributes,
+    string $remoteIp
+) : Request {
+    Assertion::allString(
+        array_keys($responseAttributes),
+        'The keys of the Response attributes must be strings'
+    );
+    Assertion::allIsArray($responseAttributes, 'The values of the Response attributes must be arrays');
 
-        $request = new self;
+    $request = new self;
 
-        $subjectIdAttribute = new Attribute;
-        $subjectIdAttribute->attributeId = NameIdFormat::UNSPECIFIED;
-        $subjectIdAttribute->value = $subjectId;
+    $request->accessSubject = new AccessSubject;
+    $request->accessSubject->attributes = [
+        (function() use ($subjectId) {
+            $attribute = new Attribute;
+            $attribute->attributeId = NameIdFormat::UNSPECIFIED;
+            $attribute->value = $subjectId;
+            return $attribute;
+        })()
+    ];
 
-        $request->accessSubject = new AccessSubject;
-        $request->accessSubject->attributes = [$subjectIdAttribute];
+    $request->resource = new Resource;
+    $request->resource->attributes = [
+        (function() use ($clientId) {
+            $attribute = new Attribute;
+            $attribute->attributeId = 'ClientID';
+            $attribute->value = $clientId;
+            return $attribute;
+        })(),
+        (function() use ($spEntityId) {
+            $attribute = new Attribute;
+            $attribute->attributeId = 'SPentityID';
+            $attribute->value = $spEntityId;
+            return $attribute;
+        })(),
+        (function() use ($idpEntityId) {
+            $attribute = new Attribute;
+            $attribute->attributeId = 'IDPentityID';
+            $attribute->value = $idpEntityId;
+            return $attribute;
+        })()
+    ];
 
-        $clientIdAttribute  = new Attribute;
-        $clientIdAttribute->attributeId = 'ClientID';
-        $clientIdAttribute->value = $clientId;
-
-        $spEntityIdAttribute  = new Attribute;
-        $spEntityIdAttribute->attributeId = 'SPentityID';
-        $spEntityIdAttribute->value = $spEntityId;
-
-        $idpEntityIdAttribute = new Attribute;
-        $idpEntityIdAttribute->attributeId = 'IDPentityID';
-        $idpEntityIdAttribute->value = $idpEntityId;
-
-        $request->resource = new Resource;
-        $request->resource->attributes = [$clientIdAttribute, $spEntityIdAttribute, $idpEntityIdAttribute];
-
-        foreach ($responseAttributes as $id => $values) {
-            foreach ($values as $value) {
-                $attribute = new Attribute;
-                $attribute->attributeId = $id;
-                $attribute->value = $value;
-
-                $request->accessSubject->attributes[] = $attribute;
-            }
+    foreach ($responseAttributes as $id => $values) {
+        foreach ($values as $value) {
+            $attribute = new Attribute;
+            $attribute->attributeId = $id;
+            $attribute->value = $value;
+            $request->accessSubject->attributes[] = $attribute;
         }
-
-        $attribute = new Attribute;
-        $attribute->attributeId = 'urn:mace:surfnet.nl:collab:xacml-attribute:ip-address';
-        $attribute->value = $remoteIp;
-        $request->accessSubject->attributes[] = $attribute;
-
-        return $request;
     }
+
+    $attribute = new Attribute;
+    $attribute->attributeId = 'urn:mace:surfnet.nl:collab:xacml-attribute:ip-address';
+    $attribute->value = $remoteIp;
+    $request->accessSubject->attributes[] = $attribute;
+
+    return $request;
+}
 
     public function jsonSerialize() : array
     {
