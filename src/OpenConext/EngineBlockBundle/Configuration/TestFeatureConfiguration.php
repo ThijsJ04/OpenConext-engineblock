@@ -32,23 +32,25 @@ class TestFeatureConfiguration implements FeatureConfigurationInterface
      */
     private $features = [];
 
-    public function __construct()
-    {
-        $this->setFeature(new Feature('api.deprovision', true));
-        $this->setFeature(new Feature('api.metadata_push', true));
-        $this->setFeature(new Feature('api.consent_listing', true));
-        $this->setFeature(new Feature('api.consent_remove', true));
-        $this->setFeature(new Feature('eb.run_all_manipulations_prior_to_consent', false));
-        $this->setFeature(new Feature('eb.block_user_on_violation', true));
-        $this->setFeature(new Feature('eb.encrypted_assertions', true));
-        $this->setFeature(new Feature('eb.encrypted_assertions_require_outer_signature', true));
-        $this->setFeature(new Feature('eb.enable_sso_notification', false));
-        $this->setFeature(new Feature('eb.feature_enable_consent', true));
-        $this->setFeature(new Feature('eb.enable_sso_session_cookie', true));
-        $this->setFeature(new Feature('eb.stepup.sfo.override_engine_entityid', false));
-        $this->setFeature(new Feature('eb.feature_enable_idp_initiated_flow', true));
-        $this->setFeature(new Feature('eb.stepup.send_user_attributes', true));
-    }
+public function __construct()
+{
+    $this->features = [
+        'api.deprovision' => new Feature('api.deprovision', true),
+        'api.metadata_push' => new Feature('api.metadata_push', true),
+        'api.consent_listing' => new Feature('api.consent_listing', true),
+        'api.consent_remove' => new Feature('api.consent_remove', true),
+        'eb.run_all_manipulations_prior_to_consent' => new Feature('eb.run_all_manipulations_prior_to_consent', false),
+        'eb.block_user_on_violation' => new Feature('eb.block_user_on_violation', true),
+        'eb.encrypted_assertions' => new Feature('eb.encrypted_assertions', true),
+        'eb.encrypted_assertions_require_outer_signature' => new Feature('eb.encrypted_assertions_require_outer_signature', true),
+        'eb.enable_sso_notification' => new Feature('eb.enable_sso_notification', false),
+        'eb.feature_enable_consent' => new Feature('eb.feature_enable_consent', true),
+        'eb.enable_sso_session_cookie' => new Feature('eb.enable_sso_session_cookie', true),
+        'eb.stepup.sfo.override_engine_entityid' => new Feature('eb.stepup.sfo.override_engine_entityid', false),
+        'eb.feature_enable_idp_initiated_flow' => new Feature('eb.feature_enable_idp_initiated_flow', true),
+        'eb.stepup.send_user_attributes' => new Feature('eb.stepup.send_user_attributes', true),
+    ];
+}
 
     public function setFeature(Feature $feature): void
     {
@@ -62,28 +64,25 @@ class TestFeatureConfiguration implements FeatureConfigurationInterface
         return array_key_exists($featureKey, $this->features);
     }
 
-    public function isEnabled($featureKey)
-    {
-        if (!$this->hasFeature($featureKey)) {
-            $features = implode(
-                ', ',
-                array_map(
-                    function (Feature $feature) {
-                        return $feature->getFeatureKey();
-                    },
-                    $this->features
-                )
-            );
-            throw new LogicException(
-                sprintf(
-                    'Cannot state if feature "%s" is enabled as it does not exist. Please ensure that you configured it '
-                    .'correctly or verify with hasFeature() that the feature exists. Features configured: "%s"',
-                    $featureKey,
-                    $features
-                )
-            );
-        }
+public function isEnabled($featureKey)
+{
+    Assertion::nonEmptyString($featureKey, 'featureKey');
 
-        return $this->features[$featureKey]->isEnabled();
+    if (!isset($this->features[$featureKey])) {
+        $features = implode(
+            ', ',
+            array_keys($this->features)
+        );
+        throw new LogicException(
+            sprintf(
+                'Cannot state if feature "%s" is enabled as it does not exist. Please ensure that you configured it '
+                .'correctly or verify with hasFeature() that the feature exists. Features configured: "%s"',
+                $featureKey,
+                $features
+            )
+        );
     }
+
+    return $this->features[$featureKey]->isEnabled();
+}
 }

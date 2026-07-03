@@ -49,38 +49,37 @@ final class MethodNotAllowedHttpExceptionListener
         $this->logger = $logger;
     }
 
-    public function onKernelException(ExceptionEvent $event)
-    {
-        $exception = $event->getThrowable();
-        if (!$exception instanceof MethodNotAllowedHttpException) {
-            return;
-        }
-
-        $request = $event->getRequest();
-        $uri = strtok($request->getUri(), '?');
-        $requestMethod = $request->getRealMethod();
-        $allowedMethods = isset($exception->getHeaders()['Allow']) ? $exception->getHeaders()['Allow'] : 'Unknown';
-
-        // inverted quotes for BC, existing log parsers may rely on this
-        $this->logger->notice(sprintf(
-            "[405]Disallowed request method: '%s'",
-            $requestMethod
-        ));
-
-        $response = new Response(
-            $this->twig->render(
-                '@theme/Default/View/Error/method-not-allowed.html.twig',
-                [
-                    'requestMethod' => $requestMethod,
-                    'allowedMethods' => $allowedMethods,
-                    'uri' => $uri
-                ]
-            ),
-            405
-        );
-
-        $event->setResponse($response);
-        // once we've handled it, we don't want anything else to interfere.
-        $event->stopPropagation();
+public function onKernelException(ExceptionEvent $event)
+{
+    $exception = $event->getThrowable();
+    if (!$exception instanceof MethodNotAllowedHttpException) {
+        return;
     }
+
+    $request = $event->getRequest();
+    $uri = strtok($request->getUri(), '?');
+    $requestMethod = $request->getRealMethod();
+    $headers = $exception->getHeaders();
+    $allowedMethods = $headers['Allow'] ?? 'Unknown';
+
+    $this->logger->notice(sprintf(
+        "[405]Disallowed request method: '%s'",
+        $requestMethod
+    ));
+
+    $response = new Response(
+        $this->twig->render(
+            '@theme/Default/View/Error/method-not-allowed.html.twig',
+            [
+                'requestMethod' => $requestMethod,
+                'allowedMethods' => $allowedMethods,
+                'uri' => $uri
+            ]
+        ),
+        405
+    );
+
+    $event->setResponse($response);
+    $event->stopPropagation();
+}
 }

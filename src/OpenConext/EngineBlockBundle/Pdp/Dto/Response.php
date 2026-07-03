@@ -66,131 +66,131 @@ final class Response
      * @SuppressWarnings(PHPMD.NPathComplexity)       A response has a lot of constraints
      * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Private methods would merely be code relocation
      */
-    public static function fromData(array $jsonData) : Response
-    {
-        if (!isset($jsonData['Response'])) {
-            throw new InvalidPdpResponseException('Key: Response was not found in the PDP response');
-        }
-
-        if (!is_array($jsonData['Response'])) {
-            throw new InvalidPdpResponseException('Key: Response is not an array');
-        }
-
-
-        if (!isset($jsonData['Response'][0])) {
-            throw new InvalidPdpResponseException('No response data found');
-        }
-
-        $responseData = $jsonData['Response'][0];
-
-        if (!isset($responseData['Status'])) {
-            throw new InvalidPdpResponseException('Key: Status was not found in the PDP response');
-        }
-
-        if (!isset($responseData['PolicyIdentifier'])) {
-            throw new InvalidPdpResponseException('Key: PolicyIdentifier was not found in the PDP response');
-        }
-
-        if (!isset($responseData['Decision'])) {
-            throw new InvalidPdpResponseException('Key: Decision was not found in the PDP response');
-        }
-
-        $response = new self;
-
-        $response->status = new Status;
-        $response->status->statusCode = new StatusCode;
-        $response->status->statusCode->value = $responseData['Status']['StatusCode']['Value'];
-        if (isset($responseData['Status']['StatusDetail'])) {
-            $response->status->statusDetail = $responseData['Status']['StatusDetail'];
-        }
-        if (isset($responseData['Status']['StatusMessage'])) {
-            $response->status->statusMessage = $responseData['Status']['StatusMessage'];
-        }
-
-        if (isset($responseData['Category'])) {
-            foreach ($responseData['Category'] as $categoryData) {
-                $category             = new Category;
-                $category->categoryId = $categoryData['CategoryId'];
-                $category->attributes = [];
-
-                foreach ($categoryData['Attribute'] as $attributeData) {
-                    $attribute              = new Attribute;
-                    $attribute->attributeId = $attributeData['AttributeId'];
-                    $attribute->value       = $attributeData['Value'];
-
-                    if (isset($attributeData['DataType'])) {
-                        $attribute->dataType = $attributeData['DataType'];
-                    }
-
-                    $category->attributes[] = $attribute;
-                }
-
-                $response->categories[] = $category;
-            }
-        }
-
-        if (isset($responseData['AssociatedAdvice'])) {
-            foreach ($responseData['AssociatedAdvice'] as $associatedAdviceData) {
-                $associatedAdvice = new AssociatedAdvice;
-                $associatedAdvice->id = $associatedAdviceData['Id'];
-
-                foreach ($associatedAdviceData['AttributeAssignment'] as $attributeAssignmentData) {
-                    $attributeAssignment = new AttributeAssignment;
-                    $attributeAssignment->category    = $attributeAssignmentData['Category'];
-                    $attributeAssignment->attributeId = $attributeAssignmentData['AttributeId'];
-                    $attributeAssignment->value       = $attributeAssignmentData['Value'];
-                    if (isset($attributeAssignmentData['DataType'])) {
-                        $attributeAssignment->dataType = $attributeAssignmentData['DataType'];
-                    }
-                    $associatedAdvice->attributeAssignments[] = $attributeAssignment;
-                }
-
-                $response->associatedAdvices[] = $associatedAdvice;
-            }
-        }
-
-        if (isset($responseData['Obligations'])) {
-            foreach ($responseData['Obligations'] as $obligationData) {
-                $obligation = new Obligation;
-                $obligation->id = $obligationData['Id'];
-
-                foreach ($obligationData['AttributeAssignment'] as $attributeAssignmentData) {
-                    $attributeAssignment = new AttributeAssignment;
-                    $attributeAssignment->category    = $attributeAssignmentData['Category'];
-                    $attributeAssignment->attributeId = $attributeAssignmentData['AttributeId'];
-                    $attributeAssignment->value       = $attributeAssignmentData['Value'];
-                    if (isset($attributeAssignmentData['DataType'])) {
-                        $attributeAssignment->dataType = $attributeAssignmentData['DataType'];
-                    }
-                    $obligation->attributeAssignments[] = $attributeAssignment;
-                }
-
-                $response->obligations[] = $obligation;
-            }
-        }
-
-        $response->policyIdentifier = new PolicyIdentifier;
-
-        if (isset($responseData['PolicyIdentifier']['PolicySetIdReference'])) {
-            foreach ($responseData['PolicyIdentifier']['PolicySetIdReference'] as $policySetIdReferenceData) {
-                $policySetIdReference                               = new PolicySetIdReference;
-                $policySetIdReference->version                      = $policySetIdReferenceData['Version'];
-                $policySetIdReference->id                           = $policySetIdReferenceData['Id'];
-                $response->policyIdentifier->policySetIdReference[] = $policySetIdReference;
-            }
-        }
-
-        if (isset($responseData['PolicyIdentifier']['PolicyIdReference'])) {
-            foreach ($responseData['PolicyIdentifier']['PolicyIdReference'] as $policyIdReferenceData) {
-                $policyIdReference                               = new PolicyIdReference;
-                $policyIdReference->version                      = $policyIdReferenceData['Version'];
-                $policyIdReference->id                           = $policyIdReferenceData['Id'];
-                $response->policyIdentifier->policyIdReference[] = $policyIdReference;
-            }
-        }
-
-        $response->decision = $responseData['Decision'];
-
-        return $response;
+public static function fromData(array $jsonData) : Response
+{
+    if (!isset($jsonData['Response'])) {
+        throw new InvalidPdpResponseException('Key: Response was not found in the PDP response');
     }
+
+    if (!is_array($jsonData['Response'])) {
+        throw new InvalidPdpResponseException('Key: Response is not an array');
+    }
+
+    if (!isset($jsonData['Response'][0])) {
+        throw new InvalidPdpResponseException('No response data found');
+    }
+
+    $responseData = $jsonData['Response'][0];
+
+    if (!isset($responseData['Status'])) {
+        throw new InvalidPdpResponseException('Key: Status was not found in the PDP response');
+    }
+
+    if (!isset($responseData['PolicyIdentifier'])) {
+        throw new InvalidPdpResponseException('Key: PolicyIdentifier was not found in the PDP response');
+    }
+
+    if (!isset($responseData['Decision'])) {
+        throw new InvalidPdpResponseException('Key: Decision was not found in the PDP response');
+    }
+
+    $response = new self;
+
+    $statusData = $responseData['Status'];
+    $response->status = new Status;
+    $response->status->statusCode = new StatusCode;
+    $response->status->statusCode->value = $statusData['StatusCode']['Value'];
+    if (isset($statusData['StatusDetail'])) {
+        $response->status->statusDetail = $statusData['StatusDetail'];
+    }
+    if (isset($statusData['StatusMessage'])) {
+        $response->status->statusMessage = $statusData['StatusMessage'];
+    }
+
+    if (isset($responseData['Category'])) {
+        $response->categories = [];
+        foreach ($responseData['Category'] as $categoryData) {
+            $category = new Category;
+            $category->categoryId = $categoryData['CategoryId'];
+            $category->attributes = [];
+
+            foreach ($categoryData['Attribute'] as $attributeData) {
+                $attribute = new Attribute;
+                $attribute->attributeId = $attributeData['AttributeId'];
+                $attribute->value = $attributeData['Value'];
+                $attribute->dataType = $attributeData['DataType'] ?? null;
+                $category->attributes[] = $attribute;
+            }
+
+            $response->categories[] = $category;
+        }
+    }
+
+    if (isset($responseData['AssociatedAdvice'])) {
+        $response->associatedAdvices = [];
+        foreach ($responseData['AssociatedAdvice'] as $associatedAdviceData) {
+            $associatedAdvice = new AssociatedAdvice;
+            $associatedAdvice->id = $associatedAdviceData['Id'];
+            $associatedAdvice->attributeAssignments = [];
+
+            foreach ($associatedAdviceData['AttributeAssignment'] as $attributeAssignmentData) {
+                $attributeAssignment = new AttributeAssignment;
+                $attributeAssignment->category = $attributeAssignmentData['Category'];
+                $attributeAssignment->attributeId = $attributeAssignmentData['AttributeId'];
+                $attributeAssignment->value = $attributeAssignmentData['Value'];
+                $attributeAssignment->dataType = $attributeAssignmentData['DataType'] ?? null;
+                $associatedAdvice->attributeAssignments[] = $attributeAssignment;
+            }
+
+            $response->associatedAdvices[] = $associatedAdvice;
+        }
+    }
+
+    if (isset($responseData['Obligations'])) {
+        $response->obligations = [];
+        foreach ($responseData['Obligations'] as $obligationData) {
+            $obligation = new Obligation;
+            $obligation->id = $obligationData['Id'];
+            $obligation->attributeAssignments = [];
+
+            foreach ($obligationData['AttributeAssignment'] as $attributeAssignmentData) {
+                $attributeAssignment = new AttributeAssignment;
+                $attributeAssignment->category = $attributeAssignmentData['Category'];
+                $attributeAssignment->attributeId = $attributeAssignmentData['AttributeId'];
+                $attributeAssignment->value = $attributeAssignmentData['Value'];
+                $attributeAssignment->dataType = $attributeAssignmentData['DataType'] ?? null;
+                $obligation->attributeAssignments[] = $attributeAssignment;
+            }
+
+            $response->obligations[] = $obligation;
+        }
+    }
+
+    $response->policyIdentifier = new PolicyIdentifier;
+    $policyIdentifierData = $responseData['PolicyIdentifier'];
+
+    if (isset($policyIdentifierData['PolicySetIdReference'])) {
+        $response->policyIdentifier->policySetIdReference = [];
+        foreach ($policyIdentifierData['PolicySetIdReference'] as $policySetIdReferenceData) {
+            $policySetIdReference = new PolicySetIdReference;
+            $policySetIdReference->version = $policySetIdReferenceData['Version'];
+            $policySetIdReference->id = $policySetIdReferenceData['Id'];
+            $response->policyIdentifier->policySetIdReference[] = $policySetIdReference;
+        }
+    }
+
+    if (isset($policyIdentifierData['PolicyIdReference'])) {
+        $response->policyIdentifier->policyIdReference = [];
+        foreach ($policyIdentifierData['PolicyIdReference'] as $policyIdReferenceData) {
+            $policyIdReference = new PolicyIdReference;
+            $policyIdReference->version = $policyIdReferenceData['Version'];
+            $policyIdReference->id = $policyIdReferenceData['Id'];
+            $response->policyIdentifier->policyIdReference[] = $policyIdReference;
+        }
+    }
+
+    $response->decision = $responseData['Decision'];
+
+    return $response;
+}
 }

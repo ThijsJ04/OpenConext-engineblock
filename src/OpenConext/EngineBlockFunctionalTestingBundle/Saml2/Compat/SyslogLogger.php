@@ -45,24 +45,18 @@ class SyslogLogger extends AbstractLogger
      * @param $level
      * @return int
      */
-    protected function logLevelToSyslogLevel($level)
-    {
-        switch ($level) {
-            case LogLevel::ALERT:
-                return LOG_ALERT;
-            case LogLevel::CRITICAL:
-                return LOG_CRIT;
-            case LogLevel::DEBUG:
-                return LOG_DEBUG;
-            case LogLevel::EMERGENCY:
-                return LOG_EMERG;
-            case LogLevel::ERROR:
-                return LOG_ERR;
-            case LogLevel::INFO:
-                return LOG_INFO;
-            case LogLevel::NOTICE:
-                return LOG_NOTICE;
-        }
-        return LOG_ERR;
-    }
+protected function logLevelToSyslogLevel($level)
+{
+    static $levelMap = [
+        LogLevel::ALERT => LOG_ALERT,
+        LogLevel::CRITICAL => LOG_CRIT,
+        LogLevel::DEBUG => LOG_DEBUG,
+        LogLevel::EMERGENCY => LOG_EMERG,
+        LogLevel::ERROR => LOG_ERR,
+        LogLevel::INFO => LOG_INFO,
+        LogLevel::NOTICE => LOG_NOTICE,
+    ];
+
+    return $levelMap[$level] ?? LOG_ERR;
+}
 }

@@ -39,22 +39,26 @@ class Logo implements MultilingualElement, JsonSerializable
         $this->url = $url;
     }
 
-    public static function fromJson(array $multiLingualElement): MultilingualElement
-    {
-        if (!array_key_exists('url', $multiLingualElement)) {
-            throw new MduiRuntimeException(
-                'Incomplete MDUI Logo data. The URL is missing while serializing the data from JSON'
-            );
-        }
-        $element = new self($multiLingualElement['url']);
-        if (array_key_exists('height', $multiLingualElement)) {
-            $element->height = $multiLingualElement['height'];
-        }
-        if (array_key_exists('width', $multiLingualElement)) {
-            $element->width = $multiLingualElement['width'];
-        }
-        return $element;
+public static function fromJson(array $multiLingualElement): MultilingualElement
+{
+    if (!isset($multiLingualElement['url'])) {
+        throw new MduiRuntimeException(
+            'Incomplete MDUI Logo data. The URL is missing while serializing the data from JSON'
+        );
     }
+
+    $element = new self($multiLingualElement['url']);
+
+    if (isset($multiLingualElement['height'])) {
+        $element->height = $multiLingualElement['height'];
+    }
+
+    if (isset($multiLingualElement['width'])) {
+        $element->width = $multiLingualElement['width'];
+    }
+
+    return $element;
+}
 
     public function getName(): string
     {

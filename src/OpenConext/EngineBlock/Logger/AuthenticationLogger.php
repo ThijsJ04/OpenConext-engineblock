@@ -45,50 +45,44 @@ class AuthenticationLogger
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList)
      */
-    public function logGrantedLogin(
-        Entity $serviceProvider,
-        Entity $identityProvider,
-        CollabPersonId $collabPersonId,
-        array $proxiedServiceProviders,
-        string $workflowState,
-        string $originalNameId,
-        ?string $authnContextClassRef,
-        ?string $engineSsoEndpointUsed,
-        ?array $requestedIdPlist,
-        KeyId $keyId = null,
-        array $logAttributes = []
-    ) {
-        $proxiedServiceProviderEntityIds = array_map(
-            function (Entity $entity) {
-                return $entity->getEntityId()->getEntityId();
-            },
-            $proxiedServiceProviders
-        );
-
-        $timestamp = $this->generateTimestamp();
-
-        $logData = [
-            'login_stamp' => $timestamp,
-            'user_id' => $collabPersonId->getCollabPersonId(),
-            'sp_entity_id' => $serviceProvider->getEntityId()->getEntityId(),
-            'idp_entity_id' => $identityProvider->getEntityId()->getEntityId(),
-            'key_id' => $keyId ? $keyId->getKeyId() : null,
-            'proxied_sp_entity_ids' => $proxiedServiceProviderEntityIds,
-            'workflow_state' => $workflowState,
-            'original_name_id' => $originalNameId,
-            'authncontextclassref' => $authnContextClassRef,
-            'requestedidps' => $requestedIdPlist,
-            'engine_sso_endpoint_used' => $engineSsoEndpointUsed
-        ];
-        if (!empty($logAttributes)) {
-            $logData['response_attributes'] = $logAttributes;
-        }
-
-        $this->logger->info(
-            'login granted',
-            $logData
-        );
+public function logGrantedLogin(
+    Entity $serviceProvider,
+    Entity $identityProvider,
+    CollabPersonId $collabPersonId,
+    array $proxiedServiceProviders,
+    string $workflowState,
+    string $originalNameId,
+    ?string $authnContextClassRef,
+    ?string $engineSsoEndpointUsed,
+    ?array $requestedIdPlist,
+    KeyId $keyId = null,
+    array $logAttributes = []
+) {
+    $proxiedServiceProviderEntityIds = [];
+    foreach ($proxiedServiceProviders as $entity) {
+        $proxiedServiceProviderEntityIds[] = $entity->getEntityId()->getEntityId();
     }
+
+    $logData = [
+        'login_stamp' => $this->generateTimestamp(),
+        'user_id' => $collabPersonId->getCollabPersonId(),
+        'sp_entity_id' => $serviceProvider->getEntityId()->getEntityId(),
+        'idp_entity_id' => $identityProvider->getEntityId()->getEntityId(),
+        'key_id' => $keyId ? $keyId->getKeyId() : null,
+        'proxied_sp_entity_ids' => $proxiedServiceProviderEntityIds,
+        'workflow_state' => $workflowState,
+        'original_name_id' => $originalNameId,
+        'authncontextclassref' => $authnContextClassRef,
+        'requestedidps' => $requestedIdPlist,
+        'engine_sso_endpoint_used' => $engineSsoEndpointUsed
+    ];
+
+    if (!empty($logAttributes)) {
+        $logData['response_attributes'] = $logAttributes;
+    }
+
+    $this->logger->info('login granted', $logData);
+}
 
     /**
      * Generates a timestamp that is equal to the RFC3339_EXTENDED format

@@ -81,51 +81,42 @@ class MockStepupGateway
      * @param bool $updateAudience [default] false
      * @return Response
      */
-    public function handleSsoSuccess(Request $request, $fullRequestUri, $updateAudience = false)
-    {
-        // parse the authnRequest
-        $authnRequest = $this->parseRequest($request, $fullRequestUri);
+public function handleSsoSuccess(Request $request, $fullRequestUri, $updateAudience = false)
+{
+    $authnRequest = $this->parseRequest($request, $fullRequestUri);
+    $nameId = $authnRequest->getNameId()->getValue();
+    $destination = $authnRequest->getAssertionConsumerServiceURL();
+    $authnContextClassRef = current($authnRequest->getRequestedAuthnContext()['AuthnContextClassRef']);
+    $requestId = $authnRequest->getId();
 
-        // get parameters from authnRequest
-        $nameId = $authnRequest->getNameId()->getValue();
-        $destination = $authnRequest->getAssertionConsumerServiceURL();
-        $authnContextClassRef = current($authnRequest->getRequestedAuthnContext()['AuthnContextClassRef']);
-        $requestId = $authnRequest->getId();
-
-        // handle success
-        return $this->createSecondFactorOnlyResponse(
-            $nameId,
-            $destination,
-            $authnContextClassRef,
-            $requestId,
-            $updateAudience
-        );
-    }
+    return $this->createSecondFactorOnlyResponse(
+        $nameId,
+        $destination,
+        $authnContextClassRef,
+        $requestId,
+        $updateAudience
+    );
+}
 
     /**
      * @param Request $request
      * @param string $fullRequestUri
      * @return Response
      */
-    public function handleSsoSuccessLoa2(Request $request, $fullRequestUri)
-    {
-        // parse the authnRequest
-        $authnRequest = $this->parseRequest($request, $fullRequestUri);
+public function handleSsoSuccessLoa2(Request $request, $fullRequestUri)
+{
+    $authnRequest = $this->parseRequest($request, $fullRequestUri);
+    $nameId = $authnRequest->getNameId()->getValue();
+    $destination = $authnRequest->getAssertionConsumerServiceURL();
+    $requestId = $authnRequest->getId();
 
-        // get parameters from authnRequest
-        $nameId = $authnRequest->getNameId()->getValue();
-        $destination = $authnRequest->getAssertionConsumerServiceURL();
-        $authnContextClassRef = 'https://gateway.tld/authentication/loa2';
-        $requestId = $authnRequest->getId();
-
-        // handle success
-        return $this->createSecondFactorOnlyResponse(
-            $nameId,
-            $destination,
-            $authnContextClassRef,
-            $requestId
-        );
-    }
+    return $this->createSecondFactorOnlyResponse(
+        $nameId,
+        $destination,
+        'https://gateway.tld/authentication/loa2',
+        $requestId
+    );
+}
 
     /**
      * @param Request $request
@@ -177,82 +168,72 @@ class MockStepupGateway
      * @return SAML2AuthnRequest
      * @throws \Exception
      */
-    private function parseRequest(Request $request, $fullRequestUri)
-    {
-        // the GET parameter is already urldecoded by Symfony, so we should not do it again.
-        $requestData = $request->get(self::PARAMETER_REQUEST);
-        $samlRequest = base64_decode($requestData, true);
-        if ($samlRequest === false) {
-            throw new BadRequestHttpException('Failed decoding the request, did not receive a valid base64 string');
-        }
-
-        // Catch any errors gzinflate triggers
-        $errorNo = $errorMessage = null;
-        set_error_handler(function ($number, $message) use (&$errorNo, &$errorMessage): void {
-            $errorNo      = $number;
-            $errorMessage = $message;
-        });
-        $samlRequest = gzinflate($samlRequest);
-        restore_error_handler();
-
-        if ($samlRequest === false) {
-            throw new BadRequestHttpException(sprintf(
-                'Failed inflating the request; error "%d": "%s"',
-                $errorNo,
-                $errorMessage
-            ));
-        }
-
-        // 1. Parse to xml object
-        $document = DOMDocumentFactory::fromString($samlRequest);
-
-        // 2. Parse saml request
-        $authnRequest = Message::fromXML($document->firstChild);
-
-        if (!$authnRequest instanceof SAML2AuthnRequest) {
-            throw new RuntimeException(sprintf(
-                'The received request is not an AuthnRequest, "%s" received instead',
-                substr(get_class($authnRequest), strrpos(get_class($authnRequest), '_') + 1)
-            ));
-        }
-
-        // 3. Validate destination
-        if (!$authnRequest->getDestination() === $fullRequestUri) {
-            throw new BadRequestHttpException(sprintf(
-                'Actual Destination "%s" does not match the AuthnRequest Destination "%s"',
-                $fullRequestUri,
-                $authnRequest->getDestination()
-            ));
-        }
-
-        // 4. Validate issuer
-        if (!$this->gatewayConfiguration->getServiceProviderEntityId() === $authnRequest->getIssuer()) {
-            throw new BadRequestHttpException(sprintf(
-                'Actual issuer "%s" does not match the AuthnRequest Issuer "%s"',
-                $this->gatewayConfiguration->getServiceProviderEntityId(),
-                $authnRequest->getIssuer()->getValue()
-            ));
-        }
-
-        // 5. Validate key
-        // Note: $authnRequest->validate throws an Exception when the signature does not match.
-        $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, array('type' => 'public'));
-        $key->loadKey($this->gatewayConfiguration->getIdentityProviderPublicKeyCertData());
-
-        // The query string to validate needs to be urlencoded again because Symfony has already decoded this for us
-        $query = self::PARAMETER_REQUEST . '=' . urlencode($requestData);
-        $query .= '&' . self::PARAMETER_SIGNATURE_ALGORITHM . '=' . urlencode($request->get(self::PARAMETER_SIGNATURE_ALGORITHM));
-
-        $signature = base64_decode($request->get(self::PARAMETER_SIGNATURE));
-
-        if (!$key->verifySignature($query, $signature)) {
-            throw new BadRequestHttpException(
-                'Validation of the signature in the AuthnRequest failed'
-            );
-        }
-
-        return $authnRequest;
+private function parseRequest(Request $request, $fullRequestUri)
+{
+    $requestData = $request->get(self::PARAMETER_REQUEST);
+    $samlRequest = base64_decode($requestData, true);
+    if ($samlRequest === false) {
+        throw new BadRequestHttpException('Failed decoding the request, did not receive a valid base64 string');
     }
+
+    $errorNo = $errorMessage = null;
+    set_error_handler(function ($number, $message) use (&$errorNo, &$errorMessage): void {
+        $errorNo = $number;
+        $errorMessage = $message;
+    });
+    $samlRequest = gzinflate($samlRequest);
+    restore_error_handler();
+
+    if ($samlRequest === false) {
+        throw new BadRequestHttpException(sprintf(
+            'Failed inflating the request; error "%d": "%s"',
+            $errorNo,
+            $errorMessage
+        ));
+    }
+
+    $document = DOMDocumentFactory::fromString($samlRequest);
+    $authnRequest = Message::fromXML($document->firstChild);
+
+    if (!$authnRequest instanceof SAML2AuthnRequest) {
+        throw new RuntimeException(sprintf(
+            'The received request is not an AuthnRequest, "%s" received instead',
+            substr(get_class($authnRequest), strrpos(get_class($authnRequest), '_') + 1)
+        ));
+    }
+
+    if ($authnRequest->getDestination() !== $fullRequestUri) {
+        throw new BadRequestHttpException(sprintf(
+            'Actual Destination "%s" does not match the AuthnRequest Destination "%s"',
+            $fullRequestUri,
+            $authnRequest->getDestination()
+        ));
+    }
+
+    if ($this->gatewayConfiguration->getServiceProviderEntityId() !== $authnRequest->getIssuer()) {
+        throw new BadRequestHttpException(sprintf(
+            'Actual issuer "%s" does not match the AuthnRequest Issuer "%s"',
+            $this->gatewayConfiguration->getServiceProviderEntityId(),
+            $authnRequest->getIssuer()->getValue()
+        ));
+    }
+
+    $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, array('type' => 'public'));
+    $key->loadKey($this->gatewayConfiguration->getIdentityProviderPublicKeyCertData());
+
+    $query = self::PARAMETER_REQUEST . '=' . urlencode($requestData);
+    $query .= '&' . self::PARAMETER_SIGNATURE_ALGORITHM . '=' . urlencode($request->get(self::PARAMETER_SIGNATURE_ALGORITHM));
+
+    $signature = base64_decode($request->get(self::PARAMETER_SIGNATURE));
+
+    if (!$key->verifySignature($query, $signature)) {
+        throw new BadRequestHttpException(
+            'Validation of the signature in the AuthnRequest failed'
+        );
+    }
+
+    return $authnRequest;
+}
 
     /**
      * @param Response $response
@@ -271,37 +252,34 @@ class MockStepupGateway
      * @param string|null $message The textual message
      * @return Response
      */
-    private function createFailureResponse($destination, $requestId, $status, $subStatus = null, $message = null)
-    {
-        $response = new Response();
-        $response->setDestination($destination);
-        $issuer = new Issuer();
-        $issuer->setValue($this->gatewayConfiguration->getIdentityProviderEntityId());
-        $response->setIssuer($issuer);
-        $response->setIssueInstant($this->getTimestamp());
-        $response->setInResponseTo($requestId);
+private function createFailureResponse($destination, $requestId, $status, $subStatus = null, $message = null)
+{
+    $response = new Response();
+    $response->setDestination($destination);
+    $response->setIssuer(new Issuer($this->gatewayConfiguration->getIdentityProviderEntityId()));
+    $response->setIssueInstant($this->getTimestamp());
+    $response->setInResponseTo($requestId);
 
-
-        if (!$this->isValidResponseStatus($status)) {
-            throw new LogicException(sprintf('Trying to set invalid Response Status'));
-        }
-
-        if ($subStatus && !$this->isValidResponseSubStatus($subStatus)) {
-            throw new LogicException(sprintf('Trying to set invalid Response SubStatus'));
-        }
-
-        $status = ['Code' => $status];
-        if ($subStatus) {
-            $status['SubCode'] = $subStatus;
-        }
-        if ($message) {
-            $status['Message'] = $message;
-        }
-
-        $response->setStatus($status);
-
-        return $response;
+    if (!$this->isValidResponseStatus($status)) {
+        throw new LogicException('Trying to set invalid Response Status');
     }
+
+    if ($subStatus && !$this->isValidResponseSubStatus($subStatus)) {
+        throw new LogicException('Trying to set invalid Response SubStatus');
+    }
+
+    $statusData = ['Code' => $status];
+    if ($subStatus) {
+        $statusData['SubCode'] = $subStatus;
+    }
+    if ($message) {
+        $statusData['Message'] = $message;
+    }
+
+    $response->setStatus($statusData);
+
+    return $response;
+}
 
     /**
      * @param Assertion $newAssertion
@@ -331,31 +309,37 @@ class MockStepupGateway
      * @param bool $updateAudience [default] false
      * @return Assertion
      */
-    private function createNewAssertion($nameId, $authnContextClassRef, $destination, $requestId, $updateAudience = false)
-    {
-        $newAssertion = new Assertion();
-        $newAssertion->setNotBefore($this->currentTime->getTimestamp());
-        $newAssertion->setNotOnOrAfter($this->getTimestamp('PT5M'));
-        $issuer = new Issuer();
-        $issuer->setValue($this->gatewayConfiguration->getIdentityProviderEntityId());
-        $newAssertion->setIssuer($issuer);
-        $newAssertion->setIssueInstant($this->getTimestamp());
-        $this->signAssertion($newAssertion);
-        $this->addSubjectConfirmationFor($newAssertion, $destination, $requestId);
-        $newNameId = new NameID();
-        $newNameId->setValue($nameId);
-        $newNameId->setFormat(Constants::NAMEID_UNSPECIFIED);
-        $newAssertion->setNameId($newNameId);
-        $audiences = [$this->gatewayConfiguration->getServiceProviderEntityId()];
-        // If the entity id being updated, then set that new EntityId as the audience for this assertion
-        if ($updateAudience) {
-            $audiences = [$this->sfoRolloverEntityId];
-        }
-        $newAssertion->setValidAudiences($audiences);
-        $this->addAuthenticationStatementTo($newAssertion, $authnContextClassRef);
+private function createNewAssertion($nameId, $authnContextClassRef, $destination, $requestId, $updateAudience = false)
+{
+    $newAssertion = new Assertion();
+    $timestamp = $this->getTimestamp();
+    $notOnOrAfter = $this->getTimestamp('PT5M');
 
-        return $newAssertion;
-    }
+    $newAssertion->setNotBefore($timestamp);
+    $newAssertion->setNotOnOrAfter($notOnOrAfter);
+
+    $issuer = new Issuer();
+    $issuer->setValue($this->gatewayConfiguration->getIdentityProviderEntityId());
+    $newAssertion->setIssuer($issuer);
+    $newAssertion->setIssueInstant($timestamp);
+
+    $this->signAssertion($newAssertion);
+    $this->addSubjectConfirmationFor($newAssertion, $destination, $requestId);
+
+    $newNameId = new NameID();
+    $newNameId->setValue($nameId);
+    $newNameId->setFormat(Constants::NAMEID_UNSPECIFIED);
+    $newAssertion->setNameId($newNameId);
+
+    $audiences = $updateAudience
+        ? [$this->sfoRolloverEntityId]
+        : [$this->gatewayConfiguration->getServiceProviderEntityId()];
+    $newAssertion->setValidAudiences($audiences);
+
+    $this->addAuthenticationStatementTo($newAssertion, $authnContextClassRef);
+
+    return $newAssertion;
+}
 
     /**
      * @param Assertion $newAssertion
@@ -444,28 +428,30 @@ class MockStepupGateway
         ]);
     }
 
-    private function isValidResponseSubStatus($subStatus)
-    {
-        return in_array($subStatus, [
-            Constants::STATUS_AUTHN_FAILED,               // failed authentication
-            Constants::STATUS_INVALID_ATTR,
-            Constants::STATUS_INVALID_NAMEID_POLICY,
-            Constants::STATUS_NO_AUTHN_CONTEXT,           // insufficient Loa or Loa cannot be met
-            Constants::STATUS_NO_AVAILABLE_IDP,
-            Constants::STATUS_NO_PASSIVE,
-            Constants::STATUS_NO_SUPPORTED_IDP,
-            Constants::STATUS_PARTIAL_LOGOUT,
-            Constants::STATUS_PROXY_COUNT_EXCEEDED,
-            Constants::STATUS_REQUEST_DENIED,
-            Constants::STATUS_REQUEST_UNSUPPORTED,
-            Constants::STATUS_REQUEST_VERSION_DEPRECATED,
-            Constants::STATUS_REQUEST_VERSION_TOO_HIGH,
-            Constants::STATUS_REQUEST_VERSION_TOO_LOW,
-            Constants::STATUS_RESOURCE_NOT_RECOGNIZED,
-            Constants::STATUS_TOO_MANY_RESPONSES,
-            Constants::STATUS_UNKNOWN_ATTR_PROFILE,
-            Constants::STATUS_UNKNOWN_PRINCIPAL,
-            Constants::STATUS_UNSUPPORTED_BINDING,
-        ]);
-    }
+private function isValidResponseSubStatus($subStatus)
+{
+    static $validSubStatuses = [
+        Constants::STATUS_AUTHN_FAILED,
+        Constants::STATUS_INVALID_ATTR,
+        Constants::STATUS_INVALID_NAMEID_POLICY,
+        Constants::STATUS_NO_AUTHN_CONTEXT,
+        Constants::STATUS_NO_AVAILABLE_IDP,
+        Constants::STATUS_NO_PASSIVE,
+        Constants::STATUS_NO_SUPPORTED_IDP,
+        Constants::STATUS_PARTIAL_LOGOUT,
+        Constants::STATUS_PROXY_COUNT_EXCEEDED,
+        Constants::STATUS_REQUEST_DENIED,
+        Constants::STATUS_REQUEST_UNSUPPORTED,
+        Constants::STATUS_REQUEST_VERSION_DEPRECATED,
+        Constants::STATUS_REQUEST_VERSION_TOO_HIGH,
+        Constants::STATUS_REQUEST_VERSION_TOO_LOW,
+        Constants::STATUS_RESOURCE_NOT_RECOGNIZED,
+        Constants::STATUS_TOO_MANY_RESPONSES,
+        Constants::STATUS_UNKNOWN_ATTR_PROFILE,
+        Constants::STATUS_UNKNOWN_PRINCIPAL,
+        Constants::STATUS_UNSUPPORTED_BINDING,
+    ];
+
+    return isset($validSubStatuses[$subStatus]);
+}
 }
