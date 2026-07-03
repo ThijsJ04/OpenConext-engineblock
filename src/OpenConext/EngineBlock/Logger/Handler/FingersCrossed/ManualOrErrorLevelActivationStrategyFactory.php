@@ -44,28 +44,28 @@ final class ManualOrErrorLevelActivationStrategyFactory implements ActivationStr
      * @return array
      * @throws InvalidArgumentException
      */
-    private static function validateAndNormalizeConfig(array $config)
-    {
-        Assertion::keyIsset($config, 'action_level', 'Missing configuration value, configuration key "%s" not found');
-        Assertion::string($config['action_level']);
+private static function validateAndNormalizeConfig(array $config)
+{
+    Assertion::keyIsset($config, 'action_level', 'Missing configuration value, configuration key "%s" not found');
+    Assertion::string($config['action_level']);
 
-        $config['action_level'] = strtolower($config['action_level']);
+    $config['action_level'] = strtolower($config['action_level']);
 
-        Assertion::choice(
-            $config['action_level'],
-            [
-                LogLevel::EMERGENCY,
-                LogLevel::ALERT,
-                LogLevel::CRITICAL,
-                LogLevel::ERROR,
-                LogLevel::WARNING,
-                LogLevel::NOTICE,
-                LogLevel::INFO,
-                LogLevel::DEBUG,
-            ],
-            'Configured action level must be a valid PSR-compliant log level: "%s"'
-        );
+    Assertion::choice(
+        $config['action_level'],
+        [
+            LogLevel::EMERGENCY,
+            LogLevel::ALERT,
+            LogLevel::CRITICAL,
+            LogLevel::ERROR,
+            LogLevel::WARNING,
+            LogLevel::NOTICE,
+            LogLevel::INFO,
+            LogLevel::DEBUG,
+        ],
+        'Configured action level must be a valid PSR-compliant log level: "%s"'
+    );
 
-        return $config;
-    }
+    return $config;
+}
 }

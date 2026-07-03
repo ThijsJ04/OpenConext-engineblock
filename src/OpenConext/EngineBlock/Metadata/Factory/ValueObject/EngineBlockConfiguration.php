@@ -75,38 +75,34 @@ class EngineBlockConfiguration
      */
     private $contactPersons;
 
-    public function __construct(
-        \Symfony\Contracts\Translation\TranslatorInterface $translator,
-        string $supportMail,
-        string $description,
-        string $engineHostName,
-        string $logoPath,
-        int $logoWidth,
-        int $logoHeight
-    ) {
-        $this->suiteName = $translator->trans('suite_name');
-        $this->engineHostName = $engineHostName;
-        $this->organizationName = $translator->trans('metadata_organization_name');
-        $this->organizationDisplayName = $translator->trans('metadata_organization_displayname');
-        $this->organizationUrl = $translator->trans('metadata_organization_url');
-        $this->supportMail = $supportMail;
-        $this->description = $description;
+public function __construct(
+    \Symfony\Contracts\Translation\TranslatorInterface $translator,
+    string $supportMail,
+    string $description,
+    string $engineHostName,
+    string $logoPath,
+    int $logoWidth,
+    int $logoHeight
+) {
+    $this->suiteName = $translator->trans('suite_name');
+    $this->engineHostName = $engineHostName;
+    $this->organizationName = $translator->trans('metadata_organization_name');
+    $this->organizationDisplayName = $translator->trans('metadata_organization_displayname');
+    $this->organizationUrl = $translator->trans('metadata_organization_url');
+    $this->supportMail = $supportMail;
+    $this->description = $description;
 
-        // A logo VO is created during construction time, the schema for the url is hard coded, we assume engine is
-        // configured with TLS. The host name is read from the `hostname` ini config setting.
-        $logoUrl = 'https://' . $this->engineHostName . $logoPath;
+    $logoUrl = 'https://' . $this->engineHostName . $logoPath;
+    $this->logo = new Logo($logoUrl);
+    $this->logo->width = $logoWidth;
+    $this->logo->height = $logoHeight;
 
-        $this->logo = new Logo($logoUrl);
-        $this->logo->width = $logoWidth;
-        $this->logo->height = $logoHeight;
-
-        // Create the contact person data for the EB SP entity
-        $support = ContactPerson::from('support', $this->organizationName, 'Support', $this->supportMail);
-        $technical = ContactPerson::from('technical', $this->organizationName, 'Support', $this->supportMail);
-        $administrative = ContactPerson::from('administrative', $this->organizationName, 'Support', $this->supportMail);
-
-        $this->contactPersons = [$support, $technical, $administrative];
-    }
+    $this->contactPersons = [
+        ContactPerson::from('support', $this->organizationName, 'Support', $this->supportMail),
+        ContactPerson::from('technical', $this->organizationName, 'Support', $this->supportMail),
+        ContactPerson::from('administrative', $this->organizationName, 'Support', $this->supportMail)
+    ];
+}
 
     public function getName(): string
     {

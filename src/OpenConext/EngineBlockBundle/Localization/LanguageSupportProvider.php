@@ -31,25 +31,25 @@ class LanguageSupportProvider
      * @param string[] $availableLanguages
      * @param string[] $enabledLanguages
      */
-    public function __construct(array $availableLanguages, array $enabledLanguages)
-    {
-        $languages = [];
-        foreach ($enabledLanguages as $language) {
-            if (in_array($language, $availableLanguages)) {
-                $languages[$language] = $language;
-            } else {
-                throw new UnsupportedLanguageException(
-                    sprintf("Unable to activate unsupported language '%s', please check your configuration", $language)
-                );
-            }
+public function __construct(array $availableLanguages, array $enabledLanguages)
+{
+    $languages = [];
+    foreach ($enabledLanguages as $language) {
+        if (in_array($language, $availableLanguages)) {
+            $languages[$language] = true;
+        } else {
+            throw new UnsupportedLanguageException(
+                sprintf("Unable to activate unsupported language '%s', please check your configuration", $language)
+            );
         }
-
-        if (empty($languages)) {
-            throw new UnsupportedLanguageException('No active languages are configured, please check your configuration');
-        }
-
-        $this->supportedLanguages = array_values($languages);
     }
+
+    if (empty($languages)) {
+        throw new UnsupportedLanguageException('No active languages are configured, please check your configuration');
+    }
+
+    $this->supportedLanguages = array_keys($languages);
+}
 
     /**
      * @return string[]

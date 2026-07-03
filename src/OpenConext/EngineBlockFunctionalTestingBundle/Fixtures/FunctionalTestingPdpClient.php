@@ -51,100 +51,94 @@ final class FunctionalTestingPdpClient implements PdpClientInterface
     /**
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
-    public function requestDecisionFor(Request $request) : PolicyDecision
-    {
-        $pdpResponse = new Response();
+public function requestDecisionFor(Request $request) : PolicyDecision
+{
+    $pdpResponse = new Response();
+    $decision = $this->policyDecisionFixture;
+    $additionalData = [];
 
-        $isSpecificDenyResponse = is_array($this->policyDecisionFixture)
-            && $this->policyDecisionFixture[0] === PolicyDecision::DECISION_DENY;
-        $isObligationResponse = is_array($this->policyDecisionFixture)
-            && $this->policyDecisionFixture[0] === PolicyDecision::DECISION_PERMIT;
+    if (is_array($this->policyDecisionFixture)) {
+        $decision = $this->policyDecisionFixture[0];
+        $additionalData = $this->policyDecisionFixture;
+    }
 
-        $decision = $this->policyDecisionFixture;
-        $additionalData = [];
-        if ($isSpecificDenyResponse || $isObligationResponse) {
-            $decision = $this->policyDecisionFixture[0];
-            $additionalData = $this->policyDecisionFixture;
-        }
+    switch ($decision) {
+        case PolicyDecision::DECISION_DENY:
+            $pdpResponse->decision = PolicyDecision::DECISION_DENY;
 
-        switch ($decision) {
-            case PolicyDecision::DECISION_DENY:
-                $pdpResponse->decision = PolicyDecision::DECISION_DENY;
+            $idp = $additionalData['idpName'] ?? '';
 
-                $idp = $this->getIdpFromAdditionalData($additionalData);
+            $englishDenyMessage = new AttributeAssignment();
+            $englishDenyMessage->attributeId = 'DenyMessage:en';
+            $englishDenyMessage->value = sprintf('Students of %s do not have access to this resource', $idp);
+            $dutchDenyMessage = new AttributeAssignment();
+            $dutchDenyMessage->attributeId = 'DenyMessage:nl';
+            $dutchDenyMessage->value = sprintf('Studenten van %s hebben geen toegang tot deze dienst', $idp);
+            $idpOnlyMessage = new AttributeAssignment();
+            $idpOnlyMessage->attributeId = 'IdPOnly';
+            $idpOnlyMessage->value = true;
 
-                $englishDenyMessage = new AttributeAssignment();
-                $englishDenyMessage->attributeId = 'DenyMessage:en';
-                $englishDenyMessage->value = sprintf('Students of %s do not have access to this resource', $idp);
-                $dutchDenyMessage = new AttributeAssignment();
-                $dutchDenyMessage->attributeId = 'DenyMessage:nl';
-                $dutchDenyMessage->value = sprintf('Studenten van %s hebben geen toegang tot deze dienst', $idp);
-                $idpOnlyMessage = new AttributeAssignment();
-                $idpOnlyMessage->attributeId = 'IdPOnly';
-                $idpOnlyMessage->value = true;
+            $associatedAdvice = new AssociatedAdvice();
+            $associatedAdvice->attributeAssignments = [$englishDenyMessage, $dutchDenyMessage, $idpOnlyMessage];
+            $pdpResponse->associatedAdvices = [$associatedAdvice];
+            break;
+        case PolicyDecision::DECISION_INDETERMINATE:
+            $pdpResponse->decision = PolicyDecision::DECISION_INDETERMINATE;
 
-                $associatedAdvice = new AssociatedAdvice();
-                $associatedAdvice->attributeAssignments = [$englishDenyMessage, $dutchDenyMessage, $idpOnlyMessage];
-                $pdpResponse->associatedAdvices = [$associatedAdvice];
-                break;
-            case PolicyDecision::DECISION_INDETERMINATE:
-                $pdpResponse->decision = PolicyDecision::DECISION_INDETERMINATE;
-
-                $pdpResponse->status = new Status();
-                $pdpResponse->status->statusDetail = <<<XML_WRAP
-    <MissingAttributeDetail 
+            $pdpResponse->status = new Status();
+            $pdpResponse->status->statusDetail = <<<XML_WRAP
+    <MissingAttributeDetail
         Category="urn:oasis:names:tc:xacml:1.0:subject-category:access-subject"
         AttributeId="urn:mace:dir:attribute-def:eduPersonAffiliation"
         DataType="http://www.w3.org/2001/XMLSchema#string"/>
 XML_WRAP;
-                $pdpResponse->status->statusCode = new StatusCode();
-                $pdpResponse->status->statusCode->value = 'urn:oasis:names:tc:xacml:1.0:status:missing-attribute';
-                $pdpResponse->status->statusMessage = 'Missing required attribute';
-                break;
-            case PolicyDecision::DECISION_NOT_APPLICABLE:
-                $pdpResponse->decision = PolicyDecision::DECISION_NOT_APPLICABLE;
-                break;
-            case PolicyDecision::DECISION_PERMIT:
-                $pdpResponse->decision = PolicyDecision::DECISION_PERMIT;
+            $pdpResponse->status->statusCode = new StatusCode();
+            $pdpResponse->status->statusCode->value = 'urn:oasis:names:tc:xacml:1.0:status:missing-attribute';
+            $pdpResponse->status->statusMessage = 'Missing required attribute';
+            break;
+        case PolicyDecision::DECISION_NOT_APPLICABLE:
+            $pdpResponse->decision = PolicyDecision::DECISION_NOT_APPLICABLE;
+            break;
+        case PolicyDecision::DECISION_PERMIT:
+            $pdpResponse->decision = PolicyDecision::DECISION_PERMIT;
 
-                $loaId = $this->getLoaIdFromAdditionalData($additionalData);
-                if ($loaId) {
-                    $obligation = new Obligation;
-                    $obligation->id = 'urn:openconext:stepup:loa';
-                    $attributeAssignment = new AttributeAssignment;
-                    $attributeAssignment->category    = 'urn:oasis:names:tc:xacml:1.0:subject-category:access-subject';
-                    $attributeAssignment->attributeId = 'urn:loa:level';
-                    $attributeAssignment->value       = $loaId;
-                    $attributeAssignment->dataType    = 'http://www.w3.org/2001/XMLSchema#string';
-                    $obligation->attributeAssignments[] = $attributeAssignment;
-                    $pdpResponse->obligations[] = $obligation;
-                }
-                break;
-            default:
-                $invalidData = $this->policyDecisionFixture;
-                if (!is_string($invalidData)) {
-                    $invalidData = get_debug_type($invalidData);
-                }
+            $loaId = $additionalData['loaId'] ?? '';
+            if ($loaId) {
+                $obligation = new Obligation;
+                $obligation->id = 'urn:openconext:stepup:loa';
+                $attributeAssignment = new AttributeAssignment;
+                $attributeAssignment->category    = 'urn:oasis:names:tc:xacml:1.0:subject-category:access-subject';
+                $attributeAssignment->attributeId = 'urn:loa:level';
+                $attributeAssignment->value       = $loaId;
+                $attributeAssignment->dataType    = 'http://www.w3.org/2001/XMLSchema#string';
+                $obligation->attributeAssignments[] = $attributeAssignment;
+                $pdpResponse->obligations[] = $obligation;
+            }
+            break;
+        default:
+            $invalidData = is_string($this->policyDecisionFixture)
+                ? $this->policyDecisionFixture
+                : get_debug_type($this->policyDecisionFixture);
 
-                throw new RuntimeException(
-                    sprintf(
-                        'Invalid Policy Decision fixture given: expected one of "%s", got: "%s"',
-                        implode(
-                            ', ',
-                            [
-                                PolicyDecision::DECISION_DENY,
-                                PolicyDecision::DECISION_INDETERMINATE,
-                                PolicyDecision::DECISION_NOT_APPLICABLE,
-                                PolicyDecision::DECISION_PERMIT,
-                            ]
-                        ),
-                        $invalidData
-                    )
-                );
-        }
-
-        return PolicyDecision::fromResponse($pdpResponse);
+            throw new RuntimeException(
+                sprintf(
+                    'Invalid Policy Decision fixture given: expected one of "%s", got: "%s"',
+                    implode(
+                        ', ',
+                        [
+                            PolicyDecision::DECISION_DENY,
+                            PolicyDecision::DECISION_INDETERMINATE,
+                            PolicyDecision::DECISION_NOT_APPLICABLE,
+                            PolicyDecision::DECISION_PERMIT,
+                        ]
+                    ),
+                    $invalidData
+                )
+            );
     }
+
+    return PolicyDecision::fromResponse($pdpResponse);
+}
 
     public function receiveDenyResponse()
     {

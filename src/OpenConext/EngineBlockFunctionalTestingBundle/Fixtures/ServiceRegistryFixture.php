@@ -145,87 +145,75 @@ class ServiceRegistryFixture
         return $this;
     }
 
-    public function registerSp($name, $entityId, $acsLocation, $certData = '')
-    {
-        $sp = new ServiceProvider($entityId);
-        $sp->workflowState = 'prodaccepted';
+public function registerSp($name, $entityId, $acsLocation, $certData = '')
+{
+    $sp = new ServiceProvider($entityId);
+    $sp->workflowState = 'prodaccepted';
 
-        $this->assembleEntityName($sp, $name);
-        $this->assembleCertificateData($sp, $certData);
+    $this->assembleEntityName($sp, $name);
+    $this->assembleCertificateData($sp, $certData);
 
-        $sp->assertionConsumerServices[] = new IndexedService(
-            $acsLocation,
-            Constants::BINDING_HTTP_POST,
-            0
-        );
+    $sp->assertionConsumerServices[] = new IndexedService(
+        $acsLocation,
+        Constants::BINDING_HTTP_POST,
+        0
+    );
 
-        $this->setCoin($sp, 'termsOfServiceUrl', 'http://welcome.dev.openconext.local');
-        $sp->getMdui()->setLogo(new Logo('/images/placeholder.png'));
+    $this->setCoin($sp, 'termsOfServiceUrl', 'http://welcome.dev.openconext.local');
+    $sp->getMdui()->setLogo(new Logo('/images/placeholder.png'));
 
-
-        // The repository does not allow us to retrieve all SP's for good reason. In functional testing mode the total
-        // number of SP's should always be limited.
-        $idpEntityIDQuery = <<<QUERY
-        SELECT `entity_id`
-        FROM `sso_provider_roles_eb5`
-        WHERE `type` = 'idp'
+    $idpEntityIDQuery = <<<QUERY
+    SELECT `entity_id`
+    FROM `sso_provider_roles_eb5`
+    WHERE `type` = 'idp'
 QUERY;
-        $query = $this->entityManager->getConnection()->prepare($idpEntityIDQuery);
-        assert($query instanceof Statement);
-        $result = $query->executeQuery();
-        $idps = $result->fetchAllAssociative();
+    $query = $this->entityManager->getConnection()->prepare($idpEntityIDQuery);
+    assert($query instanceof Statement);
+    $result = $query->executeQuery();
+    $idps = $result->fetchAllAssociative();
 
-        foreach ($idps as $idpEntityId) {
-            $idp = $this->repository->findIdentityProviderByEntityId($idpEntityId['entity_id']);
-            $sp->allowedIdpEntityIds[] = $idp->entityId;
-        }
+    $allowedIdpEntityIds = [];
+    foreach ($idps as $idpEntityId) {
+        $allowedIdpEntityIds[] = $idpEntityId['entity_id'];
+    }
+    $sp->allowedIdpEntityIds = $allowedIdpEntityIds;
 
+    $this->entityManager->persist($sp);
+
+    return $this;
+}
+
+public function registerIdp($name, $entityId, $ssoLocation, $certData = '', $discoveries = [])
+{
+    $idp = new IdentityProvider($entityId);
+    $this->assembleEntityName($idp, $name);
+    $this->assembleCertificateData($idp, $certData);
+
+    $idp->singleSignOnServices[] = new Service($ssoLocation, Constants::BINDING_HTTP_POST);
+    $idp->singleSignOnServices[] = new Service($ssoLocation, Constants::BINDING_HTTP_REDIRECT);
+
+    $contact = new ContactPerson('support');
+    $contact->emailAddress = 'support@openconext.org';
+    $contact->telephoneNumber = '+31612345678';
+    $idp->contactPersons[] = $contact;
+
+    $spEntityIDQuery = 'SELECT `entity_id` FROM `sso_provider_roles_eb5` WHERE `type` = \'sp\'';
+    $query = $this->entityManager->getConnection()->prepare($spEntityIDQuery);
+    assert($query instanceof Statement);
+    $result = $query->executeQuery();
+
+    $idpEntityId = $idp->entityId;
+    foreach ($result->iterateAssociative() as $spEntityId) {
+        $sp = $this->repository->findServiceProviderByEntityId($spEntityId['entity_id']);
+        $sp->allowedIdpEntityIds[] = $idpEntityId;
         $this->entityManager->persist($sp);
-
-        return $this;
     }
 
-    public function registerIdp($name, $entityId, $ssoLocation, $certData = '', $discoveries = [])
-    {
-        $idp = new IdentityProvider($entityId);
-        $this->assembleEntityName($idp, $name);
-        $this->assembleCertificateData($idp, $certData);
+    $idp->setDiscoveries($discoveries);
+    $this->entityManager->persist($idp);
 
-        $idp->singleSignOnServices[] = new Service($ssoLocation, Constants::BINDING_HTTP_POST);
-        $idp->singleSignOnServices[] = new Service($ssoLocation, Constants::BINDING_HTTP_REDIRECT);
-
-        $contact = new ContactPerson('support');
-        $contact->emailAddress = 'support@openconext.org';
-        $contact->telephoneNumber = '+31612345678';
-
-        $idp->contactPersons[] = $contact;
-
-        // The repository does not allow us to retrieve all SP's for good reason. In functional testing mode the total
-        // number of SP's should always be limited.
-        $spEntityIDQuery = <<<QUERY
-        SELECT `entity_id`
-        FROM `sso_provider_roles_eb5`
-        WHERE `type` = 'sp'
-QUERY;
-        $query = $this->entityManager->getConnection()->prepare($spEntityIDQuery);
-        assert($query instanceof Statement);
-        $result = $query->executeQuery();
-        $sps = $result->fetchAllAssociative();
-
-        foreach ($sps as $spEntityId) {
-            $sp = $this->repository->findServiceProviderByEntityId($spEntityId['entity_id']);
-            $sp->allowedIdpEntityIds[] = $idp->entityId;
-
-            // Why is this needed?
-            $this->entityManager->persist($sp);
-        }
-
-        $idp->setDiscoveries($discoveries);
-
-        $this->entityManager->persist($idp);
-
-        return $this;
-    }
+    return $this;
+}
 
     /**
      * @param AbstractRole $entity
@@ -384,89 +372,71 @@ QUERY;
         return $this;
     }
 
-    public function allowAttributeValueForSp($entityId, $arpAttribute, $attributeValue, $attributeSource = null, $motivation = null)
-    {
-        /** @var AttributeReleasePolicy $arp */
-        $entity = $this->getServiceProvider($entityId);
-        $arp = $entity->attributeReleasePolicy;
+public function allowAttributeValueForSp($entityId, $arpAttribute, $attributeValue, $attributeSource = null, $motivation = null)
+{
+    $entity = $this->getServiceProvider($entityId);
+    $arp = $entity->attributeReleasePolicy;
+    $rules = $arp !== null ? $arp->getAttributeRules() : [];
 
-        $rules = [];
+    $attributeSource = $attributeSource ?: 'idp';
 
-        if (!empty($arp)) {
-            $rules = $arp->getAttributeRules();
-        }
+    $arpRule = [
+        'value' => $attributeValue,
+        'source' => $attributeSource,
+    ];
 
-        if (empty($attributeSource)) {
-            $attributeSource = 'idp';
-        }
-
-        $arpRule = [
-            'value' => $attributeValue,
-            'source' => $attributeSource,
-            'motivation' => $motivation,
-        ];
-
-        $rules[$arpAttribute] = [$arpRule];
-
-        $entity->attributeReleasePolicy = new AttributeReleasePolicy($rules);
-
-        return $this;
+    if ($motivation !== null) {
+        $arpRule['motivation'] = $motivation;
     }
 
-    public function allowAttributeReleasedAsForSp($entityId, $arpAttribute, $releasedAs)
-    {
-        /** @var AttributeReleasePolicy $arp */
-        $arp = $this->getServiceProvider($entityId)->attributeReleasePolicy;
+    $rules[$arpAttribute] = [$arpRule];
+    $entity->attributeReleasePolicy = new AttributeReleasePolicy($rules);
 
-        $rules = [];
+    return $this;
+}
 
-        if (!empty($arp)) {
-            $rules = $arp->getAttributeRules();
-        }
+public function allowAttributeReleasedAsForSp($entityId, $arpAttribute, $releasedAs)
+{
+    $entity = $this->getServiceProvider($entityId);
+    $arp = $entity->attributeReleasePolicy;
+    $rules = $arp !== null ? $arp->getAttributeRules() : [];
 
-        $arpRule = [
+    $rules[$arpAttribute] = [
+        [
             'value' => "*",
             'source' => 'idp',
             'release_as' => $releasedAs,
+        ]
+    ];
+
+    $entity->attributeReleasePolicy = new AttributeReleasePolicy($rules);
+
+    return $this;
+}
+
+
+public function substituteNameIdWithAttributeValue(string $entityId, $attributeName)
+{
+    $entity = $this->getServiceProvider($entityId);
+    $arp = $entity->attributeReleasePolicy;
+    $rules = $arp !== null ? $arp->getAttributeRules() : [];
+
+    if (!isset($rules[$attributeName])) {
+        $rules[$attributeName] = [
+            [
+                'value' => "*",
+                'source' => 'idp',
+                'use_as_nameid' => true,
+            ]
         ];
-
-        $rules[$arpAttribute] = [$arpRule];
-
-        $this->getServiceProvider($entityId)->attributeReleasePolicy = new AttributeReleasePolicy($rules);
-
-        return $this;
+    } else {
+        $rules[$attributeName][0]['use_as_nameid'] = true;
     }
 
+    $entity->attributeReleasePolicy = new AttributeReleasePolicy($rules);
 
-    public function substituteNameIdWithAttributeValue(string $entityId, $attributeName)
-    {
-        /** @var AttributeReleasePolicy $arp */
-        $arp = $this->getServiceProvider($entityId)->attributeReleasePolicy;
-
-        $rules = [];
-
-        if (!empty($arp)) {
-            $rules = $arp->getAttributeRules();
-        }
-
-        $arpRule = [
-            'value' => "*",
-            'source' => 'idp',
-            'use_as_nameid' => true,
-        ];
-        // It could be the rule was already added (for example to set the release_as directive)
-        // in that case, load the existing rule and add the 'use_as_nameid'
-        if (array_key_exists($attributeName, $rules)) {
-            $arpRule = $rules[$attributeName][0];
-            $arpRule['use_as_nameid'] = true;
-        }
-
-        $rules[$attributeName] = [$arpRule];
-
-        $this->getServiceProvider($entityId)->attributeReleasePolicy = new AttributeReleasePolicy($rules);
-
-        return $this;
-    }
+    return $this;
+}
 
     public function setSpWorkflowState($entityId, $workflowState)
     {
