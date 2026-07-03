@@ -72,29 +72,29 @@ class SsoNotificationService
      * @param  EngineBlock_Corto_ProxyServer $server  the proxy server to start authentication from
      * @return string the entity ID of a known Identity Provider, otherwise an empty string
      */
-    public function handleSsoNotification(ParameterBag $cookies, EngineBlock_Corto_ProxyServer $server): string
-    {
-        if (!is_null($this->getSsoCookie($cookies))) {
-            $parsedSsoNotification = $this->parseSsoNotification($this->getSsoCookie($cookies));
-
-            if (array_key_exists(self::FIELD_ENTITY_ID, $parsedSsoNotification)) {
-                $idpEntityId = $parsedSsoNotification[self::FIELD_ENTITY_ID];
-                if (!is_null($idpEntityId) &&
-                    !is_null($server->getRepository()->findIdentityProviderByEntityId($idpEntityId))) {
-                    return $idpEntityId;
-                } else {
-                    $this->logger->warning("SSO notification found for unknown IdP: '$idpEntityId'");
-                }
-            } else {
-                $this->logger->warning(
-                    "Field '" . self::FIELD_ENTITY_ID . "' not found in parsed SSO " .
-                    "notification: " . json_encode($parsedSsoNotification)
-                );
-            }
-        }
-
+public function handleSsoNotification(ParameterBag $cookies, EngineBlock_Corto_ProxyServer $server): string
+{
+    $ssoCookie = $this->getSsoCookie($cookies);
+    if ($ssoCookie === null) {
         return '';
     }
+
+    $parsedSsoNotification = $this->parseSsoNotification($ssoCookie);
+    if (!isset($parsedSsoNotification[self::FIELD_ENTITY_ID])) {
+        $this->logger->warning(
+            "Field '" . self::FIELD_ENTITY_ID . "' not found in parsed SSO notification: " . json_encode($parsedSsoNotification)
+        );
+        return '';
+    }
+
+    $idpEntityId = $parsedSsoNotification[self::FIELD_ENTITY_ID];
+    if ($idpEntityId === null || $server->getRepository()->findIdentityProviderByEntityId($idpEntityId) === null) {
+        $this->logger->warning("SSO notification found for unknown IdP: '$idpEntityId'");
+        return '';
+    }
+
+    return $idpEntityId;
+}
 
     /**
      * Retrieves the SSO notification cookie from the provided set of cookies.
@@ -155,22 +155,19 @@ class SsoNotificationService
      * @param  string $iv                  the initialization vector to decrypt with
      * @return string a JSON string or an empty string in case the data could not be decrypted
      */
-    private function decryptSsoNotification(
-        string $ssoNotification,
-        string $encryptionKey,
-        string $encryptionAlgorithm,
-        string $iv
-    ): string {
-    
-        $data = openssl_decrypt($ssoNotification, $encryptionAlgorithm, $encryptionKey, OPENSSL_RAW_DATA, $iv);
-        if (!$data) {
-            $this->logger->error(
-                "Failed to decrypt SSO notification '$ssoNotification' using algorithm " .
-                "'$encryptionAlgorithm', returning empty string"
-            );
-
-            return '';
-        }
-        return $data;
+private function decryptSsoNotification(
+    string $ssoNotification,
+    string $encryptionKey,
+    string $encryptionAlgorithm,
+    string $iv
+): string {
+    $data = openssl_decrypt($ssoNotification, $encryptionAlgorithm, $encryptionKey, OPENSSL_RAW_DATA, $iv);
+    if ($data === false) {
+        $this->logger->error(
+            "Failed to decrypt SSO notification using algorithm '$encryptionAlgorithm'"
+        );
+        return '';
     }
+    return $data;
+}
 }
