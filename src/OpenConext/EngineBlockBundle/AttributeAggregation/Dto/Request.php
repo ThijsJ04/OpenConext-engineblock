@@ -57,25 +57,37 @@ final class Request implements JsonSerializable
      * @param AttributeRule[] $rules
      * @return Request $request
      */
-    public static function from($spEntityId, $idpEntityId, $subjectId, array $attributes, array $rules)
-    {
-        Assertion::string($spEntityId, 'The SP entity ID must be a string, received "%s" (%s)');
-        Assertion::string($idpEntityId, 'The IDP entity ID must be a string, received "%s" (%s)');
-        Assertion::string($subjectId, 'The SubjectId must be a string, received "%s" (%s)');
-        Assertion::allIsInstanceOf($rules, AttributeRule::class, 'All attributes must be of type AttributeRule');
+public static function from($spEntityId, $idpEntityId, $subjectId, array $attributes, array $rules)
+{
+    Assertion::string($spEntityId, 'The SP entity ID must be a string, received "%s" (%s)');
+    Assertion::string($idpEntityId, 'The IDP entity ID must be a string, received "%s" (%s)');
+    Assertion::string($subjectId, 'The SubjectId must be a string, received "%s" (%s)');
+    Assertion::allIsInstanceOf($rules, AttributeRule::class, 'All attributes must be of type AttributeRule');
 
-        // Filter the non string valued attributes
-        $attributes = self::filterNonStringValuesFromAttributes($attributes);
+    $request = new self;
+    $request->spEntityId = $spEntityId;
+    $request->idpEntityId = $idpEntityId;
+    $request->subjectId = $subjectId;
 
-        $request = new self;
-        $request->spEntityId = $spEntityId;
-        $request->idpEntityId = $idpEntityId;
-        $request->subjectId = $subjectId;
-        $request->attributes = $attributes;
-        $request->rules = $rules;
-
-        return $request;
+    // Filter and assign attributes in one pass
+    $filteredAttributes = [];
+    foreach ($attributes as $name => $values) {
+        $allStrings = true;
+        foreach ($values as $value) {
+            if (!is_string($value)) {
+                $allStrings = false;
+                break;
+            }
+        }
+        if ($allStrings) {
+            $filteredAttributes[$name] = $values;
+        }
     }
+    $request->attributes = $filteredAttributes;
+    $request->rules = $rules;
+
+    return $request;
+}
 
     private static function filterNonStringValuesFromAttributes($attributes)
     {
@@ -89,38 +101,39 @@ final class Request implements JsonSerializable
         });
     }
 
-    public function jsonSerialize(): mixed
-    {
-        return [
-            'userAttributes' => array_merge(
-                [
-                    [
-                        'name' => 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified',
-                        'values' => [$this->subjectId],
-                    ],
-                    [
-                        'name' => 'SPentityID',
-                        'values' => [$this->spEntityId],
-                    ],
-                    [
-                        'name' => 'IDPentityID',
-                        'values' => [$this->idpEntityId],
-                    ]
-                ],
-                array_map(
-                    function ($values, $name) {
-                        return [
-                            'name' => $name,
-                            'values' => $values,
-                        ];
-                    },
-                    $this->attributes,
-                    array_keys($this->attributes)
-                )
-            ),
-            'arpAttributes' => $this->getAttributeRulesByName(),
-        ];
+public function jsonSerialize(): mixed
+{
+    $userAttributes = [
+        [
+            'name' => 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified',
+            'values' => [$this->subjectId],
+        ],
+        [
+            'name' => 'SPentityID',
+            'values' => [$this->spEntityId],
+        ],
+        [
+            'name' => 'IDPentityID',
+            'values' => [$this->idpEntityId],
+        ]
+    ];
+
+    $attributeCount = count($this->attributes);
+    if ($attributeCount > 0) {
+        $keys = array_keys($this->attributes);
+        for ($i = 0; $i < $attributeCount; $i++) {
+            $userAttributes[] = [
+                'name' => $keys[$i],
+                'values' => $this->attributes[$keys[$i]],
+            ];
+        }
     }
+
+    return [
+        'userAttributes' => $userAttributes,
+        'arpAttributes' => $this->getAttributeRulesByName(),
+    ];
+}
 
     /**
      * Create a list of values and sources grouped by attribute name.

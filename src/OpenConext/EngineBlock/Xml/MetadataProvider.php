@@ -107,25 +107,25 @@ class MetadataProvider
      * 2. Load the IdPs (either based on 'allowedIdpEntityIds' of the specified IdP, or loading all.
      * 3. Render and sign the document
      */
-    public function metadataForIdps(
-        ?string $spEntityId,
-        ?string $keyId
-    ): string {
+public function metadataForIdps(
+    ?string $spEntityId,
+    ?string $keyId
+): string {
+    $identityProviders = null;
 
-        if ($spEntityId) {
-            // See if an sp-entity-id was specified for which we need to use sp specific metadata
-            $spEntity = $this->metadataRepository->fetchServiceProviderByEntityId($spEntityId);
-            if (!$spEntity->allowAll) {
-                $identityProviders = $this->metadataRepository->findIdentityProvidersByEntityId($spEntity->allowedIdpEntityIds, $keyId);
-            }
+    if ($spEntityId !== null) {
+        $spEntity = $this->metadataRepository->fetchServiceProviderByEntityId($spEntityId);
+        if ($spEntity !== null && !$spEntity->allowAll) {
+            $identityProviders = $this->metadataRepository->findIdentityProvidersByEntityId($spEntity->allowedIdpEntityIds, $keyId);
         }
-        if (!isset($identityProviders)) {
-            $identityProviders = $this->metadataRepository->findIdentityProviders($keyId);
-        }
-
-        // 3. Render and sign the document
-        return $this->renderer->fromIdentityProviderEntities($identityProviders, $keyId);
     }
+
+    if ($identityProviders === null) {
+        $identityProviders = $this->metadataRepository->findIdentityProviders($keyId);
+    }
+
+    return $this->renderer->fromIdentityProviderEntities($identityProviders, $keyId);
+}
 
 
     /**

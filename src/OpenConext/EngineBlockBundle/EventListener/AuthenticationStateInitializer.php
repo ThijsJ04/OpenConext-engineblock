@@ -37,24 +37,18 @@ final class AuthenticationStateInitializer
         $this->session = $requestStack->getSession();
     }
 
-    public function onKernelController(ControllerEvent $event): void
-    {
-        $controller = $event->getController();
-        if (is_array($controller)) {
-            $controller = $controller[0];
-        }
-
-        if (!$controller instanceof AuthenticationLoopThrottlingController) {
-            return;
-        }
-
-        $authenticationState = $this->session->get('authentication_state');
-        if ($authenticationState === null) {
-            $authenticationLoopGuard = $this->getAuthenticationLoopGuard();
-
-            $this->session->set('authentication_state', new AuthenticationState($authenticationLoopGuard));
-        }
+public function onKernelController(ControllerEvent $event): void
+{
+    $controller = $event->getController();
+    if (!is_array($controller) || !$controller[0] instanceof AuthenticationLoopThrottlingController) {
+        return;
     }
+
+    $authenticationState = $this->session->get('authentication_state');
+    if ($authenticationState === null) {
+        $this->session->set('authentication_state', new AuthenticationState($this->getAuthenticationLoopGuard()));
+    }
+}
 
     public function getAuthenticationLoopGuard()
     {

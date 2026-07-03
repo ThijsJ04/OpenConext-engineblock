@@ -73,55 +73,45 @@ class IdentityProviderController extends AbstractController
      * @return Response
      * @throws RuntimeException
      */
-    public function singleSignOnAction(Request $request, $idpName)
-    {
-        if ($request->isMethod('GET')) {
-            $redirectBinding = new HTTPRedirect();
-            $message = $redirectBinding->receive();
-        } elseif ($request->isMethod('POST')) {
-            $postBinding = new HTTPPost();
-            $message = $postBinding->receive();
-        } else {
-            throw new RuntimeException('Unsupported HTTP method');
-        }
-
-        if (!$message instanceof AuthnRequest) {
-            throw new RuntimeException(sprintf('Unknown message type: "%s"', get_class($message)));
-        }
-        $authnRequest = $message;
-
-        /** @var MockIdentityProvider $mockIdp */
-        $mockIdp = $this->mockIdpRegistry->get($idpName);
-
-        /** @var ResponseFactory $responseFactory */
-        $response = $this->responseFactory->createForEntityWithRequest($mockIdp, $authnRequest);
-
-        $destination = ($authnRequest->getAssertionConsumerServiceURL() ?
-                $authnRequest->getAssertionConsumerServiceURL() :
-                $response->getDestination());
-
-        /* set the destination element of the response to the ACS URL */
-        $response->setDestination($destination);
-
-        if ($mockIdp->mustUseHttpRedirect()) {
-            $redirect = new HTTPRedirect();
-            $redirect->setDestination($destination);
-            $url = $redirect->getRedirectURL($response);
-            return new RedirectResponse($url);
-        }
-
-        /** @var Container $container */
-        $container = Utils::getContainer();
-        $authnRequestXml = $container->getLastDebugMessageOfType(Container::DEBUG_TYPE_IN);
-        $responseXml = $response->toXml();
-
-        $container->postRedirect(
-            $destination,
-            [
-                'authnRequestXml'=> htmlentities($authnRequestXml),
-                'SAMLResponse' => base64_encode($responseXml),
-            ]
-        );
-        return $container->getPostResponse();
+public function singleSignOnAction(Request $request, $idpName)
+{
+    $message = null;
+    if ($request->isMethod('GET')) {
+        $message = (new HTTPRedirect())->receive();
+    } elseif ($request->isMethod('POST')) {
+        $message = (new HTTPPost())->receive();
+    } else {
+        throw new RuntimeException('Unsupported HTTP method');
     }
+
+    if (!$message instanceof AuthnRequest) {
+        throw new RuntimeException(sprintf('Unknown message type: "%s"', get_class($message)));
+    }
+    $authnRequest = $message;
+
+    $mockIdp = $this->mockIdpRegistry->get($idpName);
+    $response = $this->responseFactory->createForEntityWithRequest($mockIdp, $authnRequest);
+
+    $destination = $authnRequest->getAssertionConsumerServiceURL() ?: $response->getDestination();
+    $response->setDestination($destination);
+
+    if ($mockIdp->mustUseHttpRedirect()) {
+        $redirect = new HTTPRedirect();
+        $redirect->setDestination($destination);
+        return new RedirectResponse($redirect->getRedirectURL($response));
+    }
+
+    $container = Utils::getContainer();
+    $authnRequestXml = $container->getLastDebugMessageOfType(Container::DEBUG_TYPE_IN);
+    $responseXml = $response->toXml();
+
+    $container->postRedirect(
+        $destination,
+        [
+            'authnRequestXml' => htmlentities($authnRequestXml),
+            'SAMLResponse' => base64_encode($responseXml),
+        ]
+    );
+    return $container->getPostResponse();
+}
 }

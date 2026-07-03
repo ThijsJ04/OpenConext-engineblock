@@ -79,26 +79,23 @@ final class FunctionalTestingAuthenticationLoopGuard implements AuthenticationLo
      * @param Entity $serviceProvider
      * @param AuthenticationProcedureMap $pastAuthenticationProcedures
      */
-    public function detectsAuthenticationLoop(
-        Entity $serviceProvider,
-        AuthenticationProcedureMap $pastAuthenticationProcedures
-    ): bool {
-        $this->initAuthenticationLoopGuard();
+public function detectsAuthenticationLoop(
+    Entity $serviceProvider,
+    AuthenticationProcedureMap $pastAuthenticationProcedures
+): bool {
+    $this->initAuthenticationLoopGuard();
 
-        if ($this->activeAuthenticationLoopGuard->detectsAuthenticationLoop($serviceProvider, $pastAuthenticationProcedures)) {
-            throw new StuckInAuthenticationLoopException(
-                sprintf(
-                    'More than the configured maximum authentication procedures for the current user from SP "%s"'
-                    . ' occurred within the configured amount of seconds,'
-                    . ' the user seems to be stuck in an authentication loop. '
-                    . ' Aborting the current authentication procedure.',
-                    $serviceProvider->getEntityId()
-                )
-            );
-        }
-
-        return false;
+    if ($this->activeAuthenticationLoopGuard->detectsAuthenticationLoop($serviceProvider, $pastAuthenticationProcedures)) {
+        throw new StuckInAuthenticationLoopException(
+            'More than the configured maximum authentication procedures for the current user from SP "'
+            . $serviceProvider->getEntityId()
+            . '" occurred within the configured amount of seconds, the user seems to be stuck in an authentication loop. '
+            . 'Aborting the current authentication procedure.'
+        );
     }
+
+    return false;
+}
 
     public function detectsAuthenticationLimit(AuthenticationProcedureMap $pastAuthenticationProcedures): bool
     {
