@@ -55,44 +55,33 @@ class MockIdentityProvider extends AbstractMockEntityRole
         $role->setExtensions(array_merge($role->getExtensions(), ['StatusMessage' => $statusMessage]));
     }
 
-    public function setStatusCode($topLevelStatusCode, $secondLevelStatusCode = '')
-    {
-        $role = $this->getSsoRole();
+public function setStatusCode($topLevelStatusCode, $secondLevelStatusCode = '')
+{
+    $role = $this->getSsoRole();
+    $extensions = $role->getExtensions();
 
-        $role->setExtensions(
-            array_merge(
-                $role->getExtensions(),
-                ['StatusCodeTop' => $this->getFullyQualifiedStatusCode($topLevelStatusCode)]
-            )
-        );
-        if (!empty($secondLevelStatusCode)) {
-            $role->setExtensions(
-                array_merge(
-                    $role->getExtensions(),
-                    ['StatusCodeSecond' => $this->getFullyQualifiedStatusCode($secondLevelStatusCode)]
-                )
-            );
-        }
+    $extensions['StatusCodeTop'] = $this->getFullyQualifiedStatusCode($topLevelStatusCode);
+
+    if (!empty($secondLevelStatusCode)) {
+        $extensions['StatusCodeSecond'] = $this->getFullyQualifiedStatusCode($secondLevelStatusCode);
     }
 
-    private function getFullyQualifiedStatusCode($shortStatusCode)
-    {
-        $class = new ReflectionClass(Constants::class);
-        $constants = $class->getConstants();
-        foreach ($constants as $constName => $constValue) {
-            if (strpos($constName, 'STATUS_') !== 0) {
-                continue;
-            }
+    $role->setExtensions($extensions);
+}
 
-            if (strpos($constValue, $shortStatusCode) === false) {
-                continue;
-            }
+private function getFullyQualifiedStatusCode($shortStatusCode)
+{
+    $class = new ReflectionClass(Constants::class);
+    $constants = $class->getConstants();
 
+    foreach ($constants as $constName => $constValue) {
+        if (str_starts_with($constName, 'STATUS_') && str_contains($constValue, $shortStatusCode)) {
             return $constValue;
         }
-
-        throw new RuntimeException(sprintf('"%s" is not a valid status code', $shortStatusCode));
     }
+
+    throw new RuntimeException(sprintf('"%s" is not a valid status code', $shortStatusCode));
+}
 
     /**
      * @return Response
@@ -220,27 +209,18 @@ class MockIdentityProvider extends AbstractMockEntityRole
         return isset($extensions['UseRedirect']) && $extensions['UseRedirect'];
     }
 
-    public function removeAttribute($forbiddenAttributeName)
-    {
-        $role = $this->getSsoRole();
+public function removeAttribute($forbiddenAttributeName)
+{
+    $role = $this->getSsoRole();
+    $response = $role->getExtensions()['SAMLResponse'];
+    $assertions = $response->getAssertions();
+    $attributes = $assertions[0]->getAttributes();
 
-        /** @var Response $response */
-        $response = $role->getExtensions()['SAMLResponse'];
-        $assertions = $response->getAssertions();
-
-        $newAttributes = [];
-
-        $attributes = $assertions[0]->getAttributes();
-        foreach ($attributes as $attributeName => $attributeValues) {
-            if ($attributeName === $forbiddenAttributeName) {
-                continue;
-            }
-
-            $newAttributes[$attributeName] = $attributeValues;
-        }
-
-        $assertions[0]->setAttributes($newAttributes);
+    if (isset($attributes[$forbiddenAttributeName])) {
+        unset($attributes[$forbiddenAttributeName]);
+        $assertions[0]->setAttributes($attributes);
     }
+}
 
     public function setAttribute($attributeName, array $attributeValues)
     {

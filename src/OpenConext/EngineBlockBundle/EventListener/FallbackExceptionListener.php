@@ -66,29 +66,25 @@ class FallbackExceptionListener
         $this->urlGenerator = $urlGenerator;
     }
 
-    public function onKernelException(ExceptionEvent $event)
-    {
-        $exception = $event->getThrowable();
+public function onKernelException(ExceptionEvent $event)
+{
+    $exception = $event->getThrowable();
+    $exceptionClass = get_class($exception);
+    $exceptionMessage = $exception->getMessage();
 
-        $this->logger->debug(sprintf(
-            'Caught Exception "%s":"%s"',
-            get_class($exception),
-            $exception->getMessage()
-        ));
+    $this->logger->debug("Caught Exception \"$exceptionClass\":\"$exceptionMessage\"");
 
-        if ($exception instanceof EngineBlock_Exception) {
-            $this->errorReporter->reportError($exception, 'Caught Unhandled EngineBlock_Exception');
-        } else {
-            $this->errorReporter->reportError(
-                new EngineBlock_Exception($exception->getMessage(), EngineBlock_Exception::CODE_ERROR, $exception),
-                'Caught Unhandled generic exception'
-            );
-        }
-
-        $redirectToRoute = 'feedback_unknown_error';
-
-        $event->setResponse(new RedirectResponse(
-            $this->urlGenerator->generate($redirectToRoute, [], UrlGeneratorInterface::ABSOLUTE_PATH)
-        ));
+    if ($exception instanceof EngineBlock_Exception) {
+        $this->errorReporter->reportError($exception, 'Caught Unhandled EngineBlock_Exception');
+    } else {
+        $this->errorReporter->reportError(
+            new EngineBlock_Exception($exceptionMessage, EngineBlock_Exception::CODE_ERROR, $exception),
+            'Caught Unhandled generic exception'
+        );
     }
+
+    $event->setResponse(new RedirectResponse(
+        $this->urlGenerator->generate('feedback_unknown_error', [], UrlGeneratorInterface::ABSOLUTE_PATH)
+    ));
+}
 }

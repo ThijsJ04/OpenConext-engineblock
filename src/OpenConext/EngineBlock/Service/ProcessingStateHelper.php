@@ -70,25 +70,22 @@ class ProcessingStateHelper implements ProcessingStateHelperInterface
      * @throws EngineBlock_Corto_Module_Services_SessionLostException
      * @throws EngineBlock_Corto_Module_Services_Exception
      */
-    public function getStepByRequestId($requestId, $name)
-    {
-        $processing = $this->session->get(self::SESSION_KEY);
-        if (empty($processing)) {
-            throw new EngineBlock_Corto_Module_Services_SessionLostException('Session lost after consent');
-        }
-        if (!isset($processing[$requestId])) {
-            throw new EngineBlock_Corto_Module_Services_SessionLostException(
-                sprintf('Stored response for ResponseID "%s" not found', $requestId)
-            );
-        }
-        if (!isset($processing[$requestId][$name])) {
-            throw new EngineBlock_Corto_Module_Services_Exception(
-                sprintf('Process step requested for ResponseID "%s" not found', $requestId)
-            );
-        }
-
-        return $processing[$requestId][$name];
+public function getStepByRequestId($requestId, $name)
+{
+    $processing = $this->session->get(self::SESSION_KEY);
+    if (empty($processing) || !isset($processing[$requestId])) {
+        throw new EngineBlock_Corto_Module_Services_SessionLostException(
+            empty($processing) ? 'Session lost after consent' : sprintf('Stored response for ResponseID "%s" not found', $requestId)
+        );
     }
+    if (!isset($processing[$requestId][$name])) {
+        throw new EngineBlock_Corto_Module_Services_Exception(
+            sprintf('Process step requested for ResponseID "%s" not found', $requestId)
+        );
+    }
+
+    return $processing[$requestId][$name];
+}
 
 
     /**
