@@ -82,27 +82,27 @@ class IdentityProviderController implements AuthenticationLoopThrottlingControll
      */
     private $featureConfiguration;
 
-    public function __construct(
-        EngineBlock_ApplicationSingleton $engineBlockApplicationSingleton,
-        Environment $twig,
-        LoggerInterface $loggerInterface,
-        RequestAccessMailer $requestAccessMailer,
-        RequestValidator $requestValidator,
-        RequestValidator $bindingValidator,
-        RequestValidator $unsolicitedRequestValidator,
-        AuthenticationStateHelperInterface $authenticationStateHelper,
-        FeatureConfigurationInterface $featureConfiguration
-    ) {
-        $this->engineBlockApplicationSingleton = $engineBlockApplicationSingleton;
-        $this->twig = $twig;
-        $this->logger = $loggerInterface;
-        $this->requestAccessMailer = $requestAccessMailer;
-        $this->requestValidator = $requestValidator;
-        $this->bindingValidator = $bindingValidator;
-        $this->unsolicitedRequestValidator = $unsolicitedRequestValidator;
-        $this->authenticationStateHelper = $authenticationStateHelper;
-        $this->featureConfiguration = $featureConfiguration;
-    }
+public function __construct(
+    EngineBlock_ApplicationSingleton $engineBlockApplicationSingleton,
+    Environment $twig,
+    LoggerInterface $loggerInterface,
+    RequestAccessMailer $requestAccessMailer,
+    RequestValidator $requestValidator,
+    RequestValidator $bindingValidator,
+    RequestValidator $unsolicitedRequestValidator,
+    AuthenticationStateHelperInterface $authenticationStateHelper,
+    FeatureConfigurationInterface $featureConfiguration
+) {
+    $this->engineBlockApplicationSingleton = $engineBlockApplicationSingleton;
+    $this->twig = $twig;
+    $this->logger = $loggerInterface;
+    $this->requestAccessMailer = $requestAccessMailer;
+    $this->requestValidator = $requestValidator;
+    $this->bindingValidator = $bindingValidator;
+    $this->unsolicitedRequestValidator = $unsolicitedRequestValidator;
+    $this->authenticationStateHelper = $authenticationStateHelper;
+    $this->featureConfiguration = $featureConfiguration;
+}
 
     /**
      * The SSO action
@@ -235,52 +235,56 @@ class IdentityProviderController implements AuthenticationLoopThrottlingControll
      *
      * @Route("/authentication/idp/performRequestAccess", name="authentication_idp_perform_request_access_two", methods={"POST"})
      */
-    public function performRequestAccessAction(Request $request)
-    {
-        $invalid = $this->validateRequest($request);
+public function performRequestAccessAction(Request $request)
+{
+    $invalid = $this->validateRequest($request);
 
-        if (count($invalid)) {
-            $viewData = [];
-            foreach ($invalid as $name) {
-                $viewData[$name . 'Error'] = true;
-            }
+    if (!empty($invalid)) {
+        $viewData = array_fill_keys(array_map(fn($name) => $name . 'Error', $invalid), true);
+        $viewData['queryParameters'] = $request->request->all();
 
-            $viewData['queryParameters'] = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+        $body = $this->twig->render(
+            '@theme/Authentication/View/IdentityProvider/request-access.html.twig',
+            $viewData
+        );
 
-            $body = $this->twig->render(
-                '@theme/Authentication/View/IdentityProvider/request-access.html.twig',
-                $viewData
-            );
+        return new Response($body, 400);
+    }
 
-            return new Response($body, 400);
-        }
+    $postedVariables = $request->request;
+    $spName = $postedVariables->get('spName');
+    $spEntityId = $postedVariables->get('spEntityId');
+    $institution = $postedVariables->get('institution');
+    $name = $postedVariables->get('name');
+    $email = $postedVariables->get('email');
+    $comment = $postedVariables->get('comment');
+    $idpEntityId = $postedVariables->get('idpEntityId');
 
-        $postedVariables = $request->request;
-        if ($postedVariables->get('idpEntityId', false) !== false) {
-            $this->requestAccessMailer->sendRequestAccessEmailForIdp(
-                $postedVariables->get('spName'),
-                $postedVariables->get('spEntityId'),
-                $postedVariables->get('institution'),
-                $postedVariables->get('idpEntityId'),
-                $postedVariables->get('name'),
-                $postedVariables->get('email'),
-                $postedVariables->get('comment')
-            );
-        } else {
-            $this->requestAccessMailer->sendRequestAccessEmailForInstitution(
-                $postedVariables->get('spName'),
-                $postedVariables->get('spEntityId'),
-                $postedVariables->get('institution'),
-                $postedVariables->get('name'),
-                $postedVariables->get('email'),
-                $postedVariables->get('comment')
-            );
-        }
-
-        return new Response(
-            $this->twig->render('@theme/Authentication/View/IdentityProvider/perform-request-access.html.twig')
+    if ($idpEntityId !== false) {
+        $this->requestAccessMailer->sendRequestAccessEmailForIdp(
+            $spName,
+            $spEntityId,
+            $institution,
+            $idpEntityId,
+            $name,
+            $email,
+            $comment
+        );
+    } else {
+        $this->requestAccessMailer->sendRequestAccessEmailForInstitution(
+            $spName,
+            $spEntityId,
+            $institution,
+            $name,
+            $email,
+            $comment
         );
     }
+
+    return new Response(
+        $this->twig->render('@theme/Authentication/View/IdentityProvider/perform-request-access.html.twig')
+    );
+}
 
     /**
      * Rudimentary validation, ported from

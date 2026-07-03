@@ -36,48 +36,45 @@ class CollabPersonIdType extends Type
         return $platform->getStringTypeDeclarationSQL($fieldDeclaration);
     }
 
-    public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
-    {
-        if (is_null($value)) {
-            return $value;
-        }
-
-        if (!$value instanceof CollabPersonId) {
-            $valueForMessage = $this->getValueForExceptionMessage($value);
-            throw new ConversionException(
-                sprintf(
-                    'Value "%s" must be null or an instance of CollabPersonId to be able to ' .
-                    'convert it to a database value',
-                    $valueForMessage
-                )
-            );
-        }
-
-        return $value->getCollabPersonId();
+public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
+{
+    if (is_null($value)) {
+        return null;
     }
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): mixed
-    {
-        if (is_null($value)) {
-            return $value;
-        }
+    if (!$value instanceof CollabPersonId) {
+        throw new ConversionException(
+            sprintf(
+                'Value "%s" must be null or an instance of CollabPersonId to be able to convert it to a database value',
+                is_object($value) ? get_class($value) : (is_array($value) ? 'Array' : (string)$value)
+            )
+        );
+    }
 
-        try {
-            $entityId = new CollabPersonId($value);
-        } catch (InvalidArgumentException $e) {
-            // get nice standard message, so we can throw it keeping the exception chain
-            $doctrineExceptionMessage = sprintf(
+    return $value->getCollabPersonId();
+}
+
+public function convertToPHPValue($value, AbstractPlatform $platform): mixed
+{
+    if (is_null($value)) {
+        return $value;
+    }
+
+    try {
+        return new CollabPersonId($value);
+    } catch (InvalidArgumentException $e) {
+        throw new ConversionException(
+            sprintf(
                 'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
                 $value,
                 $this->getName(),
                 'a valid CollabPersonId'
-            );
-
-            throw new ConversionException($doctrineExceptionMessage, 0, $e);
-        }
-
-        return $entityId;
+            ),
+            0,
+            $e
+        );
     }
+}
 
     public function getName(): string
     {

@@ -52,32 +52,29 @@ class LogoutController
      *
      * @Route("/logout", name="authentication_logout", methods={"GET", "POST"})
      */
-    public function logoutAction(Request $request)
-    {
-        $response = new Response($this->twig->render('@theme/Logout/View/Index/index.html.twig'));
-
-        if (empty($request->getSession()->all())) {
-            return $response;
-        }
-
-        $this->ssoSessionService->clearSsoSessionCookie();
-
-        // If it's desired to kill the session, also delete the session cookie.
-        // Note: This will destroy the session, and not just the session data!
-        if (ini_get("session.use_cookies")) {
-            $params = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $params["path"],
-                $params["domain"],
-                $params["secure"],
-                $params["httponly"]
-            );
-        }
-        session_destroy();
-
-        return $response;
+public function logoutAction(Request $request)
+{
+    if (empty($request->getSession()->all())) {
+        return new Response($this->twig->render('@theme/Logout/View/Index/index.html.twig'));
     }
+
+    $this->ssoSessionService->clearSsoSessionCookie();
+
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(
+            session_name(),
+            '',
+            time() - 42000,
+            $params["path"],
+            $params["domain"],
+            $params["secure"],
+            $params["httponly"]
+        );
+    }
+
+    session_destroy();
+
+    return new Response($this->twig->render('@theme/Logout/View/Index/index.html.twig'));
+}
 }

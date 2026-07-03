@@ -31,31 +31,25 @@ final class JsonResponseParser
      * @return mixed
      * @throws InvalidJsonException
      */
-    public static function parse($json)
-    {
-        Assertion::string($json, 'JSON data "%s" expected to be string, type %s given');
+public static function parse($json)
+{
+    Assertion::string($json, 'JSON data "%s" expected to be string, type %s given');
 
-        static $jsonErrors = [
-            JSON_ERROR_DEPTH          => 'JSON_ERROR_DEPTH - Maximum stack depth exceeded',
+    $data = json_decode($json, true);
+
+    if (JSON_ERROR_NONE !== json_last_error()) {
+        $errorMessage = match (json_last_error()) {
+            JSON_ERROR_DEPTH => 'JSON_ERROR_DEPTH - Maximum stack depth exceeded',
             JSON_ERROR_STATE_MISMATCH => 'JSON_ERROR_STATE_MISMATCH - Underflow or the modes mismatch',
-            JSON_ERROR_CTRL_CHAR      => 'JSON_ERROR_CTRL_CHAR - Unexpected control character found',
-            JSON_ERROR_SYNTAX         => 'JSON_ERROR_SYNTAX - Syntax error, malformed JSON',
-            JSON_ERROR_UTF8           => 'JSON_ERROR_UTF8 - Malformed UTF-8 characters, possibly incorrectly encoded',
-        ];
+            JSON_ERROR_CTRL_CHAR => 'JSON_ERROR_CTRL_CHAR - Unexpected control character found',
+            JSON_ERROR_SYNTAX => 'JSON_ERROR_SYNTAX - Syntax error, malformed JSON',
+            JSON_ERROR_UTF8 => 'JSON_ERROR_UTF8 - Malformed UTF-8 characters, possibly incorrectly encoded',
+            default => 'Unknown error',
+        };
 
-        $data = json_decode($json, true);
-
-        if (JSON_ERROR_NONE !== json_last_error()) {
-            $last         = json_last_error();
-            $errorMessage = $jsonErrors[$last];
-
-            if (!isset($errorMessage)) {
-                $errorMessage = 'Unknown error';
-            }
-
-            throw new InvalidJsonException((sprintf('Unable to parse JSON data: "%s"', $errorMessage)));
-        }
-
-        return $data;
+        throw new InvalidJsonException(sprintf('Unable to parse JSON data: "%s"', $errorMessage));
     }
+
+    return $data;
+}
 }

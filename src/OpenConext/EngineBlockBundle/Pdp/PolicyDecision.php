@@ -60,42 +60,29 @@ final class PolicyDecision
      */
     private $idpLogo;
 
-    public static function fromResponse(Response $response) : PolicyDecision
-    {
-        $policyDecision = new self;
-        $policyDecision->decision = $response->decision;
+public static function fromResponse(Response $response) : PolicyDecision
+{
+    $policyDecision = new self;
+    $policyDecision->decision = $response->decision;
+    $policyDecision->statusMessage = $response->status->statusMessage ?? null;
+    $policyDecision->stepupObligations = self::findStepupObligations($response->obligations);
 
-        if (isset($response->status->statusMessage)) {
-            $policyDecision->statusMessage = $response->status->statusMessage;
-        }
-
-        $policyDecision->stepupObligations = self::findStepupObligations($response->obligations);
-
-        if ($policyDecision->permitsAccess()) {
-            return $policyDecision;
-        }
-
-        if (isset($response->associatedAdvices)) {
-            $localizedDenyMessages = [];
-            foreach ($response->associatedAdvices as $associatedAdvice) {
-                foreach ($associatedAdvice->attributeAssignments as $attributeAssignment) {
-                    $parts = explode(':', $attributeAssignment->attributeId);
-                    if (count($parts) >= 2) {
-                        list($identifier, $locale) = $parts;
-
-                        if ($identifier === 'DenyMessage') {
-                            $localizedDenyMessages[$locale] = $attributeAssignment->value;
-                        }
-                    }
-
-                    self::setAttributeAssignmentSource($attributeAssignment, $policyDecision);
+    if (!$policyDecision->permitsAccess() && isset($response->associatedAdvices)) {
+        $localizedDenyMessages = [];
+        foreach ($response->associatedAdvices as $associatedAdvice) {
+            foreach ($associatedAdvice->attributeAssignments as $attributeAssignment) {
+                $parts = explode(':', $attributeAssignment->attributeId, 2);
+                if (count($parts) === 2 && $parts[0] === 'DenyMessage') {
+                    $localizedDenyMessages[$parts[1]] = $attributeAssignment->value;
                 }
+                self::setAttributeAssignmentSource($attributeAssignment, $policyDecision);
             }
-            $policyDecision->localizedDenyMessages = $localizedDenyMessages;
         }
-
-        return $policyDecision;
+        $policyDecision->localizedDenyMessages = $localizedDenyMessages;
     }
+
+    return $policyDecision;
+}
 
     /**
      * Checks obgligations for any stepup LoA requirements, returns all found.
@@ -139,29 +126,31 @@ final class PolicyDecision
         return $this->decision === self::DECISION_PERMIT || $this->decision === self::DECISION_NOT_APPLICABLE;
     }
 
-    public function getLocalizedDenyMessage(string $locale, string $defaultLocale = 'en') : string
-    {
-        if (!$this->hasLocalizedDenyMessage()) {
-            throw new RuntimeException(sprintf(
-                'No localized deny messages present for decision "%s"',
-                $this->decision
-            ));
-        }
-
-        if (isset($this->localizedDenyMessages[$locale])) {
-            return $this->localizedDenyMessages[$locale];
-        }
-
-        if (!isset($this->localizedDenyMessages[$defaultLocale])) {
-            throw new RuntimeException(sprintf(
-                'No localized deny message for locale "%s" or default locale "%s" found',
-                $locale,
-                $defaultLocale
-            ));
-        }
-
-        return $this->localizedDenyMessages[$defaultLocale];
+public function getLocalizedDenyMessage(string $locale, string $defaultLocale = 'en') : string
+{
+    if (empty($this->localizedDenyMessages)) {
+        throw new RuntimeException(sprintf(
+            'No localized deny messages present for decision "%s"',
+            $this->decision
+        ));
     }
+
+    $message = $this->localizedDenyMessages[$locale] ?? null;
+    if ($message !== null) {
+        return $message;
+    }
+
+    $message = $this->localizedDenyMessages[$defaultLocale] ?? null;
+    if ($message === null) {
+        throw new RuntimeException(sprintf(
+            'No localized deny message for locale "%s" or default locale "%s" found',
+            $locale,
+            $defaultLocale
+        ));
+    }
+
+    return $message;
+}
 
     public function getStatusMessage() : ?string
     {

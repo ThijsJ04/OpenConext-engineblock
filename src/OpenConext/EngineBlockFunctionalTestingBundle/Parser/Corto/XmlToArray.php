@@ -169,71 +169,69 @@ class XmlToArray
      * @param array $attributes
      * @return array
      */
-    public function attributesToArray(array $attributes) {
-        $res = [];
-        foreach($attributes as $attribute) {
-            if(!isset($attribute['_Name'])) {
-                throw new \RuntimeException('Missing attribute name');
+public function attributesToArray(array $attributes) {
+    $res = [];
+    foreach($attributes as $attribute) {
+        if(!isset($attribute['_Name'])) {
+            throw new \RuntimeException('Missing attribute name');
+        }
+
+        $name = $attribute['_Name'];
+        $res[$name] = [];
+
+        if(!isset($attribute['saml:AttributeValue'])) {
+            continue;
+        }
+
+        $values = $attribute['saml:AttributeValue'];
+        if(!is_array($values)) {
+            throw new \RuntimeException('AttributeValue collection is not an array');
+        }
+
+        foreach ($values as $value) {
+            if(!is_array($value)) {
+                throw new \RuntimeException('AttributeValue is not an array');
             }
 
-            $res[$attribute['_Name']] = [];
-            if(!isset($attribute['saml:AttributeValue'])) {
-                continue;
-            }
-
-            if(!is_array($attribute['saml:AttributeValue'])) {
-                throw new \RuntimeException('AttributeValue collection is not an array');
-            }
-
-            // Add each value of the collection to the result
-            foreach ($attribute['saml:AttributeValue'] as $value) {
-                if(!is_array($value)) {
-                    throw new \RuntimeException('AttributeValue is not an array');
-                }
-
-                if(!isset($value[self::VALUE_PFX])) {
-                    continue;
-                }
-
-                $res[$attribute['_Name']][] = $value[self::VALUE_PFX];
+            if(isset($value[self::VALUE_PFX])) {
+                $res[$name][] = $value[self::VALUE_PFX];
             }
         }
-        return $res;
     }
+    return $res;
+}
 
-    public static function xml2array($xml)
-    {
-        $parser = xml_parser_create_ns();
-        $foldingOptionSet = xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);
-        if (!$foldingOptionSet) {
-            throw new \RuntimeException(
-                sprintf(
-                    'Unable to set XML_OPTION_CASE_FOLDING on parser object? Error message: "%s"',
-                    xml_error_string(xml_get_error_code($parser))
-                )
-            );
-        }
-
-        $values = [];
-        $parserResultStatus = xml_parse_into_struct($parser, $xml, $values);
-        if ($parserResultStatus !== 1) {
-            throw new \RuntimeException(
-                sprintf(
-                    'Error parsing incoming XML. '.PHP_EOL.
-                    'Error code: "%s"'.PHP_EOL.
-                    'XML: "%s"',
-                    xml_error_string(xml_get_error_code($parser)),
-                    $xml
-                )
-            );
-        }
-
+public static function xml2array($xml)
+{
+    $parser = xml_parser_create_ns();
+    if (!xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0)) {
         xml_parser_free($parser);
-        self::$_singulars = array_fill_keys(self::$_singulars, 1);
-        $return = self::xml2arrayRecursive($values);
-        self::$_singulars = array_keys(self::$_singulars);
-        return $return[0];
+        throw new \RuntimeException(
+            sprintf(
+                'Unable to set XML_OPTION_CASE_FOLDING on parser object? Error message: "%s"',
+                xml_error_string(xml_get_error_code($parser))
+            )
+        );
     }
+
+    $values = [];
+    if (xml_parse_into_struct($parser, $xml, $values) !== 1) {
+        xml_parser_free($parser);
+        throw new \RuntimeException(
+            sprintf(
+                'Error parsing incoming XML. '.PHP_EOL.
+                'Error code: "%s"'.PHP_EOL.
+                'XML: "%s"',
+                xml_error_string(xml_get_error_code($parser)),
+                $xml
+            )
+        );
+    }
+
+    $return = self::xml2arrayRecursive($values);
+    xml_parser_free($parser);
+    return $return[0];
+}
 
     /**
      * Convert a flat array of entities, begotten from the PHP xml_parser into a hierarchical array recursively.
@@ -247,59 +245,59 @@ class XmlToArray
 
     protected static $counter = 0;
 
-    protected static function xml2arrayRecursive(&$elements, $level = 1, $namespaceMapping = [])
-    {
-        $newElement = [];
+protected static function xml2arrayRecursive(&$elements, $level = 1, $namespaceMapping = [])
+{
+    $newElement = [];
+    $count = count($elements);
 
-        while(isset($elements[self::$counter])) {
-            $value = $elements[self::$counter];
-            self::$counter++;
+    for ($i = self::$counter; $i < $count; $i++) {
+        $value = $elements[$i];
+        self::$counter = $i + 1;
 
-            if ($value['type'] == 'close') {
-                return $newElement;
-            } elseif ($value['type'] == 'cdata') {
-                continue;
-            }
-
-            $hashedAttributes = [];
-            $tagName = $value['tag'];
-            if (isset($value['attributes']) && $attributes = $value['attributes']) {
-                foreach($attributes as $attributeKey => $attributeValue) {
-                    unset($attributes[$attributeKey]);
-                    $hashedAttributes[self::ATTRIBUTE_PFX . $attributeKey] = $attributeValue;
-                }
-            }
-
-            $complete = [];
-
-            $tagName = self::mapNamespacesToSaml($tagName);
-
-            $complete[self::TAG_NAME_PFX] = $tagName;
-            if ($hashedAttributes) {
-                $complete = array_merge($complete, $hashedAttributes);
-            }
-            if (isset($value['value']) && $attributeValue = trim($value['value'])) {
-                $complete[self::VALUE_PFX] = $attributeValue;
-            }
-            if ($value['type'] == 'open') {
-                $cs = self::xml2arrayRecursive($elements, $level + 1, $namespaceMapping);
-                foreach($cs as $c) {
-                    $tagName = $c[self::TAG_NAME_PFX];
-                    unset($c[self::TAG_NAME_PFX]);
-
-                    if (!isset(self::$_singulars[$tagName])) {
-                        $complete[$tagName][] = $c;
-                    } else {
-                        $complete[$tagName] = $c;
-                        unset($complete[$tagName][self::TAG_NAME_PFX]);
-                    }
-                }
-            }
-            $newElement[] = $complete;
+        if ($value['type'] == 'close') {
+            return $newElement;
+        } elseif ($value['type'] == 'cdata') {
+            continue;
         }
-        self::$counter = 0;
-        return $newElement;
+
+        $hashedAttributes = [];
+        $tagName = $value['tag'];
+        if (isset($value['attributes']) && $attributes = $value['attributes']) {
+            foreach($attributes as $attributeKey => $attributeValue) {
+                $hashedAttributes[self::ATTRIBUTE_PFX . $attributeKey] = $attributeValue;
+            }
+        }
+
+        $complete = [];
+        $tagName = self::mapNamespacesToSaml($tagName);
+        $complete[self::TAG_NAME_PFX] = $tagName;
+
+        if ($hashedAttributes) {
+            $complete += $hashedAttributes;
+        }
+
+        if (isset($value['value']) && $attributeValue = trim($value['value'])) {
+            $complete[self::VALUE_PFX] = $attributeValue;
+        }
+
+        if ($value['type'] == 'open') {
+            $cs = self::xml2arrayRecursive($elements, $level + 1, $namespaceMapping);
+            foreach($cs as $c) {
+                $tagName = $c[self::TAG_NAME_PFX];
+                unset($c[self::TAG_NAME_PFX]);
+
+                if (!isset(self::$_singulars[$tagName])) {
+                    $complete[$tagName][] = $c;
+                } else {
+                    $complete[$tagName] = $c;
+                }
+            }
+        }
+        $newElement[] = $complete;
     }
+    self::$counter = 0;
+    return $newElement;
+}
 
     /**
      * Maps namespace prefixes to the correct ones as used in saml
@@ -335,110 +333,102 @@ class XmlToArray
      * @param string $elementName Specific element to convert, if empty then the top level element is used
      * @return string XML from array
      */
-    public static function array2xml(array $hash, $elementName = "", $useIndentation=false)
-    {
-        $writer = new \XMLWriter();
-        $writer->openMemory();
-        $writer->startDocument('1.0', 'UTF-8');
-        $writer->setIndent($useIndentation);
+public static function array2xml(array $hash, $elementName = "", $useIndentation = false)
+{
+    $writer = new \XMLWriter();
+    $writer->openMemory();
+    $writer->startDocument('1.0', 'UTF-8');
+    $writer->setIndent($useIndentation);
+    if ($useIndentation) {
         $writer->setIndentString("    ");
-
-        if (!$elementName) {
-            if (isset($hash[self::TAG_NAME_PFX])) {
-                $elementName = $hash[self::TAG_NAME_PFX];
-            }
-            else {
-                throw new \RuntimeException("No top level tag provided or defined in hash!");
-            }
-        }
-
-        self::array2xmlRecursive($hash, $elementName, $writer);
-
-        $writer->endDocument();
-        return $writer->outputMemory();
     }
 
-    protected static function array2xmlRecursive($hash, $elementName, \XMLWriter $writer, $level = 0)
-    {
-        if (is_array($hash) && array_key_exists(self::COMMENT_PFX, $hash)) {
-            $writer->writeComment($hash[self::COMMENT_PFX]);
+    if (!$elementName) {
+        if (isset($hash[self::TAG_NAME_PFX])) {
+            $elementName = $hash[self::TAG_NAME_PFX];
+        } else {
+            throw new \RuntimeException("No top level tag provided or defined in hash!");
         }
+    }
 
-        if ($level > self::MAX_RECURSION_LEVEL) {
+    self::array2xmlRecursive($hash, $elementName, $writer);
+
+    $writer->endDocument();
+    $output = $writer->outputMemory();
+    unset($writer);
+    return $output;
+}
+
+protected static function array2xmlRecursive($hash, $elementName, \XMLWriter $writer, $level = 0)
+{
+    if ($level > self::MAX_RECURSION_LEVEL) {
+        throw new \RuntimeException(
+            sprintf(
+                'Recursion threshold exceed on element: "%s" for hashvalue: "%s"',
+                $elementName,
+                var_export($hash, true)
+            )
+        );
+    }
+
+    if ($hash == self::PLACEHOLDER_VALUE) {
+        return;
+    }
+
+    if (is_array($hash) && array_key_exists(self::COMMENT_PFX, $hash)) {
+        $writer->writeComment($hash[self::COMMENT_PFX]);
+    }
+
+    if (!isset($hash[0])) {
+        $writer->startElement($elementName);
+    }
+
+    foreach((array)$hash as $key => $value) {
+        if (is_int($key)) {
+            self::array2xmlRecursive($value, $elementName, $writer, $level + 1);
+        } elseif ($key === self::VALUE_PFX) {
+            $writer->text($value);
+        } elseif (strpos($key, self::PRIVATE_PFX) === 0) {
+            continue;
+        } elseif (strpos($key, self::ATTRIBUTE_PFX) === 0) {
+            $writer->writeAttribute(substr($key, 1), $value);
+        } elseif (is_array($value) || $value === self::PLACEHOLDER_VALUE) {
+            self::array2xmlRecursive($value, $key, $writer, $level + 1);
+        } else {
             throw new \RuntimeException(
                 sprintf(
-                    'Recursion threshold exceed on element: "%s" for hashvalue: "%s"',
-                    $elementName,
-                    var_export($hash, true)
+                    'Value for key "%s" unrecognized (key naming error?)! Value: "%s"',
+                    $key,
+                    print_r($value, true)
                 )
             );
         }
-        if ($hash == self::PLACEHOLDER_VALUE) {
-            // Ignore placeholders
-            return;
-        }
-        if (!isset($hash[0])) {
-            $writer->startElement($elementName);
-        }
-
-        foreach((array)$hash as $key => $value) {
-            if (is_int($key)) {
-                // Normal numeric index, value is probably a hash structure, recurse...
-                self::array2xmlRecursive($value, $elementName, $writer, $level + 1);
-
-            } elseif ($key === self::VALUE_PFX) {
-                $writer->text($value);
-
-            } elseif (strpos($key, self::PRIVATE_PFX) === 0) {
-                # [__][<x>] is used for private attributes for internal consumption
-
-            } elseif (strpos($key, self::ATTRIBUTE_PFX) === 0) {
-                $writer->writeAttribute(substr($key, 1), $value);
-
-            } elseif (is_array($value) || $value === self::PLACEHOLDER_VALUE) {
-                self::array2xmlRecursive($value, $key, $writer, $level + 1);
-            }
-            else {
-                throw new \RuntimeException(
-                    sprintf(
-                        'Value for key "%s" unrecognized (key naming error?)! Value: "%s"',
-                        $key,
-                        print_r($value, true)
-                    )
-                );
-            }
-        }
-
-        if (!isset($hash[0])) {
-            $writer->endElement();
-        }
     }
 
-    public static function array2attributes($attributes)
-    {
-        $res = [];
-        foreach((array)$attributes as $name => $attribute) {
-            // Name must be a uri
-            // Uri checking is hard, so at least check for a scheme.
-            assert((bool) preg_match("|(\\w+)\\:.+|", $name));
-            $newAttribute = [
-                '_Name' => $name,
-                '_NameFormat' => 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri',
-            ];
-            foreach ((array)$attribute as $value) {
-                if (is_array($value)) {
-                    $newAttribute['saml:AttributeValue'][] = $value;
-                }
-                else {
-                    $newAttribute['saml:AttributeValue'][] = [
-                        self::VALUE_PFX  => $value,
-                    ];
-                }
-            }
-            $res[] = $newAttribute;
-        }
-        return $res;
+    if (!isset($hash[0])) {
+        $writer->endElement();
     }
+}
+
+public static function array2attributes($attributes)
+{
+    $res = [];
+    foreach ((array)$attributes as $name => $attribute) {
+        assert((bool) preg_match("|(\\w+)\\:.+|", $name));
+        $newAttribute = [
+            '_Name' => $name,
+            '_NameFormat' => 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri',
+            'saml:AttributeValue' => []
+        ];
+
+        foreach ((array)$attribute as $value) {
+            $newAttribute['saml:AttributeValue'][] = is_array($value) ? $value : [self::VALUE_PFX => $value];
+        }
+
+        $res[] = $newAttribute;
+    }
+    return $res;
+}
 
     /**
      * Format XML, adds newlines and whitespace.
@@ -449,45 +439,39 @@ class XmlToArray
      * @param string $xml Unformatted XML
      * @return string Formatted XML
      */
-    public static function formatXml($xml)
-    {
-        // add marker linefeeds to aid the pretty-tokeniser (adds a linefeed between all tag-end boundaries)
-        $xml = preg_replace('/(>)(<)(\/*)/', "$1\n$2$3", $xml);
+public static function formatXml($xml)
+{
+    // add marker linefeeds to aid the pretty-tokeniser (adds a linefeed between all tag-end boundaries)
+    $xml = preg_replace('/(>)(<)(\/*)/', "$1\n$2$3", $xml);
 
-        // now indent the tags
-        $token = strtok($xml, "\n");
-        $result = ''; // holds formatted version as it is built
-        $pad = 0; // initial indent
-        $matches = []; // returns from preg_matches()
-        $indent = 0;
+    // now indent the tags
+    $token = strtok($xml, "\n");
+    $result = ''; // holds formatted version as it is built
+    $pad = 0; // initial indent
+    $matches = []; // returns from preg_matches()
+    $indent = 0;
 
-        // scan each line and adjust indent based on opening/closing tags
-        while ($token !== false) :
+    // scan each line and adjust indent based on opening/closing tags
+    while ($token !== false) :
+        // test for the various tag states
+        if (preg_match('/.+<\/\w[^>]*>$/', $token, $matches)) {
+            $indent = 0;
+        } elseif (preg_match('/^<\/\w/', $token, $matches)) {
+            $pad--;
+        } elseif (preg_match('/^<\w[^>]*[^\/]>.*$/', $token, $matches)) {
+            $indent = 1;
+        } else {
+            $indent = 0;
+        }
 
-            // test for the various tag states
+        // pad the line with the required number of leading spaces
+        $line = str_pad($token, strlen($token) + $pad, ' ', STR_PAD_LEFT);
+        $result .= $line . "\n"; // add to the cumulative result, with linefeed
+        $token = strtok("\n"); // get the next token
+        $pad += $indent; // update the pad size for subsequent lines
+    endwhile;
 
-            // 1. open and closing tags on same line - no change
-            if (preg_match('/.+<\/\w[^>]*>$/', $token, $matches)) :
-                $indent = 0;
-            // 2. closing tag - outdent now
-            elseif (preg_match('/^<\/\w/', $token, $matches)) :
-                $pad--;
-            // 3. opening tag - don't pad this one, only subsequent tags
-            elseif (preg_match('/^<\w[^>]*[^\/]>.*$/', $token, $matches)) :
-                $indent = 1;
-            // 4. no indentation needed
-            else :
-                $indent = 0;
-            endif;
-
-            // pad the line with the required number of leading spaces
-            $line = str_pad($token, strlen($token) + $pad, ' ', STR_PAD_LEFT);
-            $result .= $line . "\n"; // add to the cumulative result, with linefeed
-            $token = strtok("\n"); // get the next token
-            $pad += $indent; // update the pad size for subsequent lines
-        endwhile;
-
-        return $result;
-    }
+    return $result;
+}
 }
 // @codingStandardsIgnoreEnd

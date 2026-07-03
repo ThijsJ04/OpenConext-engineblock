@@ -36,47 +36,42 @@ class MetadataMduiType extends Type
         return $platform->getJsonTypeDeclarationSQL($column);
     }
 
-    public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
-    {
-        if (is_null($value)) {
-            return $value;
-        }
-
-        if (!$value instanceof Mdui) {
-            throw new ConversionException(
-                sprintf(
-                    'Value "%s" must be null or an instance of Mdui to be able to ' .
-                    'convert it to a database value',
-                    is_object($value) ? get_class($value) : (string)$value
-                )
-            );
-        }
-
-        return $value->toJson();
+public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
+{
+    if (is_null($value)) {
+        return null;
     }
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): mixed
-    {
-        if (is_null($value)) {
-            return $value;
-        }
+    if (!$value instanceof Mdui) {
+        throw new ConversionException(
+            'Value must be null or an instance of Mdui to be able to convert it to a database value'
+        );
+    }
 
-        try {
-            $mdui = Mdui::fromJson($value);
-        } catch (InvalidArgumentException $e) {
-            // get nice standard message, so we can throw it keeping the exception chain
-            $doctrineExceptionMessage = sprintf(
+    return $value->toJson();
+}
+
+public function convertToPHPValue($value, AbstractPlatform $platform): mixed
+{
+    if ($value === null) {
+        return null;
+    }
+
+    try {
+        return Mdui::fromJson($value);
+    } catch (InvalidArgumentException $e) {
+        throw new ConversionException(
+            sprintf(
                 'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
                 $value,
                 $this->getName(),
                 'valid serialized mdui json'
-            );
-
-            throw new ConversionException($doctrineExceptionMessage, 0, $e);
-        }
-
-        return $mdui;
+            ),
+            0,
+            $e
+        );
     }
+}
 
     public function getName(): string
     {
