@@ -124,21 +124,18 @@ class MetadataController
      * @Route("/authentication/sp/certificate", name="certificate_sp", methods={"GET"})
      * @Route("/authentication/sp/certificate/key:{keyId}", name="certificate_sp_key", methods={"GET"})
      */
-    public function signingCertificateAction(string $keyId = null): Response
-    {
-        if (empty($keyId)) {
-            $keyId = KeyPairFactory::DEFAULT_KEY_PAIR_IDENTIFIER;
-        }
+public function signingCertificateAction(string $keyId = null): Response
+{
+    $keyId = $keyId ?? KeyPairFactory::DEFAULT_KEY_PAIR_IDENTIFIER;
 
-        $cert = $this->metadataService->certificate($keyId);
-        $response = new Response($cert);
-        $response->headers->set('Content-Type', 'application/x-pem-file');
-        $disposition = $response->headers->makeDisposition(
-            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
-            sprintf('%s.%s.pem', $this->engineBlockConfiguration->getHostname(), $keyId)
-        );
-        $response->headers->set('Content-Disposition', $disposition);
+    $cert = $this->metadataService->certificate($keyId);
+    $response = new Response($cert);
+    $response->headers->set('Content-Type', 'application/x-pem-file');
+    $response->headers->set('Content-Disposition', $response->headers->makeDisposition(
+        ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+        sprintf('%s.%s.pem', $this->engineBlockConfiguration->getHostname(), $keyId)
+    ));
 
-        return $response;
-    }
+    return $response;
+}
 }

@@ -131,27 +131,27 @@ class EngineBlockContext extends AbstractSubContext
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList)
      */
-    public function __construct(
-        ServiceRegistryFixture $serviceRegistry,
-        EngineBlock $engineBlock,
-        EntityRegistry $mockSpRegistry,
-        EntityRegistry $mockIdpRegistry,
-        FunctionalTestingFeatureConfiguration $features,
-        FunctionalTestingPdpClient $pdpClient,
-        FunctionalTestingAuthenticationLoopGuard $authenticationLoopGuard,
-        FunctionalTestingAttributeAggregationClient $attributeAggregationClient,
-        AbstractDataStore $authGuardDataStore,
-    ) {
-        $this->serviceRegistryFixture = $serviceRegistry;
-        $this->engineBlock = $engineBlock;
-        $this->mockSpRegistry = $mockSpRegistry;
-        $this->mockIdpRegistry = $mockIdpRegistry;
-        $this->features = $features;
-        $this->pdpClient = $pdpClient;
-        $this->authenticationLoopGuard = $authenticationLoopGuard;
-        $this->attributeAggregationClient = $attributeAggregationClient;
-        $this->dataStore = $authGuardDataStore;
-    }
+public function __construct(
+    ServiceRegistryFixture $serviceRegistry,
+    EngineBlock $engineBlock,
+    EntityRegistry $mockSpRegistry,
+    EntityRegistry $mockIdpRegistry,
+    FunctionalTestingFeatureConfiguration $features,
+    FunctionalTestingPdpClient $pdpClient,
+    FunctionalTestingAuthenticationLoopGuard $authenticationLoopGuard,
+    FunctionalTestingAttributeAggregationClient $attributeAggregationClient,
+    AbstractDataStore $authGuardDataStore,
+) {
+    $this->serviceRegistryFixture = $serviceRegistry;
+    $this->engineBlock = $engineBlock;
+    $this->mockSpRegistry = $mockSpRegistry;
+    $this->mockIdpRegistry = $mockIdpRegistry;
+    $this->features = $features;
+    $this->pdpClient = $pdpClient;
+    $this->authenticationLoopGuard = $authenticationLoopGuard;
+    $this->attributeAggregationClient = $attributeAggregationClient;
+    $this->dataStore = $authGuardDataStore;
+}
 
     /**
      * @Given /^an EngineBlock instance on "([^"]*)"$/
@@ -205,51 +205,59 @@ class EngineBlockContext extends AbstractSubContext
     /**
      * @Then /^I should see the following "([^"]*)" attributes listed on the consent page:$/
      */
-    public function iSeeTheAttributesFromSourceOnConsentPage($source, TableNode $attributes)
-    {
-        $mink = $this->getMinkContext();
-        $page = $mink->getSession()->getPage();
-        $listItemsSelector = 'ul#attribute-source-' . strtolower($source) . ' li.consent__attribute';
+/**
+ * @Then /^I should see the following "([^"]*)" attributes listed on the consent page:$/
+ */
+public function iSeeTheAttributesFromSourceOnConsentPage($source, TableNode $attributes)
+{
+    $mink = $this->getMinkContext();
+    $page = $mink->getSession()->getPage();
+    $listItemsSelector = 'ul#attribute-source-' . strtolower($source) . ' li.consent__attribute';
 
-        $listItems = $page->findAll('css', $listItemsSelector);
-        // Count the number of expected attributes for a given source, the minus one is to subtract the name/value row
-        // specified in the scenario (added for readability of the table)
-        $expectedNumberOfAttributes = count($attributes->getRows()) - 1;
+    $listItems = $page->findAll('css', $listItemsSelector);
+    $expectedNumberOfAttributes = count($attributes->getRows()) - 1;
 
-        if ($expectedNumberOfAttributes === 0) {
-            throw new RuntimeException(sprintf('Unable to find any attributes from source "%s"', $source));
+    if ($expectedNumberOfAttributes === 0) {
+        throw new RuntimeException(sprintf('Unable to find any attributes from source "%s"', $source));
+    }
+
+    $matchedNumberOfAttributes = 0;
+    $expectedAttributes = $attributes->getHash();
+    $expectedAttributesCount = count($expectedAttributes);
+
+    foreach ($listItems as $attributeRow) {
+        $divs = $attributeRow->findAll('css', 'div');
+        if (count($divs) < 2) {
+            continue;
         }
 
-        // Ugly algo to test if the expected attributes (incl value) are found on the consent page
-        $matchedNumberOfAttributes = 0;
-        foreach ($listItems as $attributeRow) {
-            $divs = $attributeRow->findAll('css', 'div');
-            $name = $divs[0]->getText();
-            $value = $divs[1]->getText();
+        $name = $divs[0]->getText();
+        $value = $divs[1]->getText();
 
-            foreach ($attributes->getRows() as $expectedAttribute) {
-                $expectedName = $expectedAttribute[0];
-                $expectedValue = $expectedAttribute[1];
-
-                if ($name === $expectedName && $value === $expectedValue) {
-                    $matchedNumberOfAttributes++;
-                }
+        foreach ($expectedAttributes as $expectedAttribute) {
+            if ($name === $expectedAttribute['Name'] && $value === $expectedAttribute['Value']) {
+                $matchedNumberOfAttributes++;
+                break;
             }
         }
-        // In the end, the number of expected attributes should have been found on the page, if the count does
-        // not match, that indicates some items where missing
-        if ($matchedNumberOfAttributes !== $expectedNumberOfAttributes) {
-            throw new RuntimeException(
-                sprintf(
-                    'The expected attribute values where not (all) found in the specified source list ("%s")'
-                    . ' generated on the consent page. Expected %d, found %d',
-                    $source,
-                    $expectedNumberOfAttributes,
-                    $matchedNumberOfAttributes
-                )
-            );
+
+        if ($matchedNumberOfAttributes === $expectedAttributesCount) {
+            break;
         }
     }
+
+    if ($matchedNumberOfAttributes !== $expectedNumberOfAttributes) {
+        throw new RuntimeException(
+            sprintf(
+                'The expected attribute values where not (all) found in the specified source list ("%s")'
+                . ' generated on the consent page. Expected %d, found %d',
+                $source,
+                $expectedNumberOfAttributes,
+                $matchedNumberOfAttributes
+            )
+        );
+    }
+}
 
     /**
      * @Given /^I give my consent$/
@@ -336,28 +344,29 @@ class EngineBlockContext extends AbstractSubContext
     /**
      * @Given /^I select "([^"]*)" on the WAYF$/
      */
-    public function iSelectOnTheWAYF($idpName)
-    {
-        /** @var MockIdentityProvider $mockIdp */
-        $mockIdp = $this->mockIdpRegistry->get($idpName);
+/**
+ * @Given /^I select "([^"]*)" on the WAYF$/
+ */
+public function iSelectOnTheWAYF($idpName)
+{
+    /** @var MockIdentityProvider $mockIdp */
+    $mockIdp = $this->mockIdpRegistry->get($idpName);
 
-        if (!$mockIdp) {
-            throw new RuntimeException(
-                sprintf('Unable to find idp with name "%s"', $idpName)
-            );
-        }
-
-        $selector = '[data-entityid="' . $mockIdp->entityId() . '"] button.idp__submit';
-
-        $mink = $this->getMinkContext()->getSession()->getPage();
-        $button = $mink->find('css', $selector);
-
-        if (!$button) {
-            throw new RuntimeException(sprintf('Unable to find button with selector "%s"', $selector));
-        }
-
-        $button->click();
+    if (!$mockIdp) {
+        throw new RuntimeException(
+            sprintf('Unable to find idp with name "%s"', $idpName)
+        );
     }
+
+    $mink = $this->getMinkContext()->getSession()->getPage();
+    $button = $mink->find('css', '[data-entityid="' . $mockIdp->entityId() . '"] button.idp__submit');
+
+    if (!$button) {
+        throw new RuntimeException(sprintf('Unable to find button for IdP "%s"', $idpName));
+    }
+
+    $button->click();
+}
 
     /**
      * @Given /^I select IdP by label "([^"]*)" on the WAYF$/
@@ -608,22 +617,30 @@ class EngineBlockContext extends AbstractSubContext
     /**
      * @Then /^the received AuthnRequest should not match xpath '([^']*)'$/
      */
-    public function theReceivedAuthnRequestShouldNotMatchXpath($xpath)
-    {
-        $session = $this->getMinkContext()->getSession();
-        try {
-            $this->theAuthnRequestToSubmitShouldMatchXpath($xpath);
-            throw new RuntimeException('The xpath was found in the AuthnRequest, it should not');
-        } catch (ExpectationException $e) {
-            if (false === preg_match('/The xpath "(w+)" did not result in at least one match./', $e->getMessage())) {
-                throw new ExpectationException(
-                    'Unexepected match on the xpath that should NOT match the AuthnRequest xml',
-                    $session,
-                    $e
-                );
-            }
-        }
+/**
+ * @Then /^the received AuthnRequest should not match xpath '([^']*)'$/
+ */
+public function theReceivedAuthnRequestShouldNotMatchXpath($xpath)
+{
+    $session = $this->getMinkContext()->getSession();
+    $mink = $session->getPage();
+    $authnRequestElement = $mink->find('css', 'input[name="authnRequestXml"]');
+    if ($authnRequestElement === null) {
+        throw new ExpectationException('Element with the name "authnRequestXml" could not be found', $session);
     }
+
+    $authnRequestXml = html_entity_decode($authnRequestElement->getValue());
+    $authnRequest = new DOMDocument();
+    $authnRequest->loadXML($authnRequestXml);
+
+    $xpathObject = new DOMXPath($authnRequest);
+    $xpathObject->registerNamespace('gssp', 'urn:mace:surf.nl:stepup:gssp-extensions');
+    $nodeList = $xpathObject->query($xpath);
+
+    if ($nodeList && $nodeList->length > 0) {
+        throw new RuntimeException('The xpath was found in the AuthnRequest, it should not');
+    }
+}
 
     /**
      * @Then /^the received AuthnRequest should match xpath '([^']*)'$/
@@ -636,32 +653,34 @@ class EngineBlockContext extends AbstractSubContext
     /**
      * @Then /^the AuthnRequest to submit should match xpath '([^']*)'$/
      */
-    public function theAuthnRequestToSubmitShouldMatchXpath($xpath)
-    {
-        $session = $this->getMinkContext()->getSession();
-        $mink    = $session->getPage();
-        $authnRequestElement = $mink->find('css', 'input[name="authnRequestXml"]');
-        if ($authnRequestElement === null) {
-            throw new ExpectationException('Element with the name "authnRequestXml" could not be found', $session);
-        }
+/**
+ * @Then /^the AuthnRequest to submit should match xpath '([^']*)'$/
+ */
+public function theAuthnRequestToSubmitShouldMatchXpath($xpath)
+{
+    $session = $this->getMinkContext()->getSession();
+    $page = $session->getPage();
+    $authnRequestElement = $page->find('css', 'input[name="authnRequestXml"]');
 
-        $authnRequestXml = html_entity_decode($authnRequestElement->getValue());
-
-        /**
-         * @see MinkContext::theResponseShouldMatchXpath()
-         */
-        $authnRequest = new DOMDocument();
-        $authnRequest->loadXML($authnRequestXml);
-
-        $xpathObject = new DOMXPath($authnRequest);
-        $xpathObject->registerNamespace('gssp', 'urn:mace:surf.nl:stepup:gssp-extensions');
-        $nodeList = $xpathObject->query($xpath);
-
-        if (!$nodeList || $nodeList->length === 0) {
-            $message = sprintf('The xpath "%s" did not result in at least one match.', $xpath);
-            throw new ExpectationException($message, $session);
-        }
+    if ($authnRequestElement === null) {
+        throw new ExpectationException('Element with the name "authnRequestXml" could not be found', $session);
     }
+
+    $authnRequestXml = html_entity_decode($authnRequestElement->getValue());
+    $authnRequest = new DOMDocument();
+    $authnRequest->loadXML($authnRequestXml);
+
+    $xpathObject = new DOMXPath($authnRequest);
+    $xpathObject->registerNamespace('gssp', 'urn:mace:surf.nl:stepup:gssp-extensions');
+    $nodeList = $xpathObject->query($xpath);
+
+    if (!$nodeList || $nodeList->length === 0) {
+        throw new ExpectationException(
+            sprintf('The xpath "%s" did not result in at least one match.', $xpath),
+            $session
+        );
+    }
+}
 
     /**
      * @Given /^my browser is configured to accept language "([^"]*)"$/
@@ -674,24 +693,27 @@ class EngineBlockContext extends AbstractSubContext
     /**
      * @Then /^a lang cookie should be set with value "([^"]*)"$/
      */
-    public function aLangCookieShouldBeSetWithValue($locale)
-    {
-        $cookie = $this->getMinkContext()->getSession()->getCookie('lang');
+/**
+ * @Then /^a lang cookie should be set with value "([^"]*)"$/
+ */
+public function aLangCookieShouldBeSetWithValue($locale)
+{
+    $cookie = $this->getMinkContext()->getSession()->getCookie('lang');
 
-        if ($cookie === null) {
-            throw new ExpectationException(
-                'The lang cookie has not been set',
-                $this->getMinkContext()->getSession()->getDriver()
-            );
-        }
-
-        if ($cookie !== $locale) {
-            throw new ExpectationException(
-                sprintf('The lang cookie should contain "%s", but contains "%s"', $locale, $cookie),
-                $this->getMinkContext()->getSession()->getDriver()
-            );
-        }
+    if ($cookie === null) {
+        throw new ExpectationException(
+            'The lang cookie has not been set',
+            $this->getMinkContext()->getSession()->getDriver()
+        );
     }
+
+    if ($cookie !== $locale) {
+        throw new ExpectationException(
+            sprintf('The lang cookie should contain "%s", but contains "%s"', $locale, $cookie),
+            $this->getMinkContext()->getSession()->getDriver()
+        );
+    }
+}
 
     /**
      * @Given /^I have a locale cookie containing "([^"]*)"$/
@@ -749,23 +771,26 @@ class EngineBlockContext extends AbstractSubContext
     /**
      * @Given /^I should see ART code "([^"]*)"$/
      */
-    public function iShouldSeeARTCode($artCode)
-    {
-        $session = $this->getMinkContext()->getSession();
-        $mink = $session->getPage();
-        // Grab the ART code from the page with an xpath expression.
-        $result = $mink->find('xpath', '//span[text()="EC:"]/../span[2]');
-        if ($result) {
-            $artOnPage = $result->getText();
-            if ($artOnPage == $artCode) {
-                return;
-            }
-            throw new RuntimeException(
-                sprintf('Expected Error Code "%s" did not match the Error Code on the page "%s"', $artCode, $artOnPage)
-            );
-        }
+/**
+ * @Then /^I should see ART code "([^"]*)"$/
+ */
+public function iShouldSeeARTCode($artCode)
+{
+    $session = $this->getMinkContext()->getSession();
+    $page = $session->getPage();
+    $result = $page->find('xpath', '//span[text()="EC:"]/../span[2]');
+
+    if (!$result) {
         throw new RuntimeException('Unable to find the Error Code on the page');
     }
+
+    $artOnPage = $result->getText();
+    if ($artOnPage !== $artCode) {
+        throw new RuntimeException(
+            sprintf('Expected Error Code "%s" did not match the Error Code on the page "%s"', $artCode, $artOnPage)
+        );
+    }
+}
 
     /**
      * @Then /^I write down the request id as seen on the error page$/
@@ -828,126 +853,119 @@ class EngineBlockContext extends AbstractSubContext
     /**
      * @Then /^I exploit the XML signature bypass vulnerability after passing through the IdP$/
      */
-    public function iExploitTheXMLSignatureBypass()
-    {
-        $mink = $this->getMinkContext();
+/**
+ * @Then /^I exploit the XML signature bypass vulnerability after passing through the IdP$/
+ */
+public function iExploitTheXMLSignatureBypass()
+{
+    $mink = $this->getMinkContext();
+    $page = $mink->getSession()->getPage();
 
-        // Get SAMLResponse from form
-        $result = $mink->getSession()->getPage()->find('xpath', '//form/input[@name="SAMLResponse"]');
-        $samlResponse = $result->getAttribute('value');
+    // Get SAMLResponse from form
+    $samlResponseField = $page->find('xpath', '//form/input[@name="SAMLResponse"]');
+    $samlResponse = $samlResponseField->getAttribute('value');
 
-        // Convert response to  DOMDocument
-        $samlResponseXml = base64_decode($samlResponse);
-        $xmlDom = DOMDocumentFactory::fromString($samlResponseXml);
+    // Convert response to DOMDocument
+    $samlResponseXml = base64_decode($samlResponse);
+    $xmlDom = DOMDocumentFactory::fromString($samlResponseXml);
 
-        // Init XPath and register namespaces
-        $xpath = new DOMXPath($xmlDom);
-        $xpath->registerNamespace('soap-env', Constants::NS_SOAP);
-        $xpath->registerNamespace('saml_protocol', Constants::NS_SAMLP);
-        $xpath->registerNamespace('saml_assertion', Constants::NS_SAML);
-        $xpath->registerNamespace('saml_metadata', Constants::NS_MD);
-        $xpath->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
-        $xpath->registerNamespace('xenc', XMLSecEnc::XMLENCNS);
-
-        // Strip response/signature
-        $nodes = $xpath->query("/saml_protocol:Response/ds:Signature");
-        foreach ($nodes as $node) {
-            $node->parentNode->removeChild($node);
-        }
-
-        // Get elements
-        $response = $xpath->query("/saml_protocol:Response")->item(0);
-        $assertion = $xpath->query("/saml_protocol:Response/saml_assertion:Assertion")->item(0);
-        $signature = $xpath->query("/saml_protocol:Response/saml_assertion:Assertion/ds:Signature")->item(0);
-
-        // 1. Clone original assertion
-        $originalAssertion = $assertion->cloneNode(true);
-
-        // 2. Put original assertion into wrapper
-        $wrapper = $xmlDom->createElement('wrapper');
-        $wrapper->appendChild($originalAssertion);
-        $response->appendChild($wrapper);
-
-        // 3. Remove Signature from Assertions
-        $assertion->removeChild($signature);
-        $signature = $xpath->query("./ds:Signature", $originalAssertion)->item(0);
-        $originalAssertion->removeChild($signature);
-
-        // 4. Spoof assertion and change NameID and attribute
-        $nodes = $xpath->query(
-            "/saml_protocol:Response/saml_assertion:Assertion/saml_assertion:Subject/saml_assertion:NameID"
-        );
-        $nodes->item(0)->textContent = "admin";
-
-        $nodes = $xpath->query(
-            '//saml_protocol:Response/saml_assertion:Assertion/saml_assertion:AttributeStatement/'.
-            'saml_assertion:Attribute[@Name="urn:mace:dir:attribute-def:uid"]/saml_assertion:AttributeValue'
-        );
-        $nodes->item(0)->textContent = "ADMIN!";
-
-        // 5. Change original assertion ID
-        $assertion->attributes->getNamedItem('ID')->nodeValue = 'attack';
-
-        // 6. Compute new digest over assertion
-        $digestValue = $this->calculateDigest($assertion);
-        $assertion->appendChild($signature);
-
-        // 7. Create SignedInfo with digest and update Reference
-        $signedInfo = $xpath->query(
-            "/saml_protocol:Response/saml_assertion:Assertion/ds:Signature/ds:SignedInfo"
-        )->item(0);
-        $newSignedInfo = $signedInfo->cloneNode(true);
-        $reference = $xpath->query("./ds:Reference", $newSignedInfo)->item(0);
-        $reference->attributes->getNamedItem('URI')->nodeValue = '#attack';
-
-        $digest = $xpath->query("./ds:DigestValue", $reference)->item(0);
-        $digest->nodeValue = $digestValue;
-
-        // 8. Add SignedInfo to signature
-        $signature->appendChild($newSignedInfo);
-        $assertion->insertBefore($signature, $assertion->firstChild);
-
-        $mutatedResponse = $xmlDom->saveXML();
-
-        // Update form with mutated SAMLResponse
-        $samlResponse = base64_encode($mutatedResponse);
-        $result->setValue($samlResponse);
-
-        $mink->pressButton('GO');
+    // Init XPath with all required namespaces
+    $xpath = new DOMXPath($xmlDom);
+    $namespaces = [
+        'soap-env' => Constants::NS_SOAP,
+        'saml_protocol' => Constants::NS_SAMLP,
+        'saml_assertion' => Constants::NS_SAML,
+        'saml_metadata' => Constants::NS_MD,
+        'ds' => XMLSecurityDSig::XMLDSIGNS,
+        'xenc' => XMLSecEnc::XMLENCNS
+    ];
+    foreach ($namespaces as $prefix => $namespace) {
+        $xpath->registerNamespace($prefix, $namespace);
     }
+
+    // Get elements
+    $response = $xpath->query("/saml_protocol:Response")->item(0);
+    $assertion = $xpath->query("/saml_protocol:Response/saml_assertion:Assertion")->item(0);
+    $signature = $xpath->query("/saml_protocol:Response/saml_assertion:Assertion/ds:Signature")->item(0);
+
+    // 1. Clone original assertion and put into wrapper
+    $wrapper = $xmlDom->createElement('wrapper');
+    $wrapper->appendChild($assertion->cloneNode(true));
+    $response->appendChild($wrapper);
+
+    // 2. Remove Signature from Assertions
+    $assertion->removeChild($signature);
+    $originalAssertion = $wrapper->firstChild;
+    $originalAssertion->removeChild($xpath->query("./ds:Signature", $originalAssertion)->item(0));
+
+    // 3. Spoof assertion and change NameID and attribute
+    $nameId = $xpath->query(
+        "/saml_protocol:Response/saml_assertion:Assertion/saml_assertion:Subject/saml_assertion:NameID"
+    )->item(0);
+    $nameId->textContent = "admin";
+
+    $attributeValue = $xpath->query(
+        '//saml_protocol:Response/saml_assertion:Assertion/saml_assertion:AttributeStatement/'.
+        'saml_assertion:Attribute[@Name="urn:mace:dir:attribute-def:uid"]/saml_assertion:AttributeValue'
+    )->item(0);
+    $attributeValue->textContent = "ADMIN!";
+
+    // 4. Change original assertion ID
+    $assertion->setAttribute('ID', 'attack');
+
+    // 5. Compute new digest over assertion
+    $digestValue = $this->calculateDigest($assertion);
+
+    // 6. Create SignedInfo with digest and update Reference
+    $signedInfo = $xpath->query(
+        "/saml_protocol:Response/saml_assertion:Assertion/ds:Signature/ds:SignedInfo"
+    )->item(0);
+    $newSignedInfo = $signedInfo->cloneNode(true);
+    $reference = $xpath->query("./ds:Reference", $newSignedInfo)->item(0);
+    $reference->setAttribute('URI', '#attack');
+    $xpath->query("./ds:DigestValue", $reference)->item(0)->nodeValue = $digestValue;
+
+    // 7. Add SignedInfo to signature and insert before first child
+    $signature->appendChild($newSignedInfo);
+    $assertion->insertBefore($signature, $assertion->firstChild);
+
+    // Update form with mutated SAMLResponse
+    $samlResponseField->setValue(base64_encode($xmlDom->saveXML()));
+
+    $mink->pressButton('GO');
+}
 
     /**
      * @Given /^the RelayState should be "([^"]*)"/
      */
-    public function theRelayStateShouldBeSetInTheForm($expectedRelayState)
-    {
-        $mink = $this->getMinkContext();
-        $page = $mink->getSession()->getPage();
+/**
+ * @Given /^the RelayState should be "([^"]*)"/
+ */
+public function theRelayStateShouldBeSetInTheForm($expectedRelayState)
+{
+    $mink = $this->getMinkContext();
+    $page = $mink->getSession()->getPage();
+    $relayStateField = $page->find('css', 'input[name="RelayState"]');
 
-        // Check if the page contains a RelayState hidden form field
-        // This is how RelayState is typically preserved in SAML POST bindings
-        $relayStateField = $page->find('css', 'input[name="RelayState"]');
-
-        if ($relayStateField === null) {
-            throw new ExpectationException(
-                'The RelayState field should be present, but it is not',
-                $mink->getSession()->getDriver()
-            );
-        }
-
-        // RelayState found as a form field
-        $relayStateValue = $relayStateField->getValue();
-        if ($expectedRelayState !== $relayStateValue) {
-            throw new ExpectationException(
-                sprintf(
-                    'The RelayState field should contain "%s", but contains "%s"',
-                    $expectedRelayState,
-                    $relayStateValue
-                ),
-                $mink->getSession()->getDriver()
-            );
-        }
+    if ($relayStateField === null) {
+        throw new ExpectationException(
+            'The RelayState field should be present, but it is not',
+            $mink->getSession()->getDriver()
+        );
     }
+
+    $relayStateValue = $relayStateField->getValue();
+    if ($expectedRelayState !== $relayStateValue) {
+        throw new ExpectationException(
+            sprintf(
+                'The RelayState field should contain "%s", but contains "%s"',
+                $expectedRelayState,
+                $relayStateValue
+            ),
+            $mink->getSession()->getDriver()
+        );
+    }
+}
 
     /**
      * @Then /^no RelayState should be present/
