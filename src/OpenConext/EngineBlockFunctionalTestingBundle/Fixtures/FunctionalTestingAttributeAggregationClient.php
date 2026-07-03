@@ -41,26 +41,40 @@ final class FunctionalTestingAttributeAggregationClient implements AttributeAggr
      * @param Request $request
      * @return Response
      */
-    public function aggregate(Request $request)
-    {
+public function aggregate(Request $request)
+{
+    if (empty($request->rules)) {
         $attributes = $this->dataStore->load();
+        if (!empty($attributes)) {
+            throw new InvalidArgumentException(
+                sprintf('Expecting an ARP rule for "%s", but no rules found.', $attributes[0]['name'])
+            );
+        }
+    } else {
+        $attributes = $this->dataStore->load();
+        $ruleLookup = $this->buildRuleLookup($request->rules);
 
         foreach ($attributes as $attribute) {
-            if (empty($request->rules)) {
-                throw new InvalidArgumentException(
-                    sprintf('Expecting an ARP rule for "%s", but no rules found.', $attribute['name'])
-                );
-            }
-
-            if (!$this->hasRuleForAttribute($request->rules, $attribute['name'], $attribute['source'])) {
+            $key = $attribute['name'] . '|' . $attribute['source'];
+            if (!isset($ruleLookup[$key])) {
                 throw new InvalidArgumentException(
                     sprintf('Expectation failed in AA client mock: expecting ARP rule for "%s"', $attribute['name'])
                 );
             }
         }
-
-        return Response::fromData($attributes);
     }
+
+    return Response::fromData($this->dataStore->load());
+}
+
+private function buildRuleLookup(array $rules)
+{
+    $lookup = [];
+    foreach ($rules as $rule) {
+        $lookup[$rule->name . '|' . $rule->source] = true;
+    }
+    return $lookup;
+}
 
     /**
      * @param array $rules ARP rules

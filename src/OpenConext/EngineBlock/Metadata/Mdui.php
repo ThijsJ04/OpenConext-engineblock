@@ -56,47 +56,43 @@ class Mdui
      */
     private $values = [];
 
-    public static function fromMetadata(
-        MultilingualElement $displayName,
-        MultilingualElement $description,
-        MultilingualElement $keywords,
-        MultilingualElement $logo,
-        MultilingualElement $privacyStatementUrl
-    ): Mdui {
-        $values = [
-            'DisplayName' => $displayName,
-            'Description' => $description,
-            'Keywords' => $keywords,
-            'Logo' => $logo,
-            'PrivacyStatementURL' => $privacyStatementUrl,
-        ];
+public static function fromMetadata(
+    MultilingualElement $displayName,
+    MultilingualElement $description,
+    MultilingualElement $keywords,
+    MultilingualElement $logo,
+    MultilingualElement $privacyStatementUrl
+): Mdui {
+    $values = [
+        'DisplayName' => $displayName,
+        'Description' => $description,
+        'Keywords' => $keywords,
+        'Logo' => $logo,
+        'PrivacyStatementURL' => $privacyStatementUrl,
+    ];
 
-        return new self($values);
-    }
+    return new self($values);
+}
 
-    private function __construct(array $values)
-    {
-        /**
-         * @var string $key
-         * @var MultilingualElement $value
-         */
-        foreach ($values as $key => $value) {
-            if (!in_array($value->getName(), self::ALLOWED_ELEMENT_NAMES)) {
-                throw new MduiNotFoundException(
-                    sprintf(
-                        'The Mdui element identified by: %s is not supported by EngineBlock. ' .
-                        'The following are permitted: %s',
-                        $value->getName(),
-                        implode(', ', self::ALLOWED_ELEMENT_NAMES)
-                    )
-                );
-            }
+private function __construct(array $values)
+{
+    foreach ($values as $key => $value) {
+        if (!in_array($value->getName(), self::ALLOWED_ELEMENT_NAMES, true)) {
+            throw new MduiNotFoundException(
+                sprintf(
+                    'The Mdui element identified by: %s is not supported by EngineBlock. ' .
+                    'The following are permitted: %s',
+                    $value->getName(),
+                    implode(', ', self::ALLOWED_ELEMENT_NAMES)
+                )
+            );
+        }
 
-            if (!is_null($value) && in_array($key, self::ALLOWED_ELEMENT_NAMES, true)) {
-                $this->values[$key] = $value;
-            }
+        if ($value !== null && in_array($key, self::ALLOWED_ELEMENT_NAMES, true)) {
+            $this->values[$key] = $value;
         }
     }
+}
 
     public static function emptyMdui(): Mdui
     {
@@ -118,36 +114,30 @@ class Mdui
         return $json;
     }
 
-    public static function fromJson(string $parsedData): Mdui
-    {
-        $parsedData = json_decode($parsedData, true);
-        $output = [];
-
-        if ($parsedData) {
-            foreach ($parsedData as $elementName => $multiLingualElement) {
-                // The logo element differs from the other MduiElements, it is constructed in its own fashion
-                if ($elementName === 'Logo' && array_key_exists('url', $multiLingualElement)) {
-                    $output[$elementName] = Logo::fromJson($multiLingualElement);
-                    continue;
-                }
-
-                // Determine if we are dealing with an empty element, mdui elements are optional.
-                if (!array_key_exists('values', $multiLingualElement)) {
-                    $output[$elementName] = EmptyMduiElement::fromJson($multiLingualElement);
-                    continue;
-                }
-
-                $output[$elementName] = MduiElement::fromJson($multiLingualElement);
-            }
-
-            return new self($output);
-        }
-        // When the parsed data value is null (originating from the roles sso_provider_roles
-        // table), we return an empty Mdui value object. This should be a non occurring
-        // situation but could potentially happen when the Metadata is not yet pushed from
-        // manage to EngineBlock
+public static function fromJson(string $parsedData): Mdui
+{
+    $parsedData = json_decode($parsedData, true);
+    if (empty($parsedData)) {
         return self::emptyMdui();
     }
+
+    $output = [];
+    foreach ($parsedData as $elementName => $multiLingualElement) {
+        if ($elementName === 'Logo' && isset($multiLingualElement['url'])) {
+            $output[$elementName] = Logo::fromJson($multiLingualElement);
+            continue;
+        }
+
+        if (!isset($multiLingualElement['values'])) {
+            $output[$elementName] = EmptyMduiElement::fromJson($multiLingualElement);
+            continue;
+        }
+
+        $output[$elementName] = MduiElement::fromJson($multiLingualElement);
+    }
+
+    return new self($output);
+}
 
     /**
      * @return string[] array of language abbreviations, can also be empty array if the given element is not set
@@ -298,22 +288,21 @@ class Mdui
      * Throws an exception when an unavailable translation is requested, to prevent
      * this. Use this method in conjunction with hasPrivacyStatementURL
      */
-    public function getPrivacyStatementURL(string $language): string
-    {
-        /** @var MultilingualElement $element */
-        $element = $this->values['PrivacyStatementURL'];
-        if (!$element instanceof EmptyMduiElement) {
-            $primaryTranslation = $element->translate(MultilingualElement::PRIMARY_LANGUAGE);
-            $preferredTranslation = $element->translate($language);
-            // Return the requested (preferred) translation if it is available
-            if (!empty($preferredTranslation->getValue())) {
-                return $preferredTranslation->getValue();
-            }
-            // Fallback on the primary (en) language when preferred translation is not set
-            return $primaryTranslation->getValue();
-        }
+public function getPrivacyStatementURL(string $language): string
+{
+    /** @var MultilingualElement $element */
+    $element = $this->values['PrivacyStatementURL'];
+    if ($element instanceof EmptyMduiElement) {
         throw new MduiNotFoundException('The PrivacyStatementURL is not set on this entity');
     }
+
+    $preferredTranslation = $element->translate($language);
+    if (!empty($preferredTranslation->getValue())) {
+        return $preferredTranslation->getValue();
+    }
+
+    return $element->translate(MultilingualElement::PRIMARY_LANGUAGE)->getValue();
+}
 
     /**
      * Test if a PrivacyStatementURL translation for a given language is available

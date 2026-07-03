@@ -79,140 +79,147 @@ class MinkContext extends BaseMinkContext
     /**
      * @Then /^the internal-collabPersonId is present in the assertion$/
      */
-    public function theCollabPersonIdIsPresent()
-    {
-        $document = new DOMDocument();
-        $document->loadXML($this->getSession()->getPage()->getContent());
-        $xpathObj = new DOMXPath($document);
-        $xpathObj->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
-        $xpathObj->registerNamespace('mdui', Common::NS);
-        $xpathObj->registerNamespace('shibmd', Scope::NS);
-        $nodeListAttribute = $xpathObj->query(
-            '/samlp:Response/saml:Assertion/saml:AttributeStatement/saml:Attribute' .
-            '[@Name="urn:mace:surf.nl:attribute-def:internal-collabPersonId"]'
-        );
-        $nodeListAttributeValue = $xpathObj->query(
-            '/samlp:Response/saml:Assertion/saml:AttributeStatement/saml:Attribute' .
-            '[@Name="urn:mace:surf.nl:attribute-def:internal-collabPersonId"]/saml:AttributeValue'
-        );
-        if (!$nodeListAttribute || $nodeListAttribute->length === 0) {
-            throw new ExpectationException(
-                'The internal-collabPersonId was not in the assertion',
-                $this->getSession()
-            );
-        }
-        if (!$nodeListAttributeValue || $nodeListAttributeValue->length !== 1) {
-            throw new ExpectationException(
-                'The internal-collabPersonId should only have one value',
-                $this->getSession()
-            );
-        }
-        $attributeValueAttributes = $nodeListAttributeValue->item(0)->attributes;
+public function theCollabPersonIdIsPresent()
+{
+    $document = new DOMDocument();
+    $document->loadXML($this->getSession()->getPage()->getContent());
+    $xpathObj = new DOMXPath($document);
+    $xpathObj->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
+    $xpathObj->registerNamespace('mdui', Common::NS);
+    $xpathObj->registerNamespace('shibmd', Scope::NS);
 
-        $mappedAttributes = [];
-        foreach ($attributeValueAttributes as $attribute) {
-            $mappedAttributes[$attribute->name] = $attribute->value;
-        }
-        if (!array_key_exists('type', $mappedAttributes)) {
-            throw new ExpectationException(
-                'The internal-collabPersonId does not carry the xsi:type',
-                $this->getSession()
-            );
-        }
-        if ($mappedAttributes['type'] !== 'xs:string') {
-            throw new ExpectationException(
-                'The internal-collabPersonId xsi:type is not of xs:string',
-                $this->getSession()
-            );
-        }
-        $attributeValue = $nodeListAttributeValue->item(0)->nodeValue;
-        if (substr($attributeValue, 0, 18) !== 'urn:collab:person:') {
-            throw new ExpectationException(
-                'The internal-collabPersonId does not start with urn:collab:person:',
-                $this->getSession()
-            );
-        }
+    $xpathAttribute = '/samlp:Response/saml:Assertion/saml:AttributeStatement/saml:Attribute' .
+                      '[@Name="urn:mace:surf.nl:attribute-def:internal-collabPersonId"]';
+    $nodeListAttribute = $xpathObj->query($xpathAttribute);
+
+    if (!$nodeListAttribute || $nodeListAttribute->length === 0) {
+        throw new ExpectationException(
+            'The internal-collabPersonId was not in the assertion',
+            $this->getSession()
+        );
     }
+
+    $xpathAttributeValue = $xpathAttribute . '/saml:AttributeValue';
+    $nodeListAttributeValue = $xpathObj->query($xpathAttributeValue);
+
+    if (!$nodeListAttributeValue || $nodeListAttributeValue->length !== 1) {
+        throw new ExpectationException(
+            'The internal-collabPersonId should only have one value',
+            $this->getSession()
+        );
+    }
+
+    $attributeValue = $nodeListAttributeValue->item(0);
+    $mappedAttributes = [];
+    foreach ($attributeValue->attributes as $attribute) {
+        $mappedAttributes[$attribute->name] = $attribute->value;
+    }
+
+    if (!isset($mappedAttributes['type'])) {
+        throw new ExpectationException(
+            'The internal-collabPersonId does not carry the xsi:type',
+            $this->getSession()
+        );
+    }
+
+    if ($mappedAttributes['type'] !== 'xs:string') {
+        throw new ExpectationException(
+            'The internal-collabPersonId xsi:type is not of xs:string',
+            $this->getSession()
+        );
+    }
+
+    if (strpos($attributeValue->nodeValue, 'urn:collab:person:') !== 0) {
+        throw new ExpectationException(
+            'The internal-collabPersonId does not start with urn:collab:person:',
+            $this->getSession()
+        );
+    }
+}
 
     /**
      * @Then /^the internal-collabPersonId is not present in the assertion$/
      */
-    public function theCollabPersonIdIsNotPresent()
-    {
-        $document = new DOMDocument();
-        $document->loadXML($this->getSession()->getPage()->getContent());
+public function theCollabPersonIdIsNotPresent()
+{
+    $document = new DOMDocument();
+    $document->loadXML($this->getSession()->getPage()->getContent());
 
-        $xpathObj = new DOMXPath($document);
-        $xpathObj->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
-        $xpathObj->registerNamespace('mdui', Common::NS);
-        $xpathObj->registerNamespace('shibmd', Scope::NS);
-        $nodeList = $xpathObj->query(
-            '/samlp:Response/saml:Assertion/saml:AttributeStatement/saml:Attribute' .
-            '[@Name="urn:mace:surf.nl:attribute-def:internal-collabPersonId"]'
+    $xpathObj = new DOMXPath($document);
+    $xpathObj->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
+    $xpathObj->registerNamespace('mdui', Common::NS);
+    $xpathObj->registerNamespace('shibmd', Scope::NS);
+
+    $nodeList = $xpathObj->query(
+        '/samlp:Response/saml:Assertion/saml:AttributeStatement/saml:Attribute' .
+        '[@Name="urn:mace:surf.nl:attribute-def:internal-collabPersonId"]'
+    );
+
+    if ($nodeList && $nodeList->length > 0) {
+        throw new ExpectationException(
+            'The internal-collabPersonId should not be present',
+            $this->getSession()
         );
-
-        if ($nodeList->length > 0) {
-            throw new ExpectationException(
-                'The internal-collabPersonId should not be present',
-                $this->getSession()
-            );
-        }
     }
+}
 
     /**
      * @Then /^the SessionIndex should match the Assertion ID$/
      */
-    public function theSessionIndexShouldMatchTheAssertionID()
-    {
-        $document = new DOMDocument();
-        $document->loadXML($this->getSession()->getPage()->getContent());
-        $xpathObj = new DOMXPath($document);
-        $xpathObj->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
-        $xpathObj->registerNamespace('mdui', Common::NS);
-        $xpathObj->registerNamespace('shibmd', Scope::NS);
-        $nodeListAssertion = $xpathObj->query('/samlp:Response/saml:Assertion[@ID]');
-        $nodeListAuthStatement = $xpathObj->query('/samlp:Response/saml:Assertion/saml:AuthnStatement[@SessionIndex]');
+public function theSessionIndexShouldMatchTheAssertionID()
+{
+    $document = new DOMDocument();
+    $document->loadXML($this->getSession()->getPage()->getContent());
+    $xpathObj = new DOMXPath($document);
+    $xpathObj->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
+    $xpathObj->registerNamespace('mdui', Common::NS);
+    $xpathObj->registerNamespace('shibmd', Scope::NS);
 
-        if ($nodeListAssertion->count() == 0) {
-            throw new ExpectationException('The assertion ID was not found', $this->getSession());
-        }
+    $nodeListAssertion = $xpathObj->query('/samlp:Response/saml:Assertion[@ID]');
+    $nodeListAuthStatement = $xpathObj->query('/samlp:Response/saml:Assertion/saml:AuthnStatement[@SessionIndex]');
 
-        if ($nodeListAuthStatement->count() == 0) {
-            throw new ExpectationException('The SessionIndex wasnot found', $this->getSession());
-        }
-
-        $assertionID = $nodeListAssertion->item(0)->attributes->getNamedItem('ID')->value;
-        $sessionIndex = $nodeListAuthStatement->item(0)->attributes->getNamedItem('SessionIndex')->value;
-        if ($sessionIndex == "") {
-            throw new ExpectationException('The SessionIndex was empty', $this->getSession());
-        }
-        if ($assertionID !== $sessionIndex) {
-            throw new ExpectationException('The SessionIndex was not the same as the assertion ID', $this->getSession());
-        }
+    if ($nodeListAssertion->count() === 0) {
+        throw new ExpectationException('The assertion ID was not found', $this->getSession());
     }
+
+    if ($nodeListAuthStatement->count() === 0) {
+        throw new ExpectationException('The SessionIndex was not found', $this->getSession());
+    }
+
+    $assertionID = $nodeListAssertion->item(0)->getAttribute('ID');
+    $sessionIndex = $nodeListAuthStatement->item(0)->getAttribute('SessionIndex');
+
+    if (empty($sessionIndex)) {
+        throw new ExpectationException('The SessionIndex was empty', $this->getSession());
+    }
+
+    if ($assertionID !== $sessionIndex) {
+        throw new ExpectationException('The SessionIndex was not the same as the assertion ID', $this->getSession());
+    }
+}
 
     /**
      * @Then /^the response should not match xpath \'([^\']*)\'$/
      */
-    public function theResponseShouldNotMatchXpath($xpath)
-    {
-        $document = new DOMDocument();
-        $document->loadXML($this->getSession()->getPage()->getContent());
+public function theResponseShouldNotMatchXpath($xpath)
+{
+    $content = $this->getSession()->getPage()->getContent();
+    $document = new DOMDocument();
+    $document->loadXML($content);
 
-        $xpathObj = new DOMXPath($document);
-        $xpathObj->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
-        $xpathObj->registerNamespace('mdui', Common::NS);
-        $nodeList = $xpathObj->query($xpath);
+    $xpathObj = new DOMXPath($document);
+    $xpathObj->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
+    $xpathObj->registerNamespace('mdui', Common::NS);
 
-        if ($nodeList && $nodeList->length > 0) {
-            $message = sprintf(
-                'The xpath "%s" resulted in "%d" matches, where it should result in no matches"',
-                $xpath,
-                $nodeList->length
-            );
-            throw new ExpectationException($message, $this->getSession());
-        }
+    $nodeList = $xpathObj->query($xpath);
+
+    if ($nodeList && $nodeList->length > 0) {
+        throw new ExpectationException(
+            sprintf('The xpath "%s" resulted in "%d" matches, where it should result in no matches"', $xpath, $nodeList->length),
+            $this->getSession()
+        );
     }
+}
 
     /**
      * @Given /^I should see URL "([^"]*)"$/
@@ -233,40 +240,34 @@ class MinkContext extends BaseMinkContext
     /**
      * @Given /^I open (\d+) browser tabs identified by "([^"]*)"$/
      */
-    public function iOpenTwoBrowserTabsIdentifiedBy($numberOfTabs, $tabNames)
-    {
-        $this->getMink()->getSession()->restart();
-        $this->windows = []; // Reset the windows array to avoid confusion with previous tests
+public function iOpenTwoBrowserTabsIdentifiedBy($numberOfTabs, $tabNames)
+{
+    $this->getMink()->getSession()->restart();
+    $this->windows = [];
 
-        $tabs = explode(',', $tabNames);
-        if (count($tabs) != $numberOfTabs) {
-            throw new RuntimeException(
-                'Please identify all tabs you are opening in order to refer to them at a later stage'
-            );
-        }
-
-        foreach ($tabs as $tab) {
-            $windowsNames = $this->getMink()->getSession()->getWindowNames();
-            if (!$windowsNames) {
-                throw new RuntimeException('The windows where not opened correctly.');
-            }
-
-            $this->getMink()
-                ->getSession()
-                ->executeScript("window.open('about:blank','_blank');");
-
-            $newWindows = array_diff($this->getMink()->getSession()->getWindowNames(), $windowsNames);
-
-            if (count($newWindows) != 1) {
-                throw new RuntimeException('The new windows where not opened correctly.');
-            }
-
-            // Grab the window name (which is the last one added to the window list)
-            $windowName = array_pop($newWindows);
-            // Keep track of the opened windows in order allow switching between them
-            $this->windows[trim($tab)] = $windowName;
-        }
+    $tabs = explode(',', $tabNames);
+    if (count($tabs) != $numberOfTabs) {
+        throw new RuntimeException(
+            'Please identify all tabs you are opening in order to refer to them at a later stage'
+        );
     }
+
+    $session = $this->getMink()->getSession();
+    $initialWindows = $session->getWindowNames();
+
+    foreach ($tabs as $tab) {
+        $session->executeScript("window.open('about:blank','_blank');");
+        $newWindows = array_diff($session->getWindowNames(), $initialWindows);
+
+        if (count($newWindows) != 1) {
+            throw new RuntimeException('The new windows were not opened correctly.');
+        }
+
+        $windowName = array_pop($newWindows);
+        $this->windows[trim($tab)] = $windowName;
+        $initialWindows[] = $windowName;
+    }
+}
 
     /**
      * @Given /^I switch to "([^"]*)"$/
