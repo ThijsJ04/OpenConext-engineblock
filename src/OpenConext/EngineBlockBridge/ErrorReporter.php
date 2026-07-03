@@ -56,56 +56,40 @@ class ErrorReporter
      * @param Exception $exception
      * @param string    $messageSuffix
      */
-    public function reportError(Exception $exception, $messageSuffix)
-    {
-        $logContext = ['exception' => $exception];
+public function reportError(Exception $exception, $messageSuffix)
+{
+    $logContext = ['exception' => $exception];
+    $severity = $exception instanceof EngineBlock_Exception
+        ? $exception->getSeverity()
+        : EngineBlock_Exception::CODE_ERROR;
 
-        if ($exception instanceof EngineBlock_Exception) {
-            $severity = $exception->getSeverity();
-        } else {
-            $severity = EngineBlock_Exception::CODE_ERROR;
-        }
-
-        // unwrap the exception stack
-        $prevException = $exception;
-        while ($prevException = $prevException->getPrevious()) {
-            if (!isset($logContext['previous_exceptions'])) {
-                $logContext['previous_exceptions'] = [];
-            }
-
-            $logContext['previous_exceptions'][] = (string)$prevException;
-        }
-
-        // message building
-        $message = $exception->getMessage();
-        if (empty($message)) {
-            $message = 'Exception without message "' . get_class($exception) . '"';
-        }
-
-        if ($messageSuffix) {
-            $message .= ' | ' . $messageSuffix;
-        }
-
-        $this->logger->log($severity, $message, $logContext);
-
-        // Store some valuable debug info in session so it can be displayed on feedback pages
-        $feedback = $this->session->get('feedbackInfo');
-        if (empty($feedback)) {
-            $feedback = [];
-        }
-
-        if ($exception instanceof EngineBlock_Corto_Exception_HasFeedbackInfoInterface) {
-            $feedback = array_merge($feedback, $exception->getFeedbackInfo());
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_PEPNoAccess) {
-            $this->session->set('error_authorization_policy_decision', $exception->getPolicyDecision());
-        }
-
-        $this->session->set('feedbackInfo', array_merge(
-            $feedback,
-            $this->engineBlockApplicationSingleton->collectFeedbackInfo($exception)
-        ));
-
-        // flush all messages in queue, something went wrong!
-        $this->engineBlockApplicationSingleton->flushLog('An error was caught');
+    // Unwrap the exception stack
+    $prevException = $exception;
+    while ($prevException = $prevException->getPrevious()) {
+        $logContext['previous_exceptions'][] = (string)$prevException;
     }
+
+    // Build message efficiently
+    $message = $exception->getMessage() ?: 'Exception without message "' . get_class($exception) . '"';
+    if ($messageSuffix) {
+        $message .= ' | ' . $messageSuffix;
+    }
+
+    $this->logger->log($severity, $message, $logContext);
+
+    // Handle session feedback in a single operation
+    $feedback = $this->session->get('feedbackInfo', []);
+    if ($exception instanceof EngineBlock_Corto_Exception_HasFeedbackInfoInterface) {
+        $feedback = array_merge($feedback, $exception->getFeedbackInfo());
+    } elseif ($exception instanceof EngineBlock_Corto_Exception_PEPNoAccess) {
+        $this->session->set('error_authorization_policy_decision', $exception->getPolicyDecision());
+    }
+
+    $this->session->set('feedbackInfo', array_merge(
+        $feedback,
+        $this->engineBlockApplicationSingleton->collectFeedbackInfo($exception)
+    ));
+
+    $this->engineBlockApplicationSingleton->flushLog('An error was caught');
+}
 }

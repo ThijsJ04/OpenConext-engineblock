@@ -42,25 +42,28 @@ class MduiElement implements MultilingualElement, JsonSerializable
         $this->setValues($values);
     }
 
-    public static function fromJson(array $multiLingualElement): MultilingualElement
-    {
-        if (!array_key_exists('name', $multiLingualElement)) {
-            throw new MduiRuntimeException('Unable to create MduiElement without a name');
-        }
-        $values = [];
-        if (array_key_exists('values', $multiLingualElement)) {
-            foreach ($multiLingualElement['values'] as $multiLinguaValue) {
-                if (array_key_exists('value', $multiLinguaValue) && array_key_exists('language', $multiLinguaValue)) {
-                    $values[$multiLinguaValue['language']] = new MultilingualValue(
-                        $multiLinguaValue['value'],
-                        $multiLinguaValue['language']
-                    );
-                }
-            }
-            return new self($multiLingualElement['name'], $values);
-        }
+public static function fromJson(array $multiLingualElement): MultilingualElement
+{
+    if (!isset($multiLingualElement['name'])) {
+        throw new MduiRuntimeException('Unable to create MduiElement without a name');
+    }
+
+    if (!isset($multiLingualElement['values'])) {
         return new EmptyMduiElement($multiLingualElement);
     }
+
+    $values = [];
+    foreach ($multiLingualElement['values'] as $multiLinguaValue) {
+        if (isset($multiLinguaValue['value'], $multiLinguaValue['language'])) {
+            $values[$multiLinguaValue['language']] = new MultilingualValue(
+                $multiLinguaValue['value'],
+                $multiLinguaValue['language']
+            );
+        }
+    }
+
+    return new self($multiLingualElement['name'], $values);
+}
 
     public function getName(): string
     {
