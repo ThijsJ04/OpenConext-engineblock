@@ -37,27 +37,28 @@ class LoaRepository
     /**
      * @param array $loaMapping
      */
-    public function __construct(array $loaMapping)
-    {
-        foreach ($loaMapping as $level => $mapping) {
-            Assertion::integer(
-                $level,
-                'The stepup.loa.mapping should be keyed on an integer value, indicating the LoA level. ' .
-                'Example: 30 => [stepup.loa.mapping.3]'
-            );
+public function __construct(array $loaMapping)
+{
+    foreach ($loaMapping as $level => $mapping) {
+        Assertion::integer(
+            $level,
+            'The stepup.loa.mapping should be keyed on an integer value, indicating the LoA level. ' .
+            'Example: 30 => [stepup.loa.mapping.3]'
+        );
 
-            Assertion::keysExist(
-                $mapping,
-                ['engineblock', 'gateway'],
-                'Both the engineblock and gateway keys must be present in every LoA mapping.'
-            );
-            Assertion::string($mapping['engineblock'], 'The EngineBlock LoA must be a string value');
-            Assertion::string($mapping['gateway'], 'The Gateway LoA must be a string value');
+        Assertion::keysExist(
+            $mapping,
+            ['engineblock', 'gateway'],
+            'Both the engineblock and gateway keys must be present in every LoA mapping.'
+        );
+        Assertion::string($mapping['engineblock'], 'The EngineBlock LoA must be a string value');
+        Assertion::string($mapping['gateway'], 'The Gateway LoA must be a string value');
 
-            $this->store[self::EB][$mapping['engineblock']] = Loa::create($level, $mapping['engineblock']);
-            $this->store[self::GW][$mapping['gateway']] = Loa::create($level, $mapping['gateway']);
-        }
+        $loa = Loa::create($level, $mapping['engineblock']);
+        $this->store[self::EB][$mapping['engineblock']] = $loa;
+        $this->store[self::GW][$mapping['gateway']] = $loa;
     }
+}
 
     /**
      * @param $identifier

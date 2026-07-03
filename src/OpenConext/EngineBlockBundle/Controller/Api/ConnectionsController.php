@@ -82,63 +82,57 @@ class ConnectionsController
      * @param DoctrineMetadataPushRepository $repository
      * @param string|null $memoryLimit
      */
-    public function __construct(
-        MetadataAssemblerInterface $assembler,
-        TokenStorageInterface $tokenStorage,
-        AccessDecisionManagerInterface $accessDecisionManager,
-        FeatureConfigurationInterface $featureConfiguration,
-        DoctrineMetadataPushRepository $repository,
-        $memoryLimit
-    ) {
-        $this->pushMetadataAssembler           = $assembler;
-        $this->tokenStorage                    = $tokenStorage;
-        $this->accessDecisionManager           = $accessDecisionManager;
-        $this->featureConfiguration            = $featureConfiguration;
-        $this->repository                      = $repository;
-        $this->memoryLimit                     = $memoryLimit;
-    }
+public function __construct(
+    MetadataAssemblerInterface $assembler,
+    TokenStorageInterface $tokenStorage,
+    AccessDecisionManagerInterface $accessDecisionManager,
+    FeatureConfigurationInterface $featureConfiguration,
+    DoctrineMetadataPushRepository $repository,
+    $memoryLimit
+) {
+    $this->pushMetadataAssembler = $assembler;
+    $this->tokenStorage = $tokenStorage;
+    $this->accessDecisionManager = $accessDecisionManager;
+    $this->featureConfiguration = $featureConfiguration;
+    $this->repository = $repository;
+    $this->memoryLimit = $memoryLimit;
+}
 
     /**
      * @Route("/api/connections", name="api_connections", defaults={"_format"="json"})
      */
-    public function pushConnectionsAction(Request $request)
-    {
-        if (!$request->isMethod(Request::METHOD_POST)) {
-            throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_POST]);
-        }
-
-        if (!$this->featureConfiguration->isEnabled('api.metadata_push')) {
-            throw new ApiNotFoundHttpException('Metadata push API is disabled');
-        }
-
-        $this->assertAuthorized();
-
-        if ($this->memoryLimit) {
-            ini_set('memory_limit', $this->memoryLimit);
-        }
-
-        $body = JsonRequestHelper::decodeContentOf($request);
-
-        if (!is_object($body) || !isset($body->connections) || !is_object($body->connections)) {
-            throw new BadApiRequestHttpException('Unrecognized structure for JSON');
-        }
-
-        try {
-            $roles = $this->pushMetadataAssembler->assemble($body->connections);
-        } catch (Exception $exception) {
-            throw new BadApiRequestHttpException(sprintf('Unable to assemble the pushed metadata: %s', $exception->getMessage()), $exception);
-        }
-
-        unset($body);
-
-        try {
-            $result = $this->repository->synchronize($roles);
-        } catch (Exception $exception) {
-            throw new ApiInternalServerErrorHttpException('Unable to synchronize the assembled roles to the repository', $exception);
-        }
-
-        return new JsonResponse($result);
+public function pushConnectionsAction(Request $request)
+{
+    if (!$request->isMethod(Request::METHOD_POST)) {
+        throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_POST]);
     }
+
+    if (!$this->featureConfiguration->isEnabled('api.metadata_push')) {
+        throw new ApiNotFoundHttpException('Metadata push API is disabled');
+    }
+
+    $this->assertAuthorized();
+
+    if ($this->memoryLimit) {
+        ini_set('memory_limit', $this->memoryLimit);
+    }
+
+    $body = JsonRequestHelper::decodeContentOf($request);
+
+    if (!is_object($body) || !isset($body->connections) || !is_object($body->connections)) {
+        throw new BadApiRequestHttpException('Unrecognized structure for JSON');
+    }
+
+    try {
+        $roles = $this->pushMetadataAssembler->assemble($body->connections);
+        unset($body); // Free memory as soon as possible
+        $result = $this->repository->synchronize($roles);
+    } catch (Exception $exception) {
+        throw new ApiInternalServerErrorHttpException('Unable to synchronize the assembled roles to the repository', $exception);
+    }
+
+    return new JsonResponse($result);
+}
 
     private function assertAuthorized(): void
     {
