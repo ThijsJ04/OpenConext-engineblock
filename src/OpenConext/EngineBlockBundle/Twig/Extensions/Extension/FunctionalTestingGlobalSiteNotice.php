@@ -53,25 +53,11 @@ class FunctionalTestingGlobalSiteNotice extends AbstractExtension implements Glo
         return (bool) $this->request->get('showGlobalSiteNotice', false);
     }
 
-    public function getGlobalSiteNotice(): string
-    {
-        $message = <<<MSG
-<p>
-    There is nothing wrong with your television set.
-    <strong>Do not attempt to adjust the picture.</strong>
-    We are controlling transmission. If we wish to make it louder, we will bring up the volume.
-    If we wish to make it softer, we will tune it to a whisper. We will control the horizontal.
-    We will control the vertical.  We can roll the image, make it flutter.
-    We can change the focus to a soft blur, or sharpen it to crystal clarity.
-</p>
-<p>
-    <strong>For the next hour, sit quietly and we will control all that you see and hear.</strong>
-    We repeat: There is nothing wrong with your television set. You are about to participate in a great adventure.
-    You are about to experience the awe and mystery which reaches from the inner mind to... The Outer Limits.
-</p>
-MSG;
-        return (string) $this->request->get('globalSiteNotice', $message);
-    }
+public function getGlobalSiteNotice(): string
+{
+    $defaultMessage = 'There is nothing wrong with your television set. Do not attempt to adjust the picture. We are controlling transmission. If we wish to make it louder, we will bring up the volume. If we wish to make it softer, we will tune it to a whisper. We will control the horizontal. We will control the vertical. We can roll the image, make it flutter. We can change the focus to a soft blur, or sharpen it to crystal clarity. For the next hour, sit quietly and we will control all that you see and hear. We repeat: There is nothing wrong with your television set. You are about to participate in a great adventure. You are about to experience the awe and mystery which reaches from the inner mind to... The Outer Limits.';
+    return (string) $this->request->get('globalSiteNotice', $defaultMessage);
+}
 
     public function getAllowedHtmlForNotice(): string
     {

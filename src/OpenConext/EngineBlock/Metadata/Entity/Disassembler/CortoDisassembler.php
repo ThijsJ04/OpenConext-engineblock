@@ -43,185 +43,189 @@ class CortoDisassembler
      * @param ServiceProvider $entity
      * @return array
      */
-    public function translateServiceProvider(ServiceProvider $entity)
-    {
-        $cortoEntity = array();
+public function translateServiceProvider(ServiceProvider $entity)
+{
+    $cortoEntity = $this->translateCommon($entity, []);
 
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
-
-        if ($entity->getCoins()->isTransparentIssuer()) {
-            $cortoEntity['TransparentIssuer'] = 'yes';
-        }
-        if ($entity->getCoins()->displayUnconnectedIdpsWayf()) {
-            $cortoEntity['DisplayUnconnectedIdpsWayf'] = 'yes';
-        }
-        foreach ($entity->assertionConsumerServices as $service) {
-            if (!isset($cortoEntity['AssertionConsumerServices'])) {
-                $cortoEntity['AssertionConsumerServices'] = array();
-            }
-
-            $cortoEntity['AssertionConsumerServices'][$service->serviceIndex] = array(
-                'Binding'  => $service->binding,
-                'Location' => $service->location,
-            );
-        }
-        if (!$entity->getCoins()->isConsentRequired()) {
-            $cortoEntity['NoConsentRequired'] = true;
-        }
-        if ($entity->getCoins()->skipDenormalization()) {
-            $cortoEntity['SkipDenormalization'] = true;
-        }
-        if ($entity->getCoins()->policyEnforcementDecisionRequired()) {
-            $cortoEntity['PolicyEnforcementDecisionRequired'] = true;
-        }
-        if ($entity->isAttributeAggregationRequired()) {
-            $cortoEntity['AttributeAggregationRequired'] = true;
-        }
-        if ($entity->getCoins()->requesteridRequired()) {
-            $cortoEntity['requesteridRequired'] = true;
-        }
-
-        return $cortoEntity;
+    if ($entity->getCoins()->isTransparentIssuer()) {
+        $cortoEntity['TransparentIssuer'] = 'yes';
     }
+    if ($entity->getCoins()->displayUnconnectedIdpsWayf()) {
+        $cortoEntity['DisplayUnconnectedIdpsWayf'] = 'yes';
+    }
+
+    $assertionConsumerServices = [];
+    foreach ($entity->assertionConsumerServices as $service) {
+        $assertionConsumerServices[$service->serviceIndex] = [
+            'Binding'  => $service->binding,
+            'Location' => $service->location,
+        ];
+    }
+    if (!empty($assertionConsumerServices)) {
+        $cortoEntity['AssertionConsumerServices'] = $assertionConsumerServices;
+    }
+
+    if (!$entity->getCoins()->isConsentRequired()) {
+        $cortoEntity['NoConsentRequired'] = true;
+    }
+    if ($entity->getCoins()->skipDenormalization()) {
+        $cortoEntity['SkipDenormalization'] = true;
+    }
+    if ($entity->getCoins()->policyEnforcementDecisionRequired()) {
+        $cortoEntity['PolicyEnforcementDecisionRequired'] = true;
+    }
+    if ($entity->isAttributeAggregationRequired()) {
+        $cortoEntity['AttributeAggregationRequired'] = true;
+    }
+    if ($entity->getCoins()->requesteridRequired()) {
+        $cortoEntity['requesteridRequired'] = true;
+    }
+
+    return $cortoEntity;
+}
 
     /**
      * @param IdentityProvider $entity
      * @return array
      */
-    public function translateIdentityProvider(IdentityProvider $entity)
-    {
-        $cortoEntity = array();
+public function translateIdentityProvider(IdentityProvider $entity)
+{
+    $cortoEntity = $this->translateCommon($entity, []);
 
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
-
-        foreach ($entity->singleSignOnServices as $service) {
-            if (!isset($cortoEntity['SingleSignOnService'])) {
-                $cortoEntity['SingleSignOnService'] = array();
-            }
-
-            $cortoEntity[] = array(
-                'Binding'  => $service->binding,
-                'Location' => $service->location,
-            );
-        }
-
-        $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
-
-        if ($entity->getCoins()->schacHomeOrganization()) {
-            $cortoEntity['SchacHomeOrganization'] = $entity->getCoins()->schacHomeOrganization();
-        }
-
-        $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
-        $cortoEntity['isHidden'] = $entity->getCoins()->hidden();
-
-        $cortoEntity['shibmd:scopes'] = array();
-        foreach ($entity->shibMdScopes as $scope) {
-            $cortoEntity['shibmd:scopes'][] = array(
-                'allowed' => $scope->allowed,
-                'regexp'  => $scope->regexp,
-            );
-        }
-
-        if ($entity->getCoins()->defaultRAC()) {
-            $cortoEntity['DefaultRAC'] = $entity->getCoins()->defaultRAC();
-        }
-
-        return $cortoEntity;
+    $singleSignOnServices = [];
+    foreach ($entity->singleSignOnServices as $service) {
+        $singleSignOnServices[] = [
+            'Binding'  => $service->binding,
+            'Location' => $service->location,
+        ];
     }
+    if (!empty($singleSignOnServices)) {
+        $cortoEntity['SingleSignOnService'] = $singleSignOnServices;
+    }
+
+    $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
+
+    $schacHomeOrganization = $entity->getCoins()->schacHomeOrganization();
+    if ($schacHomeOrganization) {
+        $cortoEntity['SchacHomeOrganization'] = $schacHomeOrganization;
+    }
+
+    $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
+    $cortoEntity['isHidden'] = $entity->getCoins()->hidden();
+
+    $shibMdScopes = [];
+    foreach ($entity->shibMdScopes as $scope) {
+        $shibMdScopes[] = [
+            'allowed' => $scope->allowed,
+            'regexp'  => $scope->regexp,
+        ];
+    }
+    $cortoEntity['shibmd:scopes'] = $shibMdScopes;
+
+    $defaultRAC = $entity->getCoins()->defaultRAC();
+    if ($defaultRAC) {
+        $cortoEntity['DefaultRAC'] = $defaultRAC;
+    }
+
+    return $cortoEntity;
+}
 
     /**
      * @param AbstractRole $entity
      * @param array $cortoEntity
      * @return array
      */
-    private function translateCommon(AbstractRole $entity, array $cortoEntity)
-    {
-        $cortoEntity['EntityID'] = $entity->entityId;
+private function translateCommon(AbstractRole $entity, array $cortoEntity)
+{
+    $cortoEntity['EntityID'] = $entity->entityId;
 
-        if ($entity->getCoins()->disableScoping()) {
-            $cortoEntity['DisableScoping'] = true;
-        }
-        if ($entity->getCoins()->additionalLogging()) {
-            $cortoEntity['AdditionalLogging'] = $entity->getCoins()->additionalLogging();
-        }
-        $cortoEntity = $this->translateCommonCertificates($entity, $cortoEntity);
-        if ($entity->getMdui()->hasLogo()) {
-            /** @var Logo $logo */
-            $logo = $entity->getMdui()->getLogo();
-            $cortoEntity['Logo'] = array(
-                'Height' => $logo->height,
-                'Width'  => $logo->width,
-                'URL'    => $logo->url,
-            );
-        }
-        if ($entity->requestsMustBeSigned) {
-            $cortoEntity['AuthnRequestsSigned'] = $entity->requestsMustBeSigned;
-        }
-        if ($entity->nameIdFormat) {
-            $cortoEntity['NameIDFormat'] = $entity->nameIdFormat;
-        }
-        $cortoEntity['NameIDFormats'] = $entity->supportedNameIdFormats;
-        $cortoEntity['WorkflowState'] = $entity->workflowState;
-
-        $cortoEntity = $this->translateContactPersons($entity, $cortoEntity);
-        $cortoEntity = $this->translateSingleLogoutServices($entity, $cortoEntity);
-        $cortoEntity = $this->translateOrganization($entity, $cortoEntity);
-        $cortoEntity = $this->translateKeywords($entity, $cortoEntity);
-        $cortoEntity = $this->translateName($entity, $cortoEntity);
-        $cortoEntity = $this->translateDescription($entity, $cortoEntity);
-        $cortoEntity = $this->translateDisplayName($entity, $cortoEntity);
-        return $cortoEntity;
+    if ($entity->getCoins()->disableScoping()) {
+        $cortoEntity['DisableScoping'] = true;
     }
+
+    if ($entity->getCoins()->additionalLogging()) {
+        $cortoEntity['AdditionalLogging'] = $entity->getCoins()->additionalLogging();
+    }
+
+    $cortoEntity = $this->translateCommonCertificates($entity, $cortoEntity);
+
+    if ($entity->getMdui()->hasLogo()) {
+        $logo = $entity->getMdui()->getLogo();
+        $cortoEntity['Logo'] = [
+            'Height' => $logo->height,
+            'Width'  => $logo->width,
+            'URL'    => $logo->url,
+        ];
+    }
+
+    if ($entity->requestsMustBeSigned) {
+        $cortoEntity['AuthnRequestsSigned'] = $entity->requestsMustBeSigned;
+    }
+
+    if ($entity->nameIdFormat) {
+        $cortoEntity['NameIDFormat'] = $entity->nameIdFormat;
+    }
+
+    $cortoEntity['NameIDFormats'] = $entity->supportedNameIdFormats;
+    $cortoEntity['WorkflowState'] = $entity->workflowState;
+
+    $cortoEntity = $this->translateContactPersons($entity, $cortoEntity);
+    $cortoEntity = $this->translateSingleLogoutServices($entity, $cortoEntity);
+    $cortoEntity = $this->translateOrganization($entity, $cortoEntity);
+    $cortoEntity = $this->translateKeywords($entity, $cortoEntity);
+    $cortoEntity = $this->translateName($entity, $cortoEntity);
+    $cortoEntity = $this->translateDescription($entity, $cortoEntity);
+    $cortoEntity = $this->translateDisplayName($entity, $cortoEntity);
+
+    return $cortoEntity;
+}
 
     /**
      * @param AbstractRole $entity
      * @param array $cortoEntity
      * @return array
      */
-    private function translateCommonCertificates(AbstractRole $entity, array $cortoEntity)
-    {
-        $cortoEntity['certificates'] = array();
-        if (isset($entity->certificates[0])) {
-            $cortoEntity['certificates']['public'] = $entity->certificates[0]->toPem();
-        }
-        if (isset($entity->certificates[1])) {
-            $cortoEntity['certificates']['public-fallback'] = $entity->certificates[1]->toPem();
-        }
-        if (isset($entity->certificates[2])) {
-            $cortoEntity['certificates']['public-fallback2'] = $entity->certificates[2]->toPem();
-            return $cortoEntity;
-        }
-        return $cortoEntity;
+private function translateCommonCertificates(AbstractRole $entity, array $cortoEntity)
+{
+    $cortoEntity['certificates'] = [];
+    $certificates = $entity->certificates;
+
+    if (!empty($certificates[0])) {
+        $cortoEntity['certificates']['public'] = $certificates[0]->toPem();
     }
+    if (!empty($certificates[1])) {
+        $cortoEntity['certificates']['public-fallback'] = $certificates[1]->toPem();
+    }
+    if (!empty($certificates[2])) {
+        $cortoEntity['certificates']['public-fallback2'] = $certificates[2]->toPem();
+    }
+
+    return $cortoEntity;
+}
 
     /**
      * @param AbstractRole $entity
      * @param array $cortoEntity
      * @return mixed
      */
-    private function translateOrganization(AbstractRole $entity, array $cortoEntity)
-    {
-        // @codingStandardsIgnoreStart
-        if ($entity->organizationEn) {
-            $this->mapMultilang($entity->organizationEn->name       , $cortoEntity, 'Organization', 'Name'       , 'en');
-            $this->mapMultilang($entity->organizationEn->displayName, $cortoEntity, 'Organization', 'DisplayName', 'en');
-            $this->mapMultilang($entity->organizationEn->url        , $cortoEntity, 'Organization', 'URL'        , 'en');
-        }
+private function translateOrganization(AbstractRole $entity, array $cortoEntity)
+{
+    $organizations = [
+        'en' => $entity->organizationEn,
+        'nl' => $entity->organizationNl,
+        'pt' => $entity->organizationPt,
+    ];
 
-        if ($entity->organizationNl) {
-            $this->mapMultilang($entity->organizationNl->name       , $cortoEntity, 'Organization', 'Name'       , 'nl');
-            $this->mapMultilang($entity->organizationNl->displayName, $cortoEntity, 'Organization', 'DisplayName', 'nl');
-            $this->mapMultilang($entity->organizationNl->url        , $cortoEntity, 'Organization', 'URL'        , 'nl');
+    foreach ($organizations as $lang => $organization) {
+        if ($organization) {
+            $this->mapMultilang($organization->name, $cortoEntity, 'Organization', 'Name', $lang);
+            $this->mapMultilang($organization->displayName, $cortoEntity, 'Organization', 'DisplayName', $lang);
+            $this->mapMultilang($organization->url, $cortoEntity, 'Organization', 'URL', $lang);
         }
-
-        if ($entity->organizationPt) {
-            $this->mapMultilang($entity->organizationPt->name       , $cortoEntity, 'Organization', 'Name'       , 'pt');
-            $this->mapMultilang($entity->organizationPt->displayName, $cortoEntity, 'Organization', 'DisplayName', 'pt');
-            $this->mapMultilang($entity->organizationPt->url        , $cortoEntity, 'Organization', 'URL'        , 'pt');
-        }
-        // @codingStandardsIgnoreEnd
-        return $cortoEntity;
     }
+
+    return $cortoEntity;
+}
 
     /**
      * @param AbstractRole $entity
@@ -312,25 +316,18 @@ class CortoDisassembler
      * @param array $cortoEntity
      * @return array
      */
-    private function translateSingleLogoutServices(AbstractRole $entity, array $cortoEntity)
-    {
-        if (!$entity->singleLogoutService) {
-            return $cortoEntity;
-        }
-
+private function translateSingleLogoutServices(AbstractRole $entity, array $cortoEntity)
+{
+    if ($entity->singleLogoutService) {
         $service = $entity->singleLogoutService;
-
-        if (!isset($cortoEntity['SingleLogoutService'])) {
-            $cortoEntity['SingleLogoutService'] = array();
-        }
-
-        $cortoEntity['SingleLogoutService'][] = array(
+        $cortoEntity['SingleLogoutService'][] = [
             'Binding' => $service->binding,
             'Location' => $service->location,
-        );
-
-        return $cortoEntity;
+        ];
     }
+
+    return $cortoEntity;
+}
 
 
     /**
@@ -338,24 +335,26 @@ class CortoDisassembler
      * @param array $cortoEntity
      * @return array
      */
-    private function translateContactPersons(AbstractRole $entity, array $cortoEntity)
-    {
-        $cortoEntity['ContactPersons'] = array();
-        foreach ($entity->contactPersons as $contactPerson) {
-            $cortoEntity['ContactPersons'][] = array(
-                'ContactType' => $contactPerson->contactType,
-                'EmailAddress' => $contactPerson->emailAddress,
-                'TelephoneNumber' => $contactPerson->telephoneNumber,
-                'GivenName' => $contactPerson->givenName,
-                'SurName' => $contactPerson->surName,
-            );
-        }
-        if (empty($cortoEntity['ContactPersons'])) {
-            unset($cortoEntity['ContactPersons']);
-            return $cortoEntity;
-        }
+private function translateContactPersons(AbstractRole $entity, array $cortoEntity)
+{
+    $contactPersons = $entity->contactPersons;
+    if (empty($contactPersons)) {
         return $cortoEntity;
     }
+
+    $cortoEntity['ContactPersons'] = array();
+    foreach ($contactPersons as $contactPerson) {
+        $cortoEntity['ContactPersons'][] = array(
+            'ContactType' => $contactPerson->contactType,
+            'EmailAddress' => $contactPerson->emailAddress,
+            'TelephoneNumber' => $contactPerson->telephoneNumber,
+            'GivenName' => $contactPerson->givenName,
+            'SurName' => $contactPerson->surName,
+        );
+    }
+
+    return $cortoEntity;
+}
 
     /**
      * Given:

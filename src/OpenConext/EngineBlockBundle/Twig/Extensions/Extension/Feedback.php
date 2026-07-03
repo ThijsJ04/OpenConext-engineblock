@@ -65,22 +65,24 @@ class Feedback extends AbstractExtension
         $this->samlResponseHelper = $samlResponseHelper;
     }
 
-    public function getFunctions(): array
-    {
-        return [
-            new TwigFunction('feedbackInfo', [$this, 'getFeedbackInfo']),
-            new TwigFunction('flushLog', [$this, 'flushLog']),
-            new TwigFunction('hasBackToSpLink', [$this, 'hasBackToSpLink']),
-            new TwigFunction('hasWikiLink', [$this, 'hasWikiLink']),
-            new TwigFunction('getWikiLink', [$this, 'getWikiLink']),
-            new TwigFunction('hasIdPContactMailLink', [$this, 'hasIdPContactMailLink']),
-            new TwigFunction('getIdPContactMailLink', [$this, 'getIdPContactMailLink']),
-            new TwigFunction('getIdpContactShortLabel', [$this, 'getIdpContactShortLabel']),
-            new TwigFunction('getSpName', [$this, 'getSpName']),
-            new TwigFunction('getAcu', [$this, 'getAcu']),
-            new TwigFunction('getSamlFailedResponse', [$this, 'getSamlFailedResponse']),
-        ];
-    }
+public function getFunctions(): array
+{
+    $functions = [
+        new TwigFunction('feedbackInfo', [$this, 'getFeedbackInfo']),
+        new TwigFunction('flushLog', [$this, 'flushLog']),
+        new TwigFunction('hasBackToSpLink', [$this, 'hasBackToSpLink']),
+        new TwigFunction('hasWikiLink', [$this, 'hasWikiLink']),
+        new TwigFunction('getWikiLink', [$this, 'getWikiLink']),
+        new TwigFunction('hasIdPContactMailLink', [$this, 'hasIdPContactMailLink']),
+        new TwigFunction('getIdPContactMailLink', [$this, 'getIdPContactMailLink']),
+        new TwigFunction('getIdpContactShortLabel', [$this, 'getIdpContactShortLabel']),
+        new TwigFunction('getSpName', [$this, 'getSpName']),
+        new TwigFunction('getAcu', [$this, 'getAcu']),
+        new TwigFunction('getSamlFailedResponse', [$this, 'getSamlFailedResponse']),
+    ];
+
+    return $functions;
+}
 
     public function flushLog($message)
     {
@@ -135,25 +137,30 @@ class Feedback extends AbstractExtension
     /**
      * @return string
      */
-    public function getIdPContactMailLink()
-    {
-        $feedbackInfo = $this->retrieveFeedbackInfo();
-        if ($feedbackInfo->has('identityProvider')) {
-            /** @var IdentityProvider $idp */
-            $idp = $this->metadataRepository->findIdentityProviderByEntityId($feedbackInfo->get('identityProvider'));
-            if ($idp) {
-                foreach ($idp->contactPersons as $contactPerson) {
-                    if ($contactPerson->contactType === 'support' && !empty($contactPerson->emailAddress)) {
-                        return $contactPerson->emailAddress;
-                    }
-                }
-                $this->application->getLogInstance()->info(
-                    'Showing de IdP support contact mailto link failed, no support email address was found in the IdP metadata'
-                );
-            }
-        }
+public function getIdPContactMailLink()
+{
+    $feedbackInfo = $this->retrieveFeedbackInfo();
+    if (!$feedbackInfo->has('identityProvider')) {
         return '';
     }
+
+    $idp = $this->metadataRepository->findIdentityProviderByEntityId($feedbackInfo->get('identityProvider'));
+    if (!$idp) {
+        return '';
+    }
+
+    foreach ($idp->contactPersons as $contactPerson) {
+        if ($contactPerson->contactType === 'support' && !empty($contactPerson->emailAddress)) {
+            return $contactPerson->emailAddress;
+        }
+    }
+
+    $this->application->getLogInstance()->info(
+        'Showing de IdP support contact mailto link failed, no support email address was found in the IdP metadata'
+    );
+
+    return '';
+}
 
     public function hasBackToSpLink(): bool
     {
@@ -178,57 +185,53 @@ class Feedback extends AbstractExtension
         return $this->samlResponseHelper->getAcu($info->get('serviceProvider'));
     }
 
-    public function getSamlFailedResponse(): string
-    {
-        $session = $this->application->getSession();
-        $feedbackInfo = $session->get('feedbackInfo');
-        // If AuthnFailedResponse is not set, we are unable to render a createAuthnFailedResponse
-        $sspResponse = $feedbackInfo['AuthnFailedResponse'] ?? null;
-        $value = '';
-        if (!is_null($sspResponse)) {
-            // Compose the Saml error response that can be used to travel back to the SP
-            $value = $this->samlResponseHelper->createAuthnFailedResponse(
-                $feedbackInfo['serviceProvider'],
-                $feedbackInfo['identityProvider'],
-                $feedbackInfo['requestId'],
-                $feedbackInfo['statusMessage'] ?? '',
-                $sspResponse
-            );
-        }
-        return $value;
+public function getSamlFailedResponse(): string
+{
+    $session = $this->application->getSession();
+    $feedbackInfo = $session->get('feedbackInfo');
+    $sspResponse = $feedbackInfo['AuthnFailedResponse'] ?? null;
+
+    if (is_null($sspResponse)) {
+        return '';
     }
+
+    return $this->samlResponseHelper->createAuthnFailedResponse(
+        $feedbackInfo['serviceProvider'],
+        $feedbackInfo['identityProvider'],
+        $feedbackInfo['requestId'],
+        $feedbackInfo['statusMessage'] ?? '',
+        $sspResponse
+    );
+}
 
     /**
      * Loads the feedbackInfo from the session and filters out empty valued entries.
      *
      * @return FeedbackInformationMap
      */
-    private function retrieveFeedbackInfo()
-    {
-        $session = $this->application->getSession();
-        $feedbackInfo = $session->get('feedbackInfo');
-        $feedbackInfoMap = new FeedbackInformationMap();
+private function retrieveFeedbackInfo()
+{
+    $session = $this->application->getSession();
+    $feedbackInfo = $session->get('feedbackInfo');
+    $feedbackInfoMap = new FeedbackInformationMap();
 
-        // Remove the empty valued feedback info entries.
-        if (!empty($feedbackInfo)) {
-            foreach ($feedbackInfo as $key => $value) {
-                if (empty($value)) {
-                    unset($feedbackInfo[$key]);
-                    continue;
-                }
-                if ($value instanceof Issuer) {
-                    $value = $value->getValue();
-                }
-                if ($key === 'AuthnFailedResponse') {
-                    // Don't show the AuthnFailedResponse base64 encoded response message in the feedback info table
-                    continue;
-                }
-                $feedbackInfoMap->add(new FeedbackInformation($key, $value));
-            }
-        }
-
-        $feedbackInfoMap->sort();
-
+    if (empty($feedbackInfo)) {
         return $feedbackInfoMap;
     }
+
+    foreach ($feedbackInfo as $key => $value) {
+        if (empty($value) || $key === 'AuthnFailedResponse') {
+            continue;
+        }
+
+        if ($value instanceof Issuer) {
+            $value = $value->getValue();
+        }
+
+        $feedbackInfoMap->add(new FeedbackInformation($key, $value));
+    }
+
+    $feedbackInfoMap->sort();
+    return $feedbackInfoMap;
+}
 }

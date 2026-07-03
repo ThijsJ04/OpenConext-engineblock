@@ -59,55 +59,56 @@ class MockIdentityProviderFactory extends AbstractMockEntityFactory
      * @param string $idpName
      * @return EntityDescriptor
      */
-    protected function generateDefaultEntityMetadata($idpName)
-    {
-        $entityMetadata = new EntityDescriptor();
-        $entityMetadata->setEntityID(
-            $this->router->generate(
-                'functional_testing_idp_metadata',
-                ['idpName' => $idpName],
-                RouterInterface::ABSOLUTE_URL
-            )
-        );
+protected function generateDefaultEntityMetadata($idpName)
+{
+    $entityMetadata = new EntityDescriptor();
+    $entityMetadata->setEntityID(
+        $this->router->generate(
+            'functional_testing_idp_metadata',
+            ['idpName' => $idpName],
+            RouterInterface::ABSOLUTE_URL
+        )
+    );
 
-        $acsService = new IndexedEndpointType();
-        $acsService->setIndex(0);
-        $acsService->setBinding(Constants::BINDING_HTTP_REDIRECT);
-        $acsService->setLocation(
-            $this->router->generate(
-                'functional_testing_idp_sso',
-                ['idpName' => $idpName],
-                RouterInterface::ABSOLUTE_URL
-            )
-        );
+    $acsService = new IndexedEndpointType();
+    $acsService->setIndex(0);
+    $acsService->setBinding(Constants::BINDING_HTTP_REDIRECT);
+    $acsService->setLocation(
+        $this->router->generate(
+            'functional_testing_idp_sso',
+            ['idpName' => $idpName],
+            RouterInterface::ABSOLUTE_URL
+        )
+    );
 
-        $idpSsoDescriptor = new IDPSSODescriptor();
-        $idpSsoDescriptor->setProtocolSupportEnumeration([Constants::NS_SAMLP]);
-        $idpSsoDescriptor->setSingleSignOnService([0 => $acsService]);
+    $idpSsoDescriptor = new IDPSSODescriptor();
+    $idpSsoDescriptor->setProtocolSupportEnumeration([Constants::NS_SAMLP]);
+    $idpSsoDescriptor->setSingleSignOnService([0 => $acsService]);
 
-        $idpSsoDescriptor->setKeyDescriptor([$this->generateDefaultSigningKeyPair()]);
+    $idpSsoDescriptor->setKeyDescriptor([$this->generateDefaultSigningKeyPair()]);
 
-        $entityMetadata->setRoleDescriptor([$idpSsoDescriptor]);
+    $entityMetadata->setRoleDescriptor([$idpSsoDescriptor]);
 
-        return $entityMetadata;
-    }
+    return $entityMetadata;
+}
 
-    private function generateDefaultResponse(MockIdentityProvider $mockIdp)
-    {
-        $requestId = 'FIXME';
-        $idpEntityId = $mockIdp->entityId();
-        $responseId  = ContainerSingleton::getInstance()->generateId();
-        $assertionId = ContainerSingleton::getInstance()->generateId();
+private function generateDefaultResponse(MockIdentityProvider $mockIdp)
+{
+    $requestId = 'FIXME';
+    $idpEntityId = $mockIdp->entityId();
+    $container = ContainerSingleton::getInstance();
+    $responseId = $container->generateId();
+    $assertionId = $container->generateId();
 
-        $now        = gmdate('Y-m-d\TH:i:s\Z');
-        $tomorrow   = gmdate('Y-m-d\TH:i:s\Z', time() + (24 * 60 * 60));
+    $now = gmdate('Y-m-d\TH:i:s\Z');
+    $tomorrow = gmdate('Y-m-d\TH:i:s\Z', time() + 86400);
 
-        $uid = 'test' . time() . random_int(10000, 99999);
-        $schacHomeOrganization  = 'engine-test-stand.openconext.org';
-        $nameId = 'ETS-MOCK-IDP-' . time();
+    $uid = 'test' . time() . random_int(10000, 99999);
+    $schacHomeOrganization = 'engine-test-stand.openconext.org';
+    $nameId = 'ETS-MOCK-IDP-' . time();
 
-        $document = new DOMDocument();
-        $document->loadXML(<<<RESPONSE
+    $document = new DOMDocument();
+    $document->loadXML(<<<RESPONSE
 <samlp:Response
   xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
   xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
@@ -145,8 +146,8 @@ class MockIdentityProviderFactory extends AbstractMockEntityFactory
     </saml:Assertion>
 </samlp:Response>
 RESPONSE
-        );
+    );
 
-        return new Response($document->firstChild);
-    }
+    return new Response($document->firstChild);
+}
 }

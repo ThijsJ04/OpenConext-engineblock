@@ -43,28 +43,27 @@ abstract class AbstractDataStore
     /**
      * @throws FilesystemException
      */
-    public function load($default = [])
-    {
-        if (!$this->fileSystem->fileExists($this->filePath)) {
-            return $default;
-        }
-
-        $fileContents = $this->fileSystem->read($this->filePath);
-
-        if (isset($fileContents) && $fileContents === false) {
-            throw new RuntimeException(sprintf('Unable to load data from: "%s"', $this->filePath));
-        }
-
-        if (empty($fileContents)) {
-            return $default;
-        }
-
-        $data = $this->decode($fileContents);
-        if ($data === false) {
-            throw new RuntimeException(sprintf('Unable to decode data from: "%s"', $this->filePath));
-        }
-        return $data;
+public function load($default = [])
+{
+    if (!$this->fileSystem->fileExists($this->filePath)) {
+        return $default;
     }
+
+    $fileContents = $this->fileSystem->read($this->filePath);
+    if ($fileContents === false) {
+        throw new RuntimeException(sprintf('Unable to load data from: "%s"', $this->filePath));
+    }
+
+    if (empty($fileContents)) {
+        return $default;
+    }
+
+    $data = $this->decode($fileContents);
+    if ($data === false) {
+        throw new RuntimeException(sprintf('Unable to decode data from: "%s"', $this->filePath));
+    }
+    return $data;
+}
 
     /**
      * @throws FilesystemException
