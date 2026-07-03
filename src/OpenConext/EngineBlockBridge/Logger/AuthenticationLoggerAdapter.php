@@ -54,39 +54,37 @@ class AuthenticationLoggerAdapter
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList)
      */
-    public function logLogin(
-        ServiceProvider $serviceProvider,
-        IdentityProvider $identityProvider,
-        string $collabPersonId,
-        ?string $keyId,
-        array $proxiedServiceProviders,
-        string $originalNameId,
-        ?string $authnContextClassRef,
-        ?string $engineSsoEndpointUsed,
-        ?array $requestedIdPlist,
-        array $logAttributes = []
-    ) {
-        $keyId = $keyId ? new KeyId($keyId) : null;
+public function logLogin(
+    ServiceProvider $serviceProvider,
+    IdentityProvider $identityProvider,
+    string $collabPersonId,
+    ?string $keyId,
+    array $proxiedServiceProviders,
+    string $originalNameId,
+    ?string $authnContextClassRef,
+    ?string $engineSsoEndpointUsed,
+    ?array $requestedIdPlist,
+    array $logAttributes = []
+) {
+    $keyId = $keyId === null ? null : new KeyId($keyId);
 
-        $proxiedSpEntities = array_map(
-            function (ServiceProvider $serviceProvider) {
-                return new Entity(new EntityId($serviceProvider->entityId), EntityType::SP());
-            },
-            $proxiedServiceProviders
-        );
-
-        $this->authenticationLogger->logGrantedLogin(
-            new Entity(new EntityId($serviceProvider->entityId), EntityType::SP()),
-            new Entity(new EntityId($identityProvider->entityId), EntityType::IdP()),
-            new CollabPersonId($collabPersonId),
-            $proxiedSpEntities,
-            $serviceProvider->workflowState,
-            $originalNameId,
-            $authnContextClassRef,
-            $engineSsoEndpointUsed,
-            $requestedIdPlist,
-            $keyId,
-            $logAttributes
-        );
+    $proxiedSpEntities = [];
+    foreach ($proxiedServiceProviders as $sp) {
+        $proxiedSpEntities[] = new Entity(new EntityId($sp->entityId), EntityType::SP());
     }
+
+    $this->authenticationLogger->logGrantedLogin(
+        new Entity(new EntityId($serviceProvider->entityId), EntityType::SP()),
+        new Entity(new EntityId($identityProvider->entityId), EntityType::IdP()),
+        new CollabPersonId($collabPersonId),
+        $proxiedSpEntities,
+        $serviceProvider->workflowState,
+        $originalNameId,
+        $authnContextClassRef,
+        $engineSsoEndpointUsed,
+        $requestedIdPlist,
+        $keyId,
+        $logAttributes
+    );
+}
 }

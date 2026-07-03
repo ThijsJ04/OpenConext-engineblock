@@ -50,50 +50,37 @@ final class AuthenticationState implements AuthenticationStateInterface
      * @return void
      * @throws AssertionFailedException
      */
-    public function startAuthenticationOnBehalfOf(string $requestId, Entity $serviceProvider): void
-    {
-        Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
-        $currentAuthenticationProcedure = AuthenticationProcedure::onBehalfOf($serviceProvider);
+public function startAuthenticationOnBehalfOf(string $requestId, Entity $serviceProvider): void
+{
+    Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
+    $currentAuthenticationProcedure = AuthenticationProcedure::onBehalfOf($serviceProvider);
 
-        // Validate if the processed authentications this session do not exceed the configured maximum of authentications
-        $authenticationLimitExceeded = $this->authenticationLoopGuard->detectsAuthenticationLimit(
-            $this->authenticationProcedures
+    if ($this->authenticationLoopGuard->detectsAuthenticationLimit($this->authenticationProcedures)) {
+        session_destroy();
+        throw new AuthenticationSessionLimitExceededException(
+            'More than the configured maximum authentication procedures for this session'
+                . ' the user seems to have started too much authentications this session. '
+                . ' Resetting the session.'
         );
+    }
 
-        if ($authenticationLimitExceeded) {
-            session_destroy();
-
-            throw new AuthenticationSessionLimitExceededException(
-                'More than the configured maximum authentication procedures for this session'
-                    . ' the user seems to have started too much authentications this session. '
-                    . ' Resetting the session.'
-            );
-        }
-
-        // Validate if the processed authentications for the service provider for this session do not exceed
-        // the configured maximum authentications in a configured time frame.
-        $inAuthenticationLoop = $this->authenticationLoopGuard->detectsAuthenticationLoop(
-            $serviceProvider,
-            $this->authenticationProcedures
-        );
-
-        if ($inAuthenticationLoop) {
-            throw new StuckInAuthenticationLoopException(
-                sprintf(
-                    'More than the configured maximum authentication procedures for the current user from SP "%s"'
+    if ($this->authenticationLoopGuard->detectsAuthenticationLoop($serviceProvider, $this->authenticationProcedures)) {
+        throw new StuckInAuthenticationLoopException(
+            sprintf(
+                'More than the configured maximum authentication procedures for the current user from SP "%s"'
                     . ' occurred within the configured amount of seconds,'
                     . ' the user seems to be stuck in an authentication loop. '
                     . ' Aborting the current authentication procedure.',
-                    $serviceProvider->getEntityId()
-                )
-            );
-        }
-
-        $this->authenticationProcedures = $this->authenticationProcedures->add(
-            $requestId,
-            $currentAuthenticationProcedure
+                $serviceProvider->getEntityId()
+            )
         );
     }
+
+    $this->authenticationProcedures = $this->authenticationProcedures->add(
+        $requestId,
+        $currentAuthenticationProcedure
+    );
+}
 
     /**
      * Validates if an request can be found in session and sets the Identity Provider in the authentication Procedure
@@ -103,24 +90,20 @@ final class AuthenticationState implements AuthenticationStateInterface
      * @return void
      * @throws AssertionFailedException
      */
-    public function authenticatedAt(string $requestId, Entity $identityProvider): void
-    {
-        Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
+public function authenticatedAt(string $requestId, Entity $identityProvider): void
+{
+    Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
 
-        $currentRequest = $this->authenticationProcedures->find($requestId);
+    $currentRequest = $this->authenticationProcedures->find($requestId);
 
-        if ($currentRequest === null) {
-            throw new LogicException(
-                sprintf(
-                    'The requested authentication procedure with requestId "%s" couldn\'t be found in the ' .
-                    'session storage.',
-                    $requestId
-                )
-            );
-        }
-
-        $currentRequest->authenticatedAt($identityProvider);
+    if ($currentRequest === null) {
+        throw new LogicException(
+            'The requested authentication procedure with requestId "' . $requestId . '" couldn\'t be found in the session storage.'
+        );
     }
+
+    $currentRequest->authenticatedAt($identityProvider);
+}
 
     /**
      * Completes the authentication procedure and sets the completion time
@@ -129,31 +112,32 @@ final class AuthenticationState implements AuthenticationStateInterface
      * @return void
      * @throws AssertionFailedException
      */
-    public function completeCurrentProcedure(string $requestId): void
-    {
-        Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
-        $currentRequest = $this->authenticationProcedures->find($requestId);
-        if ($currentRequest === null) {
-            throw new LogicException(
-                sprintf(
-                    'The requested authentication procedure with requestId "%s" couldn\'t be found in the ' .
-                    'session storage in order to complete.',
-                    $requestId
-                )
-            );
-        }
+public function completeCurrentProcedure(string $requestId): void
+{
+    Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
+    $currentRequest = $this->authenticationProcedures->find($requestId);
 
-        if (!$currentRequest->hasBeenAuthenticated()) {
-            throw new LogicException(
-                sprintf(
-                    'The requested authentication procedure with requestId "%s" has not been authenticated.',
-                    $requestId
-                )
-            );
-        }
-
-        $currentRequest->completeOn(new DateTimeImmutable());
+    if ($currentRequest === null) {
+        throw new LogicException(
+            sprintf(
+                'The requested authentication procedure with requestId "%s" couldn\'t be found in the ' .
+                'session storage in order to complete.',
+                $requestId
+            )
+        );
     }
+
+    if (!$currentRequest->hasBeenAuthenticated()) {
+        throw new LogicException(
+            sprintf(
+                'The requested authentication procedure with requestId "%s" has not been authenticated.',
+                $requestId
+            )
+        );
+    }
+
+    $currentRequest->completeOn(new DateTimeImmutable());
+}
 
     /**
      * Validates if the current session contains at least one authentication procedure that has been

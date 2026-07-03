@@ -47,35 +47,16 @@ class Metadata extends AbstractExtension
         $this->translator = $translator;
     }
 
-    public function getFunctions(): array
-    {
-        return [
-            new TwigFunction(
-                'sortByDisplayOrder',
-                [$this, 'sortByDisplayOrder'],
-                ['is_safe' => ['html']]
-            ),
-            new TwigFunction(
-                'attributeSourceLogoUrl',
-                [$this, 'getAttributeSourceLogoUrl']
-            ),
-            new TwigFunction(
-                'attributeSourceDisplayName',
-                [$this, 'getAttributeSourceDisplayName'],
-                ['is_safe' => ['html']]
-            ),
-            new TwigFunction(
-                'attributeShortName',
-                [$this, 'getAttributeShortName'],
-                ['is_safe' => ['html']]
-            ),
-            new TwigFunction(
-                'attributeName',
-                [$this, 'getAttributeName'],
-                ['is_safe' => ['html']]
-            ),
-        ];
-    }
+public function getFunctions(): array
+{
+    return [
+        new TwigFunction('sortByDisplayOrder', [$this, 'sortByDisplayOrder'], ['is_safe' => ['html']]),
+        new TwigFunction('attributeSourceLogoUrl', [$this, 'getAttributeSourceLogoUrl']),
+        new TwigFunction('attributeSourceDisplayName', [$this, 'getAttributeSourceDisplayName'], ['is_safe' => ['html']]),
+        new TwigFunction('attributeShortName', [$this, 'getAttributeShortName'], ['is_safe' => ['html']]),
+        new TwigFunction('attributeName', [$this, 'getAttributeName'], ['is_safe' => ['html']]),
+    ];
+}
 
     /**
      * Sort, group and normalize attributes for display on the consent page.
@@ -150,26 +131,19 @@ class Metadata extends AbstractExtension
         return $this->attributeMetadata->getName($attributeId, $preferedLocale);
     }
 
-    private function groupAttributesBySource($attributes, array $attributeSources = array(), NameID $nameID = null)
-    {
-        $groupedAttributes = array(
-            'idp' => array(),
-        );
+private function groupAttributesBySource($attributes, array $attributeSources = array(), NameID $nameID = null)
+{
+    $groupedAttributes = ['idp' => []];
 
-        if ($nameID && ($nameID->getFormat() == NameIdFormat::PERSISTENT_IDENTIFIER || $nameID->getFormat() == NameIdFormat::UNSPECIFIED)) {
-            $groupedAttributes['engineblock']['name_id'] = $nameID->getValue();
-        }
-
-        foreach ($attributes as $attributeName => $attributeValue) {
-            if (isset($attributeSources[$attributeName])) {
-                $sourceName = $attributeSources[$attributeName];
-            } else {
-                $sourceName = 'idp';
-            }
-
-            $groupedAttributes[$sourceName][$attributeName] = $attributeValue;
-        }
-
-        return $groupedAttributes;
+    if ($nameID && ($nameID->getFormat() == NameIdFormat::PERSISTENT_IDENTIFIER || $nameID->getFormat() == NameIdFormat::UNSPECIFIED)) {
+        $groupedAttributes['engineblock']['name_id'] = $nameID->getValue();
     }
+
+    foreach ($attributes as $attributeName => $attributeValue) {
+        $sourceName = $attributeSources[$attributeName] ?? 'idp';
+        $groupedAttributes[$sourceName][$attributeName] = $attributeValue;
+    }
+
+    return $groupedAttributes;
+}
 }

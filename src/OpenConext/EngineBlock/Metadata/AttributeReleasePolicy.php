@@ -45,66 +45,68 @@ class AttributeReleasePolicy
     /**
      * @param array $attributeRules
      */
-    public function __construct(array $attributeRules)
-    {
-        foreach ($attributeRules as $key => $rules) {
-            if (!is_string($key)) {
-                throw new InvalidArgumentException(sprintf('Invalid key: "%s"', var_export($key, true)));
-            }
+public function __construct(array $attributeRules)
+{
+    $this->attributeRules = [];
 
-            if (!is_array($rules)) {
-                throw new InvalidArgumentException(
-                    sprintf('Invalid values for attribute "%s", not an array: "%s"', $key, var_export($rules, true))
-                );
-            }
-
-            foreach ($rules as $rule) {
-                $this->validateRule($key, $rule);
-            }
+    foreach ($attributeRules as $key => $rules) {
+        if (!is_string($key)) {
+            throw new InvalidArgumentException(sprintf('Invalid key: "%s"', var_export($key, true)));
         }
 
-        $this->attributeRules = $attributeRules;
+        if (!is_array($rules)) {
+            throw new InvalidArgumentException(
+                sprintf('Invalid values for attribute "%s", not an array: "%s"', $key, var_export($rules, true))
+            );
+        }
+
+        foreach ($rules as $rule) {
+            $this->validateRule($key, $rule);
+        }
+
+        $this->attributeRules[$key] = $rules;
     }
+}
 
     /**
      * @param string $key
      * @param mixed $rule
      * @throws InvalidArgumentException
      */
-    private function validateRule($key, $rule)
-    {
-        if (is_array($rule)) {
-            if (!isset($rule['value'])) {
-                throw new InvalidArgumentException(
-                    sprintf(
-                        'Invalid value for attribute "%s", rule must contain a value key, got: "%s"',
-                        $key,
-                        var_export($rule, true)
-                    )
-                );
-            }
-
-            if (isset($rule['release_as']) && is_numeric($rule['release_as'])) {
-                throw new InvalidArgumentException(
-                    sprintf(
-                        'Invalid release as for attribute "%s", attribute cannot be numeric, got: "%s"',
-                        $key,
-                        (string)$rule['release_as']
-                    )
-                );
-            }
-
-            $value = $rule['value'];
-        } else {
-            $value = $rule;
-        }
-
-        if (!is_string($value)) {
+private function validateRule($key, $rule)
+{
+    if (is_array($rule)) {
+        if (!isset($rule['value'])) {
             throw new InvalidArgumentException(
-                sprintf('Invalid value for attribute "%s", not a string: "%s"', $key, var_export($value, true))
+                sprintf(
+                    'Invalid value for attribute "%s", rule must contain a value key, got: "%s"',
+                    $key,
+                    var_export($rule, true)
+                )
             );
         }
+
+        if (isset($rule['release_as']) && is_numeric($rule['release_as'])) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Invalid release as for attribute "%s", attribute cannot be numeric, got: "%s"',
+                    $key,
+                    (string)$rule['release_as']
+                )
+            );
+        }
+
+        $value = $rule['value'];
+    } else {
+        $value = $rule;
     }
+
+    if (!is_string($value)) {
+        throw new InvalidArgumentException(
+            sprintf('Invalid value for attribute "%s", not a string: "%s"', $key, var_export($value, true))
+        );
+    }
+}
 
     /**
      * Return all attribute rules eligible for attribute aggregation.
@@ -182,41 +184,33 @@ class AttributeReleasePolicy
      * @param $attributeValue
      * @return bool
      */
-    public function isAllowed($attributeName, $attributeValue)
-    {
-        if (!$this->hasAttribute($attributeName)) {
-            return false;
+public function isAllowed($attributeName, $attributeValue)
+{
+    if (!$this->hasAttribute($attributeName)) {
+        return false;
+    }
+
+    $rules = $this->attributeRules[$attributeName];
+    foreach ($rules as $rule) {
+        $allowedValue = $this->getRuleValue($rule);
+
+        if ($attributeValue === $allowedValue) {
+            return true;
         }
 
-        foreach ($this->attributeRules[$attributeName] as $rule) {
-            $allowedValue = $this->getRuleValue($rule);
+        if ($allowedValue === self::WILDCARD_CHARACTER) {
+            return true;
+        }
 
-            if ($attributeValue === $allowedValue) {
-                // Literal match.
-                return true;
-            }
-
-            if ($allowedValue === self::WILDCARD_CHARACTER) {
-                // Only a single wildcard character, all values are permitted.
-                return true;
-            }
-
-            // We support wildcard matching at the end only, like 'some*' would match 'someValue' or 'somethingElse'
-            if (substr($allowedValue, -1) !== self::WILDCARD_CHARACTER) {
-                // Not a supported pattern
-                continue;
-            }
-
-            // Would contain 'some'
+        if (substr($allowedValue, -1) === self::WILDCARD_CHARACTER) {
             $patternStart = substr($allowedValue, 0, -1);
-
-            // Does $attributeValue start with 'some'?
             if (strpos($attributeValue, $patternStart) === 0) {
                 return true;
             }
         }
-        return false;
     }
+    return false;
+}
 
     /**
      * Read the value of an ARP rule, ignoring the source.

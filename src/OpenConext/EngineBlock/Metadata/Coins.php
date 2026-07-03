@@ -29,69 +29,82 @@ class Coins
 {
     private $values = [];
 
-    public static function createForServiceProvider(
-        $isConsentRequired,
-        $isTransparentIssuer,
-        $isTrustedProxy,
-        $displayUnconnectedIdpsWayf,
-        $termsOfServiceUrl,
-        $skipDenormalization,
-        $policyEnforcementDecisionRequired,
-        $requesteridRequired,
-        $signResponse,
-        $stepupAllowNoToken,
-        $stepupRequireLoa,
-        $disableScoping,
-        $additionalLogging,
-        $signatureMethod,
-        $stepupForceAuthn,
-        $collabEnabled
-    ) {
-        return new self([
-            'isConsentRequired' => $isConsentRequired,
-            'isTransparentIssuer' => $isTransparentIssuer,
-            'isTrustedProxy' => $isTrustedProxy,
-            'displayUnconnectedIdpsWayf' => $displayUnconnectedIdpsWayf,
-            'termsOfServiceUrl' => $termsOfServiceUrl,
-            'skipDenormalization' => $skipDenormalization,
-            'policyEnforcementDecisionRequired' => $policyEnforcementDecisionRequired,
-            'requesteridRequired' => $requesteridRequired,
-            'signResponse' => $signResponse,
-            'disableScoping' => $disableScoping,
-            'additionalLogging' => $additionalLogging,
-            'signatureMethod' => $signatureMethod,
-            'stepupAllowNoToken' => $stepupAllowNoToken,
-            'stepupRequireLoa' => $stepupRequireLoa,
-            'stepupForceAuthn' => $stepupForceAuthn,
-            'collabEnabled' => $collabEnabled,
-        ]);
+public static function createForServiceProvider(
+    $isConsentRequired,
+    $isTransparentIssuer,
+    $isTrustedProxy,
+    $displayUnconnectedIdpsWayf,
+    $termsOfServiceUrl,
+    $skipDenormalization,
+    $policyEnforcementDecisionRequired,
+    $requesteridRequired,
+    $signResponse,
+    $stepupAllowNoToken,
+    $stepupRequireLoa,
+    $disableScoping,
+    $additionalLogging,
+    $signatureMethod,
+    $stepupForceAuthn,
+    $collabEnabled
+) {
+    $values = [
+        'isConsentRequired' => $isConsentRequired,
+        'isTransparentIssuer' => $isTransparentIssuer,
+        'isTrustedProxy' => $isTrustedProxy,
+        'displayUnconnectedIdpsWayf' => $displayUnconnectedIdpsWayf,
+        'termsOfServiceUrl' => $termsOfServiceUrl,
+        'skipDenormalization' => $skipDenormalization,
+        'policyEnforcementDecisionRequired' => $policyEnforcementDecisionRequired,
+        'requesteridRequired' => $requesteridRequired,
+        'signResponse' => $signResponse,
+        'disableScoping' => $disableScoping,
+        'additionalLogging' => $additionalLogging,
+        'signatureMethod' => $signatureMethod,
+        'stepupAllowNoToken' => $stepupAllowNoToken,
+        'stepupRequireLoa' => $stepupRequireLoa,
+        'stepupForceAuthn' => $stepupForceAuthn,
+        'collabEnabled' => $collabEnabled,
+    ];
+
+    return new self(array_filter($values, function($value) {
+        return !is_null($value);
+    }));
+}
+
+public static function createForIdentityProvider(
+    $guestQualifier,
+    $schacHomeOrganization,
+    $hidden,
+    $stepupConnections,
+    $disableScoping,
+    $additionalLogging,
+    $signatureMethod,
+    $mfaEntities,
+    $defaultRAC,
+    $policyEnforcementDecisionRequired
+) {
+    $values = [
+        'guestQualifier' => $guestQualifier,
+        'schacHomeOrganization' => $schacHomeOrganization,
+        'hidden' => $hidden,
+        'stepupConnections' => $stepupConnections,
+        'disableScoping' => $disableScoping,
+        'additionalLogging' => $additionalLogging,
+        'signatureMethod' => $signatureMethod,
+        'mfaEntities' => $mfaEntities,
+        'defaultRAC' => $defaultRAC,
+        'policyEnforcementDecisionRequired' => $policyEnforcementDecisionRequired,
+    ];
+
+    $filteredValues = [];
+    foreach ($values as $key => $value) {
+        if (!is_null($value)) {
+            $filteredValues[$key] = $value;
+        }
     }
 
-    public static function createForIdentityProvider(
-        $guestQualifier,
-        $schacHomeOrganization,
-        $hidden,
-        $stepupConnections,
-        $disableScoping,
-        $additionalLogging,
-        $signatureMethod,
-        $mfaEntities,
-        $defaultRAC,
-        $policyEnforcementDecisionRequired
-    ) {
-        return new self([
-            'guestQualifier' => $guestQualifier,
-            'schacHomeOrganization' => $schacHomeOrganization,
-            'hidden' => $hidden,
-            'disableScoping' => $disableScoping,
-            'additionalLogging' => $additionalLogging,
-            'signatureMethod' => $signatureMethod,
-            'stepupConnections' => $stepupConnections,
-            'mfaEntities' => $mfaEntities,
-            'defaultRAC' => $defaultRAC,
-            'policyEnforcementDecisionRequired' => $policyEnforcementDecisionRequired,
-        ]);
-    }
+    return new self($filteredValues);
+}
 
     private function __construct(array $values)
     {

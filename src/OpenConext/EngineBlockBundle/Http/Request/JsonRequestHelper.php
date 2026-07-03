@@ -37,26 +37,23 @@ final class JsonRequestHelper
      * @return int|string|array
      * @throws BadRequestHttpException
      */
-    public static function decodeContentOf(Request $request)
-    {
-        $stream = $request->getContent(true);
-        $contents = stream_get_contents($stream);
-        fclose($stream);
+public static function decodeContentOf(Request $request)
+{
+    $contents = $request->getContent();
+    $data = json_decode($contents);
 
-        $data     = json_decode($contents);
-
-        if (json_last_error() === JSON_ERROR_NONE) {
-            return $data;
-        }
-
-        $message       = 'Unable to parse JSON data';
-        $lastErrorCode = json_last_error();
-        if (isset(self::$jsonErrors[$lastErrorCode])) {
-            $message .= ': ' . self::$jsonErrors[$lastErrorCode];
-        }
-
-        throw new BadApiRequestHttpException($message);
+    if (json_last_error() === JSON_ERROR_NONE) {
+        return $data;
     }
+
+    $message = 'Unable to parse JSON data';
+    $lastErrorCode = json_last_error();
+    if (isset(self::$jsonErrors[$lastErrorCode])) {
+        $message .= ': ' . self::$jsonErrors[$lastErrorCode];
+    }
+
+    throw new BadApiRequestHttpException($message);
+}
 
     /**
      * @param Request $request

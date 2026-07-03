@@ -32,25 +32,23 @@ class UnsolicitedSsoRequestValidator implements RequestValidator
 {
     private $supportedRequestMethods = [Request::METHOD_GET];
 
-    public function isValid(Request $request)
-    {
-        $requestMethod = $request->getMethod();
-        // Defense in depth; anything other than GET is probably already rejected at routing time.
-        if (!in_array($requestMethod, $this->supportedRequestMethods)) {
-            throw new RuntimeException(
-                sprintf(
-                    'The HTTP request method "%s" is not supported on the IdP initiated SSO endpoint',
-                    $requestMethod
-                )
-            );
-        }
-
-        if (!$request->query->has('sp-entity-id')) {
-            throw new RuntimeException(
-                sprintf('The query parameter "sp-entity-id" is missing on the IdP initiated SSO request')
-            );
-        }
-
-        return true;
+public function isValid(Request $request)
+{
+    if (!in_array($request->getMethod(), $this->supportedRequestMethods, true)) {
+        throw new RuntimeException(
+            sprintf(
+                'The HTTP request method "%s" is not supported on the IdP initiated SSO endpoint',
+                $request->getMethod()
+            )
+        );
     }
+
+    if (!$request->query->has('sp-entity-id')) {
+        throw new RuntimeException(
+            sprintf('The query parameter "sp-entity-id" is missing on the IdP initiated SSO request')
+        );
+    }
+
+    return true;
+}
 }
