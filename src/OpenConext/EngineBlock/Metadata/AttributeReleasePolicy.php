@@ -74,7 +74,8 @@ class AttributeReleasePolicy
     private function validateRule($key, $rule)
     {
         if (is_array($rule)) {
-            if (!isset($rule['value'])) {
+            // Check if value exists and is not null
+            if (!array_key_exists('value', $rule)) {
                 throw new InvalidArgumentException(
                     sprintf(
                         'Invalid value for attribute "%s", rule must contain a value key, got: "%s"',
@@ -84,6 +85,9 @@ class AttributeReleasePolicy
                 );
             }
 
+            $value = $rule['value'];
+            
+            // Check if release_as is numeric
             if (isset($rule['release_as']) && is_numeric($rule['release_as'])) {
                 throw new InvalidArgumentException(
                     sprintf(
@@ -93,8 +97,6 @@ class AttributeReleasePolicy
                     )
                 );
             }
-
-            $value = $rule['value'];
         } else {
             $value = $rule;
         }
@@ -184,35 +186,29 @@ class AttributeReleasePolicy
      */
     public function isAllowed($attributeName, $attributeValue)
     {
-        if (!$this->hasAttribute($attributeName)) {
+        if (!isset($this->attributeRules[$attributeName])) {
             return false;
         }
 
         foreach ($this->attributeRules[$attributeName] as $rule) {
             $allowedValue = $this->getRuleValue($rule);
 
-            if ($attributeValue === $allowedValue) {
-                // Literal match.
-                return true;
-            }
-
+            // Check for wildcard character first (simplest check)
             if ($allowedValue === self::WILDCARD_CHARACTER) {
-                // Only a single wildcard character, all values are permitted.
                 return true;
             }
 
-            // We support wildcard matching at the end only, like 'some*' would match 'someValue' or 'somethingElse'
-            if (substr($allowedValue, -1) !== self::WILDCARD_CHARACTER) {
-                // Not a supported pattern
-                continue;
+            // Check for literal match
+            if ($attributeValue === $allowedValue) {
+                return true;
             }
 
-            // Would contain 'some'
-            $patternStart = substr($allowedValue, 0, -1);
-
-            // Does $attributeValue start with 'some'?
-            if (strpos($attributeValue, $patternStart) === 0) {
-                return true;
+            // Check for wildcard pattern (ending with *)
+            if (substr($allowedValue, -1) === self::WILDCARD_CHARACTER) {
+                $patternStart = substr($allowedValue, 0, -1);
+                if (strpos($attributeValue, $patternStart) === 0) {
+                    return true;
+                }
             }
         }
         return false;

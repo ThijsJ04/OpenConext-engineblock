@@ -76,19 +76,18 @@ class FallbackExceptionListener
             $exception->getMessage()
         ));
 
-        if ($exception instanceof EngineBlock_Exception) {
-            $this->errorReporter->reportError($exception, 'Caught Unhandled EngineBlock_Exception');
-        } else {
-            $this->errorReporter->reportError(
-                new EngineBlock_Exception($exception->getMessage(), EngineBlock_Exception::CODE_ERROR, $exception),
-                'Caught Unhandled generic exception'
-            );
-        }
+        $errorMessage = $exception instanceof EngineBlock_Exception
+            ? 'Caught Unhandled EngineBlock_Exception'
+            : 'Caught Unhandled generic exception';
 
-        $redirectToRoute = 'feedback_unknown_error';
+        $exceptionToReport = $exception instanceof EngineBlock_Exception
+            ? $exception
+            : new EngineBlock_Exception($exception->getMessage(), EngineBlock_Exception::CODE_ERROR, $exception);
+
+        $this->errorReporter->reportError($exceptionToReport, $errorMessage);
 
         $event->setResponse(new RedirectResponse(
-            $this->urlGenerator->generate($redirectToRoute, [], UrlGeneratorInterface::ABSOLUTE_PATH)
+            $this->urlGenerator->generate('feedback_unknown_error', [], UrlGeneratorInterface::ABSOLUTE_PATH)
         ));
     }
 }

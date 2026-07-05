@@ -67,16 +67,19 @@ final class CollabPersonId
      */
     public function __construct($collabPersonId)
     {
+        $urnNamespace = self::URN_NAMESPACE;
+        $maxLength = self::MAX_LENGTH;
+        
         Assertion::nonEmptyString($collabPersonId, 'collabPersonId');
         Assertion::startsWith(
             $collabPersonId,
-            self::URN_NAMESPACE,
-            sprintf('a CollabPersonId must start with the "%s" namespace', self::URN_NAMESPACE)
+            $urnNamespace,
+            sprintf('a CollabPersonId must start with the "%s" namespace', $urnNamespace)
         );
         Assertion::maxLength(
             $collabPersonId,
-            self::MAX_LENGTH,
-            sprintf('CollabPersonId length may not exceed %d characters', self::MAX_LENGTH)
+            $maxLength,
+            sprintf('CollabPersonId length may not exceed %d characters', $maxLength)
         );
 
         $this->collabPersonId = $collabPersonId;

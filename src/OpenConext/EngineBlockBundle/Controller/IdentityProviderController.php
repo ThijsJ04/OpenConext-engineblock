@@ -37,71 +37,17 @@ use Twig\Environment;
  */
 class IdentityProviderController implements AuthenticationLoopThrottlingController
 {
-    /**
-     * @var EngineBlock_ApplicationSingleton
-     */
-    private $engineBlockApplicationSingleton;
-
-    /**
-     * @var Environment
-     */
-    private $twig;
-
-    /**
-     * @var LoggerInterface
-     */
-    private $logger;
-
-    /**
-     * @var RequestAccessMailer
-     */
-    private $requestAccessMailer;
-
-    /**
-     * @var AuthenticationStateHelperInterface
-     */
-    private $authenticationStateHelper;
-
-    /**
-     * @var RequestValidator
-     */
-    private $requestValidator;
-
-    /**
-     * @var RequestValidator
-     */
-    private $unsolicitedRequestValidator;
-
-    /**
-     * @var RequestValidator
-     */
-    private $bindingValidator;
-
-    /**
-     * @var FeatureConfigurationInterface
-     */
-    private $featureConfiguration;
-
     public function __construct(
-        EngineBlock_ApplicationSingleton $engineBlockApplicationSingleton,
-        Environment $twig,
-        LoggerInterface $loggerInterface,
-        RequestAccessMailer $requestAccessMailer,
-        RequestValidator $requestValidator,
-        RequestValidator $bindingValidator,
-        RequestValidator $unsolicitedRequestValidator,
-        AuthenticationStateHelperInterface $authenticationStateHelper,
-        FeatureConfigurationInterface $featureConfiguration
+        private EngineBlock_ApplicationSingleton $engineBlockApplicationSingleton,
+        private Environment $twig,
+        private LoggerInterface $logger,
+        private RequestAccessMailer $requestAccessMailer,
+        private RequestValidator $requestValidator,
+        private RequestValidator $bindingValidator,
+        private RequestValidator $unsolicitedRequestValidator,
+        private AuthenticationStateHelperInterface $authenticationStateHelper,
+        private FeatureConfigurationInterface $featureConfiguration
     ) {
-        $this->engineBlockApplicationSingleton = $engineBlockApplicationSingleton;
-        $this->twig = $twig;
-        $this->logger = $loggerInterface;
-        $this->requestAccessMailer = $requestAccessMailer;
-        $this->requestValidator = $requestValidator;
-        $this->bindingValidator = $bindingValidator;
-        $this->unsolicitedRequestValidator = $unsolicitedRequestValidator;
-        $this->authenticationStateHelper = $authenticationStateHelper;
-        $this->featureConfiguration = $featureConfiguration;
     }
 
     /**
@@ -237,26 +183,23 @@ class IdentityProviderController implements AuthenticationLoopThrottlingControll
      */
     public function performRequestAccessAction(Request $request)
     {
-        $invalid = $this->validateRequest($request);
+        $postedVariables = $request->request;
+        $errors = $this->validateRequest($postedVariables);
 
-        if (count($invalid)) {
-            $viewData = [];
-            foreach ($invalid as $name) {
-                $viewData[$name . 'Error'] = true;
-            }
+        if (!empty($errors)) {
+            $viewData = $errors;
+            $viewData['queryParameters'] = $postedVariables->all();
 
-            $viewData['queryParameters'] = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-
-            $body = $this->twig->render(
-                '@theme/Authentication/View/IdentityProvider/request-access.html.twig',
-                $viewData
+            return new Response(
+                $this->twig->render(
+                    '@theme/Authentication/View/IdentityProvider/request-access.html.twig',
+                    $viewData
+                ),
+                400
             );
-
-            return new Response($body, 400);
         }
 
-        $postedVariables = $request->request;
-        if ($postedVariables->get('idpEntityId', false) !== false) {
+        if ($postedVariables->has('idpEntityId')) {
             $this->requestAccessMailer->sendRequestAccessEmailForIdp(
                 $postedVariables->get('spName'),
                 $postedVariables->get('spEntityId'),
@@ -287,24 +230,26 @@ class IdentityProviderController implements AuthenticationLoopThrottlingControll
      * https://github.com/OpenConext/OpenConext-engineblock/blob/b1ee14b96fff6a0dc203ad3c8a707a8661e9a402/
      *                      application/modules/Authentication/Controller/IdentityProvider.php#L246
      *
-     * @param Request $request
+     * @param mixed $postedVariables
      * @return array
      */
-    private function validateRequest(Request $request)
+    private function validateRequest($postedVariables)
     {
-        $invalid = [];
-        foreach ($request->request->all() as $key => $value) {
+        $errors = [];
+        $requiredFields = ['spName', 'spEntityId', 'institution', 'name', 'email', 'comment'];
+        
+        foreach ($requiredFields as $field) {
+            $value = $postedVariables->get($field);
             if (empty($value)) {
-                $invalid[] = $key;
-
+                $errors[$field . 'Error'] = true;
                 continue;
             }
-
-            if ($key === 'email' && filter_var($value, FILTER_VALIDATE_EMAIL) === false) {
-                $invalid[] = $key;
+            
+            if ($field === 'email' && filter_var($value, FILTER_VALIDATE_EMAIL) === false) {
+                $errors[$field . 'Error'] = true;
             }
         }
 
-        return $invalid;
+        return $errors;
     }
 }

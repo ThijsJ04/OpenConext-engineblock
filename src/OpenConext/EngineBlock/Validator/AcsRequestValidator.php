@@ -39,6 +39,7 @@ class AcsRequestValidator implements RequestValidator
     public function isValid(Request $request)
     {
         $requestMethod = $request->getMethod();
+        
         // Defense in depth; anything other than POST and GET are probably already rejected at routing time.
         if (!in_array($requestMethod, $this->supportedRequestMethods)) {
             // Only Redirect binding is supported for Single Sign On
@@ -47,13 +48,28 @@ class AcsRequestValidator implements RequestValidator
             );
         }
 
-        if (($requestMethod ===  Request::METHOD_POST && !$request->request->has('SAMLResponse')) ||
-            ($requestMethod ===  Request::METHOD_GET && !$request->query->has('SAMLResponse'))) {
-            throw new MissingParameterException(
-                sprintf('The parameter "SAMLResponse" is missing on the SAML ACS request')
-            );
-        }
+        $this->validateSamlResponseParameter($request, $requestMethod);
 
         return true;
+    }
+
+    /**
+     * Validates that the SAMLResponse parameter is present based on the request method.
+     * 
+     * @param Request $request
+     * @param string $requestMethod
+     * @throws MissingParameterException
+     */
+    private function validateSamlResponseParameter(Request $request, string $requestMethod): void
+    {
+        $hasSamlResponse = $requestMethod === Request::METHOD_POST
+            ? $request->request->has('SAMLResponse')
+            : $request->query->has('SAMLResponse');
+
+        if (!$hasSamlResponse) {
+            throw new MissingParameterException(
+                'The parameter "SAMLResponse" is missing on the SAML ACS request'
+            );
+        }
     }
 }

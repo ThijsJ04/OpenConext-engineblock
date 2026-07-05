@@ -53,33 +53,56 @@ class LogStreamHelper
 
     public function foreachLineReverse($fn)
     {
-        $line = '';
-        $pos = -2;
-
-        if (feof($this->stream)) {
-            fseek($this->stream, -1, SEEK_CUR);
-            $line = fgetc($this->stream);
+        // Get the current position and file size
+        $currentPos = ftell($this->stream);
+        fseek($this->stream, 0, SEEK_END);
+        $fileSize = ftell($this->stream);
+        
+        // Restore original position
+        fseek($this->stream, $currentPos);
+        
+        if ($fileSize === 0) {
+            $this->rewind();
+            return $this;
         }
-
-        while (fseek($this->stream, $pos, SEEK_CUR) !== -1) {
-            $char = fgetc($this->stream);
-
-            if ($char !== "\n") {
-                $line = $char . $line;
-                continue;
+        
+        $bufferSize = 8192; // Read in 8KB chunks
+        $position = $fileSize;
+        $remainingLine = '';
+        
+        while ($position > 0) {
+            $chunkSize = min($bufferSize, $position);
+            $position -= $chunkSize;
+            
+            fseek($this->stream, $position);
+            $chunk = fread($this->stream, $chunkSize);
+            
+            // Process the chunk in reverse
+            $chunkLength = strlen($chunk);
+            for ($i = $chunkLength - 1; $i >= 0; $i--) {
+                $char = $chunk[$i];
+                
+                if ($char === "\n") {
+                    $line = $remainingLine . $char;
+                    $remainingLine = '';
+                    
+                    if ($fn($line) === static::STOP) {
+                        $this->rewind();
+                        return $this;
+                    }
+                } else {
+                    $remainingLine = $char . $remainingLine;
+                }
             }
-            $line = $line . $char;
-
-            if ($fn($line) === static::STOP) {
-                return $this;
-            }
-
-            $line = '';
         }
-        $fn($line);
-
+        
+        // Process any remaining content (first line of the file)
+        if ($remainingLine !== '' || $fileSize > 0 && $chunk[0] !== "\n") {
+            $fn($remainingLine);
+        }
+        
         $this->rewind();
-
+        
         return $this;
     }
 

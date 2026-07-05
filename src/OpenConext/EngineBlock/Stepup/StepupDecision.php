@@ -61,29 +61,22 @@ class StepupDecision
         LoaRepository $loaRepository,
         LoggerInterface $logger
     ) {
-
         $this->logger = $logger;
-
-        $idpLoa = $idp->getCoins()->stepupConnections()->getLoa($sp->entityId);
-        // Only load the IdP LoA if configured in the stepup connection coin data
-        if ($idpLoa) {
-            $this->idpLoa = $loaRepository->getByIdentifier($idpLoa);
-        }
-
-        $spLoa = $sp->getCoins()->stepupRequireLoa();
-        // Only load the SP LoA if configured in Manage
-        if ($spLoa) {
-            $this->spLoa = $loaRepository->getByIdentifier($spLoa);
-        }
-
         $this->spNoToken = $sp->getCoins()->stepupAllowNoToken();
 
-        foreach ($pdpLoas as $loaId) {
-            $this->pdpLoas[] = $loaRepository->getByIdentifier($loaId);
-        }
-        foreach ($authnRequestLoas as $loa) {
-            $this->authnRequestLoas[] = $loa;
-        }
+        // Process IdP LoA if configured
+        $idpLoa = $idp->getCoins()->stepupConnections()->getLoa($sp->entityId);
+        $this->idpLoa = $idpLoa ? $loaRepository->getByIdentifier($idpLoa) : null;
+
+        // Process SP LoA if configured
+        $spLoa = $sp->getCoins()->stepupRequireLoa();
+        $this->spLoa = $spLoa ? $loaRepository->getByIdentifier($spLoa) : null;
+
+        // Process PDP LoAs - convert identifiers to Loa objects
+        $this->pdpLoas = array_map([$loaRepository, 'getByIdentifier'], $pdpLoas);
+
+        // AuthnRequest LoAs are already Loa objects, no conversion needed
+        $this->authnRequestLoas = $authnRequestLoas;
     }
 
     public function shouldUseStepup(): bool
@@ -112,32 +105,51 @@ class StepupDecision
     {
         $this->logger->debug('StepupDecision: determine highest LoA');
 
-        $desiredLevels = $this->pdpLoas;
-        $desiredLevels += $this->authnRequestLoas;
-        if ($this->spLoa) {
-            $desiredLevels[] = $this->spLoa;
-        }
-        if ($this->idpLoa) {
-            $desiredLevels[] = $this->idpLoa;
+        $highestLevel = null;
+        $hasLevels = false;
+
+        // Process PDP LoAs
+        foreach ($this->pdpLoas as $loa) {
+            if ($highestLevel === null || $loa->levelIsHigherOrEqualTo($highestLevel)) {
+                $highestLevel = $loa;
+            }
+            $hasLevels = true;
         }
 
-        if (count($desiredLevels) == 0) {
+        // Process AuthnRequest LoAs
+        foreach ($this->authnRequestLoas as $loa) {
+            if ($highestLevel === null || $loa->levelIsHigherOrEqualTo($highestLevel)) {
+                $highestLevel = $loa;
+            }
+            $hasLevels = true;
+        }
+
+        // Process SP LoA
+        if ($this->spLoa) {
+            if ($highestLevel === null || $this->spLoa->levelIsHigherOrEqualTo($highestLevel)) {
+                $highestLevel = $this->spLoa;
+            }
+            $hasLevels = true;
+        }
+
+        // Process IdP LoA
+        if ($this->idpLoa) {
+            if ($highestLevel === null || $this->idpLoa->levelIsHigherOrEqualTo($highestLevel)) {
+                $highestLevel = $this->idpLoa;
+            }
+            $hasLevels = true;
+        }
+
+        if (!$hasLevels) {
             $this->logger->info('StepupDecision: no level set, no Stepup required');
             return null;
         }
 
-        $highestLevel = reset($desiredLevels);
-        foreach ($desiredLevels as $level) {
-            if ($level->levelIsHigherOrEqualTo($highestLevel)) {
-                $highestLevel = $level;
-            }
-        }
-
         $logData = [
-            'pdp' => array_map(function (Loa $l):string {
+            'pdp' => array_map(function (Loa $l): string {
                 return $l->getIdentifier();
             }, $this->pdpLoas),
-            'authnRequest' => array_map(function (Loa $l):string {
+            'authnRequest' => array_map(function (Loa $l): string {
                 return $l->getIdentifier();
             }, $this->authnRequestLoas),
             'metadata_sp' => $this->spLoa ? [$this->spLoa->getIdentifier()] : [],

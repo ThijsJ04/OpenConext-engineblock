@@ -39,16 +39,14 @@ class CollabPersonIdType extends Type
     public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
     {
         if (is_null($value)) {
-            return $value;
+            return null;
         }
 
         if (!$value instanceof CollabPersonId) {
-            $valueForMessage = $this->getValueForExceptionMessage($value);
             throw new ConversionException(
                 sprintf(
-                    'Value "%s" must be null or an instance of CollabPersonId to be able to ' .
-                    'convert it to a database value',
-                    $valueForMessage
+                    'Value must be null or an instance of CollabPersonId, got: %s',
+                    $this->getValueForExceptionMessage($value)
                 )
             );
         }
@@ -63,20 +61,19 @@ class CollabPersonIdType extends Type
         }
 
         try {
-            $entityId = new CollabPersonId($value);
+            return new CollabPersonId($value);
         } catch (InvalidArgumentException $e) {
-            // get nice standard message, so we can throw it keeping the exception chain
-            $doctrineExceptionMessage = sprintf(
-                'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
-                $value,
-                $this->getName(),
-                'a valid CollabPersonId'
+            throw new ConversionException(
+                sprintf(
+                    'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
+                    $value,
+                    $this->getName(),
+                    'a valid CollabPersonId'
+                ),
+                0,
+                $e
             );
-
-            throw new ConversionException($doctrineExceptionMessage, 0, $e);
         }
-
-        return $entityId;
     }
 
     public function getName(): string

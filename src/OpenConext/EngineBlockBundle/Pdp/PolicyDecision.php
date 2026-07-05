@@ -64,11 +64,7 @@ final class PolicyDecision
     {
         $policyDecision = new self;
         $policyDecision->decision = $response->decision;
-
-        if (isset($response->status->statusMessage)) {
-            $policyDecision->statusMessage = $response->status->statusMessage;
-        }
-
+        $policyDecision->statusMessage = $response->status->statusMessage ?? null;
         $policyDecision->stepupObligations = self::findStepupObligations($response->obligations);
 
         if ($policyDecision->permitsAccess()) {
@@ -79,16 +75,16 @@ final class PolicyDecision
             $localizedDenyMessages = [];
             foreach ($response->associatedAdvices as $associatedAdvice) {
                 foreach ($associatedAdvice->attributeAssignments as $attributeAssignment) {
-                    $parts = explode(':', $attributeAssignment->attributeId);
-                    if (count($parts) >= 2) {
-                        list($identifier, $locale) = $parts;
-
-                        if ($identifier === 'DenyMessage') {
-                            $localizedDenyMessages[$locale] = $attributeAssignment->value;
-                        }
+                    $parts = explode(':', $attributeAssignment->attributeId, 2);
+                    if (count($parts) === 2 && $parts[0] === 'DenyMessage') {
+                        $localizedDenyMessages[$parts[1]] = $attributeAssignment->value;
                     }
-
-                    self::setAttributeAssignmentSource($attributeAssignment, $policyDecision);
+                    
+                    if ($attributeAssignment->attributeId === 'IdPOnly' && 
+                        isset($attributeAssignment->value) && 
+                        $attributeAssignment->value === true) {
+                        $policyDecision->isIdpSpecific = true;
+                    }
                 }
             }
             $policyDecision->localizedDenyMessages = $localizedDenyMessages;
@@ -122,16 +118,11 @@ final class PolicyDecision
         AttributeAssignment $attributeAssignment,
         PolicyDecision $policyDecision
     ) : void {
-
-        if ($attributeAssignment->attributeId !== 'IdPOnly') {
-            return;
-        }
-
-        if (isset($attributeAssignment->value) && $attributeAssignment->value === true) {
+        if ($attributeAssignment->attributeId === 'IdPOnly' && 
+            isset($attributeAssignment->value) && 
+            $attributeAssignment->value === true) {
             $policyDecision->isIdpSpecific = true;
         }
-
-        return;
     }
 
     public function permitsAccess() : bool
@@ -141,11 +132,8 @@ final class PolicyDecision
 
     public function getLocalizedDenyMessage(string $locale, string $defaultLocale = 'en') : string
     {
-        if (!$this->hasLocalizedDenyMessage()) {
-            throw new RuntimeException(sprintf(
-                'No localized deny messages present for decision "%s"',
-                $this->decision
-            ));
+        if (empty($this->localizedDenyMessages)) {
+            throw new RuntimeException('No localized deny messages present');
         }
 
         if (isset($this->localizedDenyMessages[$locale])) {
@@ -153,11 +141,7 @@ final class PolicyDecision
         }
 
         if (!isset($this->localizedDenyMessages[$defaultLocale])) {
-            throw new RuntimeException(sprintf(
-                'No localized deny message for locale "%s" or default locale "%s" found',
-                $locale,
-                $defaultLocale
-            ));
+            throw new RuntimeException('No localized deny message for locale "' . $locale . '" or default locale "' . $defaultLocale . '" found');
         }
 
         return $this->localizedDenyMessages[$defaultLocale];

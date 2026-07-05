@@ -53,45 +53,32 @@ final class AuthenticationState implements AuthenticationStateInterface
     public function startAuthenticationOnBehalfOf(string $requestId, Entity $serviceProvider): void
     {
         Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
-        $currentAuthenticationProcedure = AuthenticationProcedure::onBehalfOf($serviceProvider);
-
-        // Validate if the processed authentications this session do not exceed the configured maximum of authentications
-        $authenticationLimitExceeded = $this->authenticationLoopGuard->detectsAuthenticationLimit(
-            $this->authenticationProcedures
-        );
-
-        if ($authenticationLimitExceeded) {
+        
+        // Validate authentication limits before creating procedure
+        if ($this->authenticationLoopGuard->detectsAuthenticationLimit($this->authenticationProcedures)) {
             session_destroy();
-
             throw new AuthenticationSessionLimitExceededException(
-                'More than the configured maximum authentication procedures for this session'
-                    . ' the user seems to have started too much authentications this session. '
-                    . ' Resetting the session.'
+                'Authentication session limit exceeded. Resetting session.'
             );
         }
 
-        // Validate if the processed authentications for the service provider for this session do not exceed
-        // the configured maximum authentications in a configured time frame.
-        $inAuthenticationLoop = $this->authenticationLoopGuard->detectsAuthenticationLoop(
+        // Validate authentication loop for service provider
+        if ($this->authenticationLoopGuard->detectsAuthenticationLoop(
             $serviceProvider,
             $this->authenticationProcedures
-        );
-
-        if ($inAuthenticationLoop) {
+        )) {
             throw new StuckInAuthenticationLoopException(
                 sprintf(
-                    'More than the configured maximum authentication procedures for the current user from SP "%s"'
-                    . ' occurred within the configured amount of seconds,'
-                    . ' the user seems to be stuck in an authentication loop. '
-                    . ' Aborting the current authentication procedure.',
+                    'Authentication loop detected for SP "%s". Aborting procedure.',
                     $serviceProvider->getEntityId()
                 )
             );
         }
 
+        // Add authentication procedure to session
         $this->authenticationProcedures = $this->authenticationProcedures->add(
             $requestId,
-            $currentAuthenticationProcedure
+            AuthenticationProcedure::onBehalfOf($serviceProvider)
         );
     }
 
@@ -108,14 +95,9 @@ final class AuthenticationState implements AuthenticationStateInterface
         Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
 
         $currentRequest = $this->authenticationProcedures->find($requestId);
-
         if ($currentRequest === null) {
             throw new LogicException(
-                sprintf(
-                    'The requested authentication procedure with requestId "%s" couldn\'t be found in the ' .
-                    'session storage.',
-                    $requestId
-                )
+                'The requested authentication procedure with requestId "' . $requestId . '" couldn\'t be found in the session storage.'
             );
         }
 
@@ -132,6 +114,7 @@ final class AuthenticationState implements AuthenticationStateInterface
     public function completeCurrentProcedure(string $requestId): void
     {
         Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
+        
         $currentRequest = $this->authenticationProcedures->find($requestId);
         if ($currentRequest === null) {
             throw new LogicException(
@@ -171,3 +154,4 @@ final class AuthenticationState implements AuthenticationStateInterface
         return $this->authenticationProcedures->hasBeenAuthenticated();
     }
 }
+

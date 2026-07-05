@@ -18,6 +18,7 @@
 namespace OpenConext\EngineBlock\Stepup;
 
 use OpenConext\EngineBlock\Assert\Assertion;
+use OpenConext\EngineBlock\Exception\InvalidArgumentException;
 use OpenConext\EngineBlock\Exception\RuntimeException;
 use OpenConext\EngineBlock\Metadata\Loa;
 use OpenConext\EngineBlock\Metadata\LoaRepository;
@@ -36,6 +37,9 @@ class StepupGatewayLoaMapping
         Assertion::string($gatewayLoa1, 'The stepup.loa.loa1 configuration must be a string');
         $this->gatewayLoa1 = $loaRepository->getByIdentifier($gatewayLoa1);
 
+        $gatewayIdentifiers = [];
+        $engineBlockIdentifiers = [];
+
         foreach ($loaMapping as $mapping) {
             Assertion::nonEmptyString(
                 $mapping['gateway'],
@@ -46,18 +50,27 @@ class StepupGatewayLoaMapping
                 sprintf('The engineblock LoA must be a non empty string. "%s" given', $mapping['engineblock'])
             );
 
+            $gatewayIdentifiers[] = $mapping['gateway'];
+            $engineBlockIdentifiers[] = $mapping['engineblock'];
+        }
+
+        // Check for duplicates before processing
+        $gatewayIdentifiers = array_unique($gatewayIdentifiers);
+        $engineBlockIdentifiers = array_unique($engineBlockIdentifiers);
+
+        if (count($gatewayIdentifiers) !== count($loaMapping)) {
+            throw new InvalidArgumentException('Found a duplicate Gateway LoA identifier, this is not allowed.', 0, null, null, []);
+        }
+
+        if (count($engineBlockIdentifiers) !== count($loaMapping)) {
+            throw new InvalidArgumentException('Found a duplicate EngineBlock LoA identifier, this is not allowed.', 0, null, null, []);
+        }
+
+        // Process mappings with cached Loa objects
+        foreach ($loaMapping as $mapping) {
             $gwLoa = $loaRepository->getByIdentifier($mapping['gateway']);
             $ebLoa = $loaRepository->getByIdentifier($mapping['engineblock']);
-            Assertion::keyNotExists(
-                $this->gatewayToEngine,
-                $gwLoa->getIdentifier(),
-                'Found a duplicate Gateway LoA identifier, this is not allowed.'
-            );
-            Assertion::keyNotExists(
-                $this->engineToGateway,
-                $ebLoa->getIdentifier(),
-                'Found a duplicate EngineBlock LoA identifier, this is not allowed.'
-            );
+            
             $this->gatewayToEngine[$gwLoa->getIdentifier()] = $ebLoa;
             $this->engineToGateway[$ebLoa->getIdentifier()] = $gwLoa;
         }

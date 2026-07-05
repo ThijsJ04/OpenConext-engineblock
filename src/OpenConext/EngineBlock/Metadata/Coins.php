@@ -47,24 +47,57 @@ class Coins
         $stepupForceAuthn,
         $collabEnabled
     ) {
-        return new self([
-            'isConsentRequired' => $isConsentRequired,
-            'isTransparentIssuer' => $isTransparentIssuer,
-            'isTrustedProxy' => $isTrustedProxy,
-            'displayUnconnectedIdpsWayf' => $displayUnconnectedIdpsWayf,
-            'termsOfServiceUrl' => $termsOfServiceUrl,
-            'skipDenormalization' => $skipDenormalization,
-            'policyEnforcementDecisionRequired' => $policyEnforcementDecisionRequired,
-            'requesteridRequired' => $requesteridRequired,
-            'signResponse' => $signResponse,
-            'disableScoping' => $disableScoping,
-            'additionalLogging' => $additionalLogging,
-            'signatureMethod' => $signatureMethod,
-            'stepupAllowNoToken' => $stepupAllowNoToken,
-            'stepupRequireLoa' => $stepupRequireLoa,
-            'stepupForceAuthn' => $stepupForceAuthn,
-            'collabEnabled' => $collabEnabled,
-        ]);
+        $values = [];
+        if (!is_null($isConsentRequired)) {
+            $values['isConsentRequired'] = $isConsentRequired;
+        }
+        if (!is_null($isTransparentIssuer)) {
+            $values['isTransparentIssuer'] = $isTransparentIssuer;
+        }
+        if (!is_null($isTrustedProxy)) {
+            $values['isTrustedProxy'] = $isTrustedProxy;
+        }
+        if (!is_null($displayUnconnectedIdpsWayf)) {
+            $values['displayUnconnectedIdpsWayf'] = $displayUnconnectedIdpsWayf;
+        }
+        if (!is_null($termsOfServiceUrl)) {
+            $values['termsOfServiceUrl'] = $termsOfServiceUrl;
+        }
+        if (!is_null($skipDenormalization)) {
+            $values['skipDenormalization'] = $skipDenormalization;
+        }
+        if (!is_null($policyEnforcementDecisionRequired)) {
+            $values['policyEnforcementDecisionRequired'] = $policyEnforcementDecisionRequired;
+        }
+        if (!is_null($requesteridRequired)) {
+            $values['requesteridRequired'] = $requesteridRequired;
+        }
+        if (!is_null($signResponse)) {
+            $values['signResponse'] = $signResponse;
+        }
+        if (!is_null($disableScoping)) {
+            $values['disableScoping'] = $disableScoping;
+        }
+        if (!is_null($additionalLogging)) {
+            $values['additionalLogging'] = $additionalLogging;
+        }
+        if (!is_null($signatureMethod)) {
+            $values['signatureMethod'] = $signatureMethod;
+        }
+        if (!is_null($stepupAllowNoToken)) {
+            $values['stepupAllowNoToken'] = $stepupAllowNoToken;
+        }
+        if (!is_null($stepupRequireLoa)) {
+            $values['stepupRequireLoa'] = $stepupRequireLoa;
+        }
+        if (!is_null($stepupForceAuthn)) {
+            $values['stepupForceAuthn'] = $stepupForceAuthn;
+        }
+        if (!is_null($collabEnabled)) {
+            $values['collabEnabled'] = $collabEnabled;
+        }
+        
+        return new self($values);
     }
 
     public static function createForIdentityProvider(
@@ -79,18 +112,39 @@ class Coins
         $defaultRAC,
         $policyEnforcementDecisionRequired
     ) {
-        return new self([
-            'guestQualifier' => $guestQualifier,
-            'schacHomeOrganization' => $schacHomeOrganization,
-            'hidden' => $hidden,
-            'disableScoping' => $disableScoping,
-            'additionalLogging' => $additionalLogging,
-            'signatureMethod' => $signatureMethod,
-            'stepupConnections' => $stepupConnections,
-            'mfaEntities' => $mfaEntities,
-            'defaultRAC' => $defaultRAC,
-            'policyEnforcementDecisionRequired' => $policyEnforcementDecisionRequired,
-        ]);
+        $values = [];
+        if (!is_null($guestQualifier)) {
+            $values['guestQualifier'] = $guestQualifier;
+        }
+        if (!is_null($schacHomeOrganization)) {
+            $values['schacHomeOrganization'] = $schacHomeOrganization;
+        }
+        if (!is_null($hidden)) {
+            $values['hidden'] = $hidden;
+        }
+        if (!is_null($stepupConnections)) {
+            $values['stepupConnections'] = $stepupConnections;
+        }
+        if (!is_null($disableScoping)) {
+            $values['disableScoping'] = $disableScoping;
+        }
+        if (!is_null($additionalLogging)) {
+            $values['additionalLogging'] = $additionalLogging;
+        }
+        if (!is_null($signatureMethod)) {
+            $values['signatureMethod'] = $signatureMethod;
+        }
+        if (!is_null($mfaEntities)) {
+            $values['mfaEntities'] = $mfaEntities;
+        }
+        if (!is_null($defaultRAC)) {
+            $values['defaultRAC'] = $defaultRAC;
+        }
+        if (!is_null($policyEnforcementDecisionRequired)) {
+            $values['policyEnforcementDecisionRequired'] = $policyEnforcementDecisionRequired;
+        }
+        
+        return new self($values);
     }
 
     private function __construct(array $values)

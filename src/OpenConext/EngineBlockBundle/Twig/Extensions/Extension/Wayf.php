@@ -51,19 +51,9 @@ class Wayf extends AbstractExtension
     public function getFunctions(): array
     {
         return [
-            new TwigFunction(
-                'wayfConfig',
-                [$this, 'getWayfJsonConfig']
-            ),
-            new TwigFunction(
-                'connectedIdps',
-                [$this, 'getConnectedIdps']
-            ),
-            new TwigFunction(
-                'idpDiscoveryHash',
-                [$this, 'idpDiscoveryHash']
-            ),
-
+            new TwigFunction('wayfConfig', [$this, 'getWayfJsonConfig']),
+            new TwigFunction('connectedIdps', [$this, 'getConnectedIdps']),
+            new TwigFunction('idpDiscoveryHash', [$this, 'idpDiscoveryHash']),
         ];
     }
 
@@ -101,23 +91,17 @@ class Wayf extends AbstractExtension
 
     private function formatIdpEntry(array $idp): array
     {
-        $keywords = $idp['Keywords'] === 'Undefined'
-            ? []
-            : array_values((array)$idp['Keywords']);
+        // Process keywords in a single expression
+        $keywords = $idp['Keywords'] === 'Undefined' 
+            ? '' 
+            : strtolower(implode('|', array_values((array)$idp['Keywords'])));
 
-        $connected = false;
-        if (isset($idp['Access']) && $idp['Access'] === self::ACCESS_ENABLED) {
-            $connected = true;
-        }
-
-        // In SingleSignOn.php, the IDP is transformed into an array for the frontend
-        // Then, here, the array is transformed into another array for the frontend which is actually used in twig
         return [
             'entityId' => $idp['EntityID'] ?? null,
-            'connected' => $connected,
+            'connected' => isset($idp['Access']) && $idp['Access'] === self::ACCESS_ENABLED,
             'displayTitle' => $idp['Name'] ?? null,
             'title' => strtolower($idp['Name'] ?? ''),
-            'keywords' => strtolower(implode('|', $keywords)),
+            'keywords' => $keywords,
             'logo' => $idp['Logo'] ?? null,
             'isDefaultIdp' => (bool) ($idp['isDefaultIdp'] ?? null),
             'discoveryHash' => $idp['DiscoveryHash'] ?? null,
@@ -139,19 +123,17 @@ class Wayf extends AbstractExtension
         array $previousSelectionIndex
     ): array {
         return array_filter(
-            array_map(
-                function (array $idp) use ($previousSelectionIndex) {
-                    $entryKey = $this->idpDiscoveryHash($idp['entityId'], $idp['discoveryHash']);
-                    if (!isset($previousSelectionIndex[$entryKey])) {
-                        return null;
-                    }
-                    return array_merge(
-                        $previousSelectionIndex[$entryKey],
-                        $idp
-                    );
-                },
-                $formattedList
-            )
+            $formattedList,
+            function (array $idp) use ($previousSelectionIndex) {
+                $entryKey = $this->idpDiscoveryHash($idp['entityId'], $idp['discoveryHash']);
+                if (!isset($previousSelectionIndex[$entryKey])) {
+                    return false;
+                }
+                return array_merge(
+                    $previousSelectionIndex[$entryKey],
+                    $idp
+                );
+            }
         );
     }
 
@@ -175,24 +157,19 @@ class Wayf extends AbstractExtension
         $rememberChoiceFeature,
         $cutoffPointForShowingUnfilteredIdps
     ) {
-
-        if ($showRequestAccess === true) {
-            $unconnectedIdps = array_filter(
-                $connectedIdPs->getFormattedIdpList(),
-                function ($idp) {
-                    return !$idp['connected'];
-                }
-            );
-        } else {
-            $unconnectedIdps = [];
-        }
-
         return json_encode(
             [
                 'previousSelectionCookieName' => self::PREVIOUS_SELECTION_COOKIE_NAME,
                 'previousSelectionList' => $connectedIdPs->getFormattedPreviousSelectionList(),
                 'connectedIdps' => array_values($connectedIdPs->getConnectedIdps()),
-                'unconnectedIdps' => array_values($unconnectedIdps),
+                'unconnectedIdps' => $showRequestAccess === true
+                    ? array_values(array_filter(
+                        $connectedIdPs->getFormattedIdpList(),
+                        function ($idp) {
+                            return !$idp['connected'];
+                        }
+                    ))
+                    : [],
                 'cutoffPointForShowingUnfilteredIdps' => $cutoffPointForShowingUnfilteredIdps,
                 'rememberChoiceCookieName' => self::REMEMBER_CHOICE_COOKIE_NAME,
                 'rememberChoiceFeature' => $rememberChoiceFeature,
@@ -215,21 +192,21 @@ class Wayf extends AbstractExtension
     private function loadPreviousSelectionFromCookie(RequestStack $requestStack)
     {
         $request = $requestStack->getCurrentRequest();
-        $previousSelection = null;
-        $previousSelectionIndexed = [];
-        if ($request) {
-            $previousSelection = json_decode(
-                $request->cookies->get(self::PREVIOUS_SELECTION_COOKIE_NAME, ''),
-                true
-            );
-            if ($previousSelection) {
-                // And index the previous selection on IdP entity ID
-                foreach ($previousSelection as $item) {
-                    $previousSelectionIndexed[$item['idp']] = $item;
-                }
-            }
+        if (!$request) {
+            return [];
         }
-        return $previousSelectionIndexed;
+
+        $cookieValue = $request->cookies->get(self::PREVIOUS_SELECTION_COOKIE_NAME, '');
+        if (empty($cookieValue)) {
+            return [];
+        }
+
+        $previousSelection = json_decode($cookieValue, true);
+        if (!is_array($previousSelection)) {
+            return [];
+        }
+
+        return array_column($previousSelection, null, 'idp');
     }
 
     public function idpDiscoveryHash(string $entityId, ?string $discoveryHash = null): string

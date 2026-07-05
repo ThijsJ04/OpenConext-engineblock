@@ -95,35 +95,12 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
             $role = $this->assembleConnection($connection);
 
             if ($role instanceof ServiceProvider) {
-                if (isset($connection->allowed_connections)) {
-                    $spAllowedEntityIds[$role->entityId] = array_map(
-                        function ($allowedConnection) {
-                            return $allowedConnection->name;
-                        },
-                        $connection->allowed_connections
-                    );
-                }
-
-                if (isset($connection->allow_all_entities) && $connection->allow_all_entities) {
-                    $spAllowedEntityIds[$role->entityId] = true;
-                }
+                $spAllowedEntityIds[$role->entityId] = $this->getAllowedEntityIds($connection);
             }
 
             if ($role instanceof IdentityProvider) {
                 $allIdpEntityIds[] = $role->entityId;
-
-                if (isset($connection->allowed_connections)) {
-                    $idpAllowedEntityIds[$role->entityId] = array_map(
-                        function ($allowedConnection) {
-                            return $allowedConnection->name;
-                        },
-                        $connection->allowed_connections
-                    );
-                }
-
-                if (isset($connection->allow_all_entities) && $connection->allow_all_entities) {
-                    $idpAllowedEntityIds[$role->entityId] = true;
-                }
+                $idpAllowedEntityIds[$role->entityId] = $this->getAllowedEntityIds($connection);
             }
 
             $roles[] = $role;
@@ -136,33 +113,13 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
             }
 
             // Get the IdPs that are allowed for this SP.
-            $allowedIdpEntityIds = null;
-            if (isset($spAllowedEntityIds[$role->entityId])) {
-                $allowedIdpEntityIds = $spAllowedEntityIds[$role->entityId];
-                if ($allowedIdpEntityIds === true) {
-                    $allowedIdpEntityIds = $allIdpEntityIds;
-                }
+            $allowedIdpEntityIds = $spAllowedEntityIds[$role->entityId] ?? null;
+            if ($allowedIdpEntityIds === true) {
+                $allowedIdpEntityIds = $allIdpEntityIds;
             }
 
-            // Strip out the IdPs that disallow the SP
-            foreach ($idpAllowedEntityIds as $idpEntityId => $allowedSpEntityIds) {
-                if ($allowedSpEntityIds === true) {
-                    continue;
-                }
-
-                if (in_array($role->entityId, $allowedSpEntityIds)) {
-                    continue;
-                }
-
-                $index = array_search($idpEntityId, $allowedIdpEntityIds);
-
-                if ($index === false) {
-                    continue;
-                }
-
-
-                unset($allowedIdpEntityIds[$index]);
-            }
+            // Filter out IdPs that don't allow this SP
+            $allowedIdpEntityIds = $this->filterAllowedIdpEntityIds($allowedIdpEntityIds, $idpAllowedEntityIds, $role->entityId);
 
             if ($allowedIdpEntityIds === $allIdpEntityIds) {
                 // If a blacklist was configured, and no IDPs were explicitly
@@ -179,6 +136,63 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
         }
 
         return $roles;
+    }
+
+    /**
+     * Extract allowed entity IDs from connection configuration.
+     * 
+     * @param stdClass $connection
+     * @return array|bool Array of entity IDs or true if all entities are allowed
+     */
+    private function getAllowedEntityIds($connection)
+    {
+        if (isset($connection->allow_all_entities) && $connection->allow_all_entities) {
+            return true;
+        }
+
+        if (isset($connection->allowed_connections)) {
+            return array_map(
+                function ($allowedConnection) {
+                    return $allowedConnection->name;
+                },
+                $connection->allowed_connections
+            );
+        }
+
+        return array();
+    }
+
+    /**
+     * Filter allowed IDP entity IDs based on IDP restrictions.
+     * 
+     * @param array|null $allowedIdpEntityIds
+     * @param array $idpAllowedEntityIds
+     * @param string $spEntityId
+     * @return array
+     */
+    private function filterAllowedIdpEntityIds($allowedIdpEntityIds, $idpAllowedEntityIds, $spEntityId)
+    {
+        if (empty($allowedIdpEntityIds) || !is_array($allowedIdpEntityIds)) {
+            return array();
+        }
+
+        foreach ($idpAllowedEntityIds as $idpEntityId => $allowedSpEntityIds) {
+            if ($allowedSpEntityIds === true) {
+                continue;
+            }
+
+            if (in_array($spEntityId, $allowedSpEntityIds)) {
+                continue;
+            }
+
+            // Remove IDP from allowed list if it doesn't allow this SP
+            $key = array_search($idpEntityId, $allowedIdpEntityIds, true);
+            if ($key !== false) {
+                unset($allowedIdpEntityIds[$key]);
+            }
+        }
+
+        return array_values($allowedIdpEntityIds);
     }
 
     /**
@@ -223,27 +237,29 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     {
         $properties = $this->assembleCommon($connection);
 
-        $properties += $this->assembleAttributeReleasePolicy($connection);
-        $properties += $this->assembleAssertionConsumerServices($connection);
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:transparant_issuer'], 'isTransparentIssuer');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:trusted_proxy'], 'isTrustedProxy');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:display_unconnected_idps_wayf'], 'displayUnconnectedIdpsWayf');
-
-        $properties += $this->assembleIsConsentRequired($connection);
-
-        $properties += $this->setPathFromObjectString([$connection, 'metadata:coin:eula'], 'termsOfServiceUrl');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:do_not_add_attribute_aliases'], 'skipDenormalization');
-        $properties += $this->setPathFromObjectBool(
-            [$connection, 'metadata:coin:policy_enforcement_decision_required'],
-            'policyEnforcementDecisionRequired'
+        // Merge larger component arrays
+        $properties = array_merge(
+            $properties,
+            $this->assembleAttributeReleasePolicy($connection),
+            $this->assembleAssertionConsumerServices($connection),
+            $this->assembleIsConsentRequired($connection)
         );
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:requesterid_required'], 'requesteridRequired');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:sign_response'], 'signResponse');
-        $properties += $this->setPathFromObjectString([$connection, 'metadata:coin:stepup:requireloa'], 'stepupRequireLoa');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:stepup:allow_no_token'], 'stepupAllowNoToken');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:stepup:forceauthn'], 'stepupForceAuthn');
 
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:collab_enabled'], 'collabEnabled');
+        // Set boolean properties directly
+        $properties['isTransparentIssuer'] = $this->getBooleanValue($connection, 'metadata:coin:transparant_issuer');
+        $properties['isTrustedProxy'] = $this->getBooleanValue($connection, 'metadata:coin:trusted_proxy');
+        $properties['displayUnconnectedIdpsWayf'] = $this->getBooleanValue($connection, 'metadata:coin:display_unconnected_idps_wayf');
+        $properties['skipDenormalization'] = $this->getBooleanValue($connection, 'metadata:coin:do_not_add_attribute_aliases');
+        $properties['policyEnforcementDecisionRequired'] = $this->getBooleanValue($connection, 'metadata:coin:policy_enforcement_decision_required');
+        $properties['requesteridRequired'] = $this->getBooleanValue($connection, 'metadata:coin:requesterid_required');
+        $properties['signResponse'] = $this->getBooleanValue($connection, 'metadata:coin:sign_response');
+        $properties['stepupAllowNoToken'] = $this->getBooleanValue($connection, 'metadata:coin:stepup:allow_no_token');
+        $properties['stepupForceAuthn'] = $this->getBooleanValue($connection, 'metadata:coin:stepup:forceauthn');
+        $properties['collabEnabled'] = $this->getBooleanValue($connection, 'metadata:coin:collab_enabled');
+
+        // Set string properties directly
+        $properties['termsOfServiceUrl'] = $this->getStringValue($connection, 'metadata:coin:eula');
+        $properties['stepupRequireLoa'] = $this->getStringValue($connection, 'metadata:coin:stepup:requireloa');
 
         return Utils::instantiate(
             ServiceProvider::class,
@@ -259,22 +275,23 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     {
         $properties = $this->assembleCommon($connection);
 
-        $properties += $this->assembleSingleSignOnServices($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:guest_qualifier'), 'guestQualifier');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:schachomeorganization'), 'schacHomeOrganization');
-        $properties += $this->assembleConsentSettings($connection);
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:hidden'), 'hidden');
-        $properties += $this->assembleShibMdScopes($connection);
-
-        $properties += $this->assembleStepupConnections($connection);
-        $properties += $this->assembleMfaEntities($connection);
-
-        $properties += $this->discoveryAssembler->assembleDiscoveries($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:defaultRAC'), 'defaultRAC');
-
-        $properties += $this->setPathFromObjectBool(
-            [$connection, 'metadata:coin:policy_enforcement_decision_required'],
-            'policyEnforcementDecisionRequired'
+        // Merge all properties in a single operation for better performance
+        $properties = array_merge(
+            $properties,
+            $this->assembleSingleSignOnServices($connection),
+            $this->setPathFromObjectString(array($connection, 'metadata:coin:guest_qualifier'), 'guestQualifier'),
+            $this->setPathFromObjectString(array($connection, 'metadata:coin:schachomeorganization'), 'schacHomeOrganization'),
+            $this->assembleConsentSettings($connection),
+            $this->setPathFromObjectBool(array($connection, 'metadata:coin:hidden'), 'hidden'),
+            $this->assembleShibMdScopes($connection),
+            $this->assembleStepupConnections($connection),
+            $this->assembleMfaEntities($connection),
+            $this->discoveryAssembler->assembleDiscoveries($connection),
+            $this->setPathFromObjectString(array($connection, 'metadata:coin:defaultRAC'), 'defaultRAC'),
+            $this->setPathFromObjectBool(
+                [$connection, 'metadata:coin:policy_enforcement_decision_required'],
+                'policyEnforcementDecisionRequired'
+            )
         );
 
         return Utils::instantiate(
@@ -285,41 +302,40 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
 
     private function assembleCommon(stdClass $connection)
     {
-        $properties = array();
-
-        $properties += $this->setPathFromObjectString(array($connection, 'name'), 'entityId');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:nl'), 'nameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:en'), 'nameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:pt'), 'namePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:nl'), 'displayNameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:en'), 'displayNameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:pt'), 'displayNamePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:nl'), 'descriptionNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:en'), 'descriptionEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:pt'), 'descriptionPt', true);
-        $properties += $this->assembleLogo($connection);
-        $properties += $this->assembleOrganization($connection, 'nl');
-        $properties += $this->assembleOrganization($connection, 'en');
-        $properties += $this->assembleOrganization($connection, 'pt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:en'), 'keywordsEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:nl'), 'keywordsNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:pt'), 'keywordsPt', true);
-
-        $properties += $this->assembleCertificates($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'state'), 'workflowState');
-        $properties += $this->assembleContactPersons($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:NameIDFormat'), 'nameIdFormat');
-        $properties += $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats');
-        $properties += $this->assembleSingleLogoutServices($connection);
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping');
-
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:additional_logging'), 'additionalLogging');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:signature_method'), 'signatureMethod');
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:redirect:sign'), 'requestsMustBeSigned');
-        $properties += $this->setPathFromObjectString(array($connection, 'manipulation_code'), 'manipulation');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:en'), 'supportUrlEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:nl'), 'supportUrlNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:pt'), 'supportUrlPt');
+        // Use array_merge for better performance instead of multiple += operations
+        $properties = array_merge(
+            $this->setPathFromObjectString(array($connection, 'name'), 'entityId'),
+            $this->setPathFromObjectString(array($connection, 'metadata:name:nl'), 'nameNl'),
+            $this->setPathFromObjectString(array($connection, 'metadata:name:en'), 'nameEn'),
+            $this->setPathFromObjectString(array($connection, 'metadata:name:pt'), 'namePt'),
+            $this->setPathFromObjectString(array($connection, 'metadata:displayName:nl'), 'displayNameNl'),
+            $this->setPathFromObjectString(array($connection, 'metadata:displayName:en'), 'displayNameEn'),
+            $this->setPathFromObjectString(array($connection, 'metadata:displayName:pt'), 'displayNamePt'),
+            $this->setPathFromObjectString(array($connection, 'metadata:description:nl'), 'descriptionNl', true),
+            $this->setPathFromObjectString(array($connection, 'metadata:description:en'), 'descriptionEn', true),
+            $this->setPathFromObjectString(array($connection, 'metadata:description:pt'), 'descriptionPt', true),
+            $this->assembleLogo($connection),
+            $this->assembleOrganization($connection, 'nl'),
+            $this->assembleOrganization($connection, 'en'),
+            $this->assembleOrganization($connection, 'pt'),
+            $this->setPathFromObjectString(array($connection, 'metadata:keywords:en'), 'keywordsEn', true),
+            $this->setPathFromObjectString(array($connection, 'metadata:keywords:nl'), 'keywordsNl', true),
+            $this->setPathFromObjectString(array($connection, 'metadata:keywords:pt'), 'keywordsPt', true),
+            $this->assembleCertificates($connection),
+            $this->setPathFromObjectString(array($connection, 'state'), 'workflowState'),
+            $this->assembleContactPersons($connection),
+            $this->setPathFromObjectString(array($connection, 'metadata:NameIDFormat'), 'nameIdFormat'),
+            $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats'),
+            $this->assembleSingleLogoutServices($connection),
+            $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping'),
+            $this->setPathFromObjectBool(array($connection, 'metadata:coin:additional_logging'), 'additionalLogging'),
+            $this->setPathFromObjectString(array($connection, 'metadata:coin:signature_method'), 'signatureMethod'),
+            $this->setPathFromObjectBool(array($connection, 'metadata:redirect:sign'), 'requestsMustBeSigned'),
+            $this->setPathFromObjectString(array($connection, 'manipulation_code'), 'manipulation'),
+            $this->setPathFromObjectString(array($connection, 'metadata:url:en'), 'supportUrlEn'),
+            $this->setPathFromObjectString(array($connection, 'metadata:url:nl'), 'supportUrlNl'),
+            $this->setPathFromObjectString(array($connection, 'metadata:url:pt'), 'supportUrlPt')
+        );
 
         $properties['mdui'] = MduiPushAssemblerFactory::buildFrom($properties, $connection);
 
@@ -344,59 +360,52 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
 
     private function assembleOrganization(stdClass $connection, $langCode)
     {
-        $name = null;
-        $displayName = null;
-        $url = null;
-        if (isset($connection->metadata->OrganizationName) && isset($connection->metadata->OrganizationName->$langCode)) {
-            $name = $connection->metadata->OrganizationName->$langCode;
-        }
-        if (isset($connection->metadata->OrganizationDisplayName) && isset($connection->metadata->OrganizationDisplayName->$langCode)) {
-            $displayName = $connection->metadata->OrganizationDisplayName->$langCode;
-        }
-        if (isset($connection->metadata->OrganizationURL) && isset($connection->metadata->OrganizationURL->$langCode)) {
-            $url = $connection->metadata->OrganizationURL->$langCode;
-        }
+        $name = $connection->metadata->OrganizationName->$langCode ?? null;
+        $displayName = $connection->metadata->OrganizationDisplayName->$langCode ?? null;
+        $url = $connection->metadata->OrganizationURL->$langCode ?? null;
+        
         return array('organization' . ucfirst($langCode) => new Organization($name, $displayName, $url));
     }
 
     private function assembleCertificates(stdClass $connection)
     {
         $certificateFactory = new X509CertificateFactory();
-
-        // Try the primary certificate.
-        if (empty($connection->metadata->certData)) {
-            return array();
-        }
-
         $certificates = array();
-        $certificates[] = new X509CertificateLazyProxy($certificateFactory, $connection->metadata->certData);
 
-        // If we have a primary we may have a secondary.
-        if (empty($connection->metadata->certData2)) {
-            return array('certificates' => $certificates);
+        // Process certificate data in a loop to reduce code duplication
+        for ($i = 1; $i <= 3; $i++) {
+            $certDataProperty = 'certData' . ($i > 1 ? $i : '');
+            
+            if (!empty($connection->metadata->$certDataProperty)) {
+                $certificates[] = new X509CertificateLazyProxy($certificateFactory, $connection->metadata->$certDataProperty);
+            } else {
+                // Stop processing if we encounter an empty certificate field
+                break;
+            }
         }
 
-        $certificates[] = new X509CertificateLazyProxy($certificateFactory, $connection->metadata->certData2);
-
-        // If we have a secondary we may have a tertiary.
-        if (empty($connection->metadata->certData3)) {
-            return array('certificates' => $certificates);
-        }
-
-        $certificates[] = new X509CertificateLazyProxy($certificateFactory, $connection->metadata->certData3);
-
-        return array('certificates' => $certificates);
+        return empty($certificates) ? array() : array('certificates' => $certificates);
     }
 
     private function assembleContactPersons($connection)
     {
         $contactPersons = array();
-        for ($i = 0; $i < 3; $i++) {
-            if (empty($connection->metadata->contacts[$i]->contactType)) {
+        
+        // Early exit if no contacts exist
+        if (empty($connection->metadata->contacts)) {
+            return array();
+        }
+        
+        // Process contacts in a single loop with early termination
+        foreach ($connection->metadata->contacts as $contactMetadata) {
+            // Skip if contactType is not set
+            if (empty($contactMetadata->contactType)) {
                 continue;
             }
-            $contactMetadata = $connection->metadata->contacts[$i];
+            
             $contactPerson = new ContactPerson($contactMetadata->contactType);
+            
+            // Set properties only if they exist and are not empty
             if (!empty($contactMetadata->emailAddress)) {
                 $contactPerson->emailAddress = $contactMetadata->emailAddress;
             }
@@ -409,8 +418,10 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
             if (!empty($contactMetadata->surName)) {
                 $contactPerson->surName = $contactMetadata->surName;
             }
+            
             $contactPersons[] = $contactPerson;
         }
+        
         return empty($contactPersons) ? array() : array('contactPersons' => $contactPersons);
     }
 
@@ -473,6 +484,18 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
         return $reference;
     }
 
+    private function getBooleanValue(stdClass $connection, string $path): ?bool
+    {
+        $value = $this->getValueFromPath([$connection, $path]);
+        return $value === null ? null : (bool)$value;
+    }
+
+    private function getStringValue(stdClass $connection, string $path): ?string
+    {
+        $value = $this->getValueFromPath([$connection, $path]);
+        return $value === null ? null : (string)$value;
+    }
+
     private function assembleSingleSignOnServices($connection)
     {
         if (empty($connection->metadata->SingleSignOnService)) {
@@ -481,16 +504,15 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
 
         $services = array();
         foreach ($connection->metadata->SingleSignOnService as $singleSignOnServiceMetadata) {
-            if (empty($singleSignOnServiceMetadata->Location)) {
-                continue;
-            }
-            if (empty($singleSignOnServiceMetadata->Binding)) {
+            // Skip if required fields are missing
+            if (empty($singleSignOnServiceMetadata->Location) || empty($singleSignOnServiceMetadata->Binding)) {
                 continue;
             }
 
             $services[] = new Service($singleSignOnServiceMetadata->Location, $singleSignOnServiceMetadata->Binding);
         }
-        return array('singleSignOnServices' => $services);
+        
+        return empty($services) ? array() : array('singleSignOnServices' => $services);
     }
 
     private function assembleConsentSettings(stdClass $connection)
@@ -509,33 +531,32 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     private function assembleShibMdScopes($connection)
     {
         if (empty($connection->metadata->shibmd->scope)) {
-            return array();
+            return [];
         }
 
-        $shibMdScopes = array();
+        $scopes = array_filter($connection->metadata->shibmd->scope, function ($scopeMetadata) {
+            return !empty($scopeMetadata->allowed);
+        });
 
-        foreach ($connection->metadata->shibmd->scope as $scopeMetadata) {
-            if (empty($scopeMetadata->allowed)) {
-                continue;
-            }
-
+        $shibMdScopes = array_map(function ($scopeMetadata) {
             $scope = new ShibMdScope();
             $scope->allowed = $scopeMetadata->allowed;
             if (!empty($scopeMetadata->regexp)) {
                 $scope->regexp = $scopeMetadata->regexp;
             }
-            $shibMdScopes[] = $scope;
-        }
+            return $scope;
+        }, $scopes);
 
-        return array('shibMdScopes' => $shibMdScopes);
+        return empty($shibMdScopes) ? [] : ['shibMdScopes' => $shibMdScopes];
     }
 
-    private function assembleStepupConnections(stdClass $connection)
+    private function assembleStepupConnections(stdClass $connection): array
     {
         if (empty($connection->stepup_connections)) {
-            return array();
+            return [];
         }
 
+        // Filter and map connections in a single pass for efficiency
         $connections = [];
         foreach ($connection->stepup_connections as $sp) {
             if (isset($sp->name, $sp->level)) {
@@ -543,11 +564,14 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
             }
         }
 
-        return array(
-            'stepupConnections' => new StepupConnections(
-                $connections
-            ),
-        );
+        // Early return if no valid connections found
+        if (empty($connections)) {
+            return [];
+        }
+
+        return [
+            'stepupConnections' => new StepupConnections($connections),
+        ];
     }
 
     private function assembleAssertionConsumerServices(stdClass $connection)
@@ -558,32 +582,37 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
 
         $services = array();
         $index = 0;
+        
         foreach ($connection->metadata->AssertionConsumerService as $assertionConsumerServiceMetadata) {
+            // Skip if required Location field is missing
             if (empty($assertionConsumerServiceMetadata->Location)) {
                 continue;
             }
 
-            // Only allow ACS locations with a verified URI scheme
-            if (!$this->allowedAcsLocationsValidator->validate($assertionConsumerServiceMetadata->Location)) {
-                throw new RuntimeException('The acs metadata contained an invalid location uri scheme');
-            }
-
+            // Skip if required Binding field is missing
             if (empty($assertionConsumerServiceMetadata->Binding)) {
                 continue;
             }
 
-            if (!empty($assertionConsumerServiceMetadata->Index)) {
-                $index = (int) $assertionConsumerServiceMetadata->Index;
+            // Validate URI scheme for security
+            if (!$this->allowedAcsLocationsValidator->validate($assertionConsumerServiceMetadata->Location)) {
+                throw new RuntimeException('The acs metadata contained an invalid location uri scheme');
             }
+
+            // Use provided Index if available, otherwise use auto-incremented index
+            $currentIndex = !empty($assertionConsumerServiceMetadata->Index) 
+                ? (int) $assertionConsumerServiceMetadata->Index 
+                : $index;
 
             $services[] = new IndexedService(
                 $assertionConsumerServiceMetadata->Location,
                 $assertionConsumerServiceMetadata->Binding,
-                $index
+                $currentIndex
             );
 
-            $index += 1;
+            $index = $currentIndex + 1;
         }
+        
         return array('assertionConsumerServices' => $services);
     }
 
@@ -605,33 +634,34 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
         // EngineBlock expects objects in the metadata in many places so we
         // can't decode the metadata with assoc=true. ARP rules should always
         // be arrays so we explicitly cast the ARP rules to arrays here.
-        foreach ($connection->arp_attributes as &$rules) {
-            foreach ($rules as &$rule) {
-                if (is_object($rule)) {
-                    $rule = (array) $rule;
-                }
-            }
-        }
+        $processedAttributes = array_map(function ($rules) {
+            return array_map(function ($rule) {
+                return is_object($rule) ? (array) $rule : $rule;
+            }, $rules);
+        }, $connection->arp_attributes);
 
         return array(
-            'attributeReleasePolicy' => new AttributeReleasePolicy(
-                (array) $connection->arp_attributes
-            )
+            'attributeReleasePolicy' => new AttributeReleasePolicy($processedAttributes)
         );
     }
 
     private function assembleMfaEntities(stdClass $connection): array
     {
-        if (!isset($connection->mfa_entities)) {
+        if (!isset($connection->mfa_entities) || empty($connection->mfa_entities)) {
             return [];
         }
 
-        $entities = [];
-        foreach ($connection->mfa_entities as $sp) {
-            $entities[] = [
+        // Use array_map for more efficient processing
+        $entities = array_map(function($sp) {
+            return [
                 'name' => (string)$sp->name,
                 'level' => (string)$sp->level,
             ];
+        }, $connection->mfa_entities);
+
+        // Early return if no entities were processed
+        if (empty($entities)) {
+            return [];
         }
 
         return [

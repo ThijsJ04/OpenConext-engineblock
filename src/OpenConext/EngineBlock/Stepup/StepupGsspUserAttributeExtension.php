@@ -31,27 +31,26 @@ class StepupGsspUserAttributeExtension
     public static function add(Message $message, Assertion $assertion, array $userAttributes)
     {
         $assertionAttributes = $assertion->getAttributes();
-        $stepupUserAttributes = array_filter($assertionAttributes, function ($attributeKey) use ($userAttributes) {
-            return in_array($attributeKey, $userAttributes);
-        }, ARRAY_FILTER_USE_KEY);
-
-
-        if (count($stepupUserAttributes) === 0) {
+        
+        // Filter attributes more efficiently using array_intersect_key
+        $stepupUserAttributes = array_intersect_key($assertionAttributes, array_flip($userAttributes));
+        
+        if (empty($stepupUserAttributes)) {
             return;
         }
 
         $dom = DOMDocumentFactory::create();
         $ce = $dom->createElementNS('urn:mace:surf.nl:stepup:gssp-extensions', 'gssp:UserAttributes');
-        $ce->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
-        $ce->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xs', 'http://www.w3.org/2001/XMLSchema');
+        $ce->setAttribute('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        $ce->setAttribute('xmlns:xs', 'http://www.w3.org/2001/XMLSchema');
 
+        $nameFormat = $assertion->getAttributeNameFormat();
         foreach ($stepupUserAttributes as $attributeKey => $attributeValues) {
-            self::addAttribute($ce, $attributeKey, $assertion->getAttributeNameFormat(), $attributeValues);
+            self::addAttribute($ce, $attributeKey, $nameFormat, $attributeValues);
         }
 
         $ext = $message->getExtensions();
         $ext['saml:Extensions'] = new Chunk($ce);
-
         $message->setExtensions($ext);
     }
 

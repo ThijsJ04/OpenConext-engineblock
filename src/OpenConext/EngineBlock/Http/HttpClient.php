@@ -58,15 +58,17 @@ final class HttpClient
         ]);
         $statusCode = $response->getStatusCode();
 
+        // Handle access denied first as it's the most critical error
+        if ($statusCode == 403) {
+            throw new AccessDeniedException($resource);
+        }
+
         // 404 is considered a valid response, the resource may not be there (yet?) intentionally.
         if ($statusCode == 404) {
             return null;
         }
 
-        if ($statusCode == 403) {
-            throw new AccessDeniedException($resource);
-        }
-
+        // Check for any other non-success status codes
         if ($statusCode < 200 || $statusCode >= 300) {
             throw new UnreadableResourceException(sprintf('Resource could not be read (status code "%d")', $statusCode));
         }
@@ -97,29 +99,58 @@ final class HttpClient
             'body' => $data,
             'headers' => $headers
         ]);
+        
+        return $this->processResponse($response, $resource);
+    }
+
+    /**
+     * Process the HTTP response and return parsed data.
+     *
+     * @param \GuzzleHttp\Psr7\Response $response
+     * @param string $resource
+     * @return mixed
+     * @throws AccessDeniedException
+     * @throws UnreadableResourceException
+     * @throws MalformedResponseException
+     */
+    private function processResponse($response, $resource)
+    {
         $statusCode = $response->getStatusCode();
+
+        // Handle access denied first as it's the most critical error
+        if ($statusCode == 403) {
+            throw new AccessDeniedException($resource);
+        }
 
         // 404 is considered a valid response, the resource may not be there (yet?) intentionally.
         if ($statusCode == 404) {
             return null;
         }
 
-        if ($statusCode == 403) {
-            throw new AccessDeniedException($resource);
-        }
-
+        // Check for any other non-success status codes
         if ($statusCode < 200 || $statusCode >= 300) {
             throw new UnreadableResourceException(sprintf('Resource could not be read (status code "%d")', $statusCode));
         }
 
+        return $this->parseJsonResponse($response, $resource);
+    }
+
+    /**
+     * Parse JSON response body.
+     *
+     * @param \GuzzleHttp\Psr7\Response $response
+     * @param string $resource
+     * @return mixed
+     * @throws MalformedResponseException
+     */
+    private function parseJsonResponse($response, $resource)
+    {
         try {
-            $data = JsonResponseParser::parse((string) $response->getBody());
+            return JsonResponseParser::parse((string) $response->getBody());
         } catch (InvalidJsonException $e) {
             throw new MalformedResponseException(
                 sprintf('Cannot read resource "%s": malformed JSON returned', $resource)
             );
         }
-
-        return $data;
     }
 }

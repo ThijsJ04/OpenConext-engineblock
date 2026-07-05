@@ -60,52 +60,53 @@ class FakeUserDirectory extends UserDirectoryAdapter
         $this->filesystem = $filesystem;
 
         $filePath = self::$directory . self::$fileName;
-        if (!$this->filesystem->exists($filePath) || !is_readable($filePath)) {
+        
+        // Early return if file doesn't exist or isn't readable
+        if (!is_readable($filePath)) {
             return;
         }
 
+        // Read and decode file contents
         $content = file_get_contents($filePath);
         if ($content === false) {
             throw new RuntimeException(sprintf('Cannot read UserDirectory dump from "%s"', $filePath));
         }
 
         $users = json_decode($content, true);
-        array_walk($users, function (&$user): void {
-            $user = new User(
+        if ($users === null && json_last_error() !== JSON_ERROR_NONE) {
+            throw new RuntimeException(sprintf('Cannot decode UserDirectory JSON from "%s": %s', $filePath, json_last_error_msg()));
+        }
+
+        // Transform users array
+        $this->users = array_map(function ($user) {
+            return new User(
                 new CollabPersonId($user['collab_person_id']),
                 new CollabPersonUuid($user['collab_person_uuid'])
             );
-        });
-        $this->users = $users;
+        }, $users);
     }
 
     public function identifyUser(array $attributes)
     {
-        if (!isset($attributes[Uid::URN_MACE][0])) {
+        // Validate required fields
+        if (!isset($attributes[Uid::URN_MACE][0]) || !isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
+            $missingField = !isset($attributes[Uid::URN_MACE][0]) ? Uid::URN_MACE : SchacHomeOrganization::URN_MACE;
             throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
                 'Missing required SAML2 field "%s" in attributes',
-                Uid::URN_MACE
-            ));
-        }
-        if (!isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                SchacHomeOrganization::URN_MACE
+                $missingField
             ));
         }
 
-        $uid                   = $attributes[Uid::URN_MACE][0];
-        $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
-
-        $collabPersonUuid = CollabPersonUuid::generate();
-        $collabPersonId   = CollabPersonId::generateWithReplacedAtSignFrom(
-            new Uid($uid),
-            new SchacHomeOrganization($schacHomeOrganization)
+        // Create user and persist
+        $user = new User(
+            CollabPersonId::generateWithReplacedAtSignFrom(
+                new Uid($attributes[Uid::URN_MACE][0]),
+                new SchacHomeOrganization($attributes[SchacHomeOrganization::URN_MACE][0])
+            ),
+            CollabPersonUuid::generate()
         );
-
-        $user = new User($collabPersonId, $collabPersonUuid);
-        $this->users[$collabPersonId->getCollabPersonId()] = $user;
-
+        
+        $this->users[$user->getCollabPersonId()->getCollabPersonId()] = $user;
         $this->saveToDisk();
 
         return $user;
@@ -158,20 +159,36 @@ class FakeUserDirectory extends UserDirectoryAdapter
      */
     private function saveToDisk()
     {
+        // Early return if no users to save
+        if (empty($this->users)) {
+            return;
+        }
+
+        // Ensure directory exists
         if (!$this->filesystem->exists(self::$directory)) {
             $this->filesystem->mkdir(self::$directory);
         }
 
         $filePath = self::$directory . self::$fileName;
 
-        $users = $this->users;
-        array_walk($users, function (&$user): void {
-            $user = [
+        // Transform users to array format efficiently
+        $usersData = [];
+        foreach ($this->users as $user) {
+            $usersData[] = [
                 'collab_person_id' => $user->getCollabPersonId()->getCollabPersonId(),
                 'collab_person_uuid' => $user->getCollabPersonUuid()->getUuid()
             ];
-        });
+        }
 
-        $this->filesystem->dumpFile($filePath, json_encode($users));
+        // Write JSON file with error handling
+        try {
+            $jsonContent = json_encode($usersData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if ($jsonContent === false) {
+                throw new RuntimeException('Failed to encode user directory to JSON');
+            }
+            $this->filesystem->dumpFile($filePath, $jsonContent);
+        } catch (\Exception $e) {
+            throw new RuntimeException(sprintf('Failed to save user directory to "%s": %s', $filePath, $e->getMessage()));
+        }
     }
 }

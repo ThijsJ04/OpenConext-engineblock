@@ -37,18 +37,17 @@ class AuthnRequestFactory
     public function createForRequestFromTo(MockServiceProvider $mockSp, EngineBlock $engineBlock)
     {
         $request = $mockSp->getAuthnRequest();
+        
+        // Set / override the Destination using ternary operator for efficiency
+        $request->setDestination(
+            !empty($mockSp->getTransparentIdp()) 
+                ? $engineBlock->transparentSsoLocation($mockSp->getTransparentIdp())
+                : $engineBlock->singleSignOnLocation()
+        );
 
-        // Set / override the Destination
-        $transparentIdp = $mockSp->getTransparentIdp();
-        if (!empty($transparentIdp)) {
-            $destination = $engineBlock->transparentSsoLocation($transparentIdp);
-        } else {
-            $destination = $engineBlock->singleSignOnLocation();
-        }
-        $request->setDestination($destination);
-
+        // Set signature key if required
         if ($mockSp->mustSignAuthnRequests()) {
-            $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, ['type' => 'private']);
+            $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA512, ['type' => 'private']);
             $key->loadKey($mockSp->getPrivateKeyPem());
             $request->setSignatureKey($key);
         }

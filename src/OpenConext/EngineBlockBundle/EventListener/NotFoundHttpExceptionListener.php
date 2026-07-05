@@ -64,27 +64,25 @@ class NotFoundHttpExceptionListener
     public function onKernelException(ExceptionEvent $event)
     {
         $exception = $event->getThrowable();
-        if (!$exception instanceof NotFoundHttpException) {
+        
+        // Combine conditions to avoid multiple instanceof checks
+        if (!$exception instanceof NotFoundHttpException || $exception instanceof ApiHttpException) {
             return;
         }
 
-        if ($exception instanceof ApiHttpException) {
-            return;
-        }
-
-        // inverted quotes for BC, existing log parsers may rely on this
+        // Log the 404 error with inverted quotes for backward compatibility
         $this->logger->notice(sprintf(
             "[404]Unroutable URI: '%s'",
             $this->engineBlockApplicationSingleton->getHttpRequest()->getUri()
         ));
 
-        $response = new Response(
+        // Create and set the 404 response
+        $event->setResponse(new Response(
             $this->twig->render('@theme/Default/View/Error/not-found.html.twig'),
             404
-        );
-
-        $event->setResponse($response);
-        // once we've handled it, we don't want anything else to interfere.
+        ));
+        
+        // Stop propagation to prevent other listeners from interfering
         $event->stopPropagation();
     }
 }

@@ -54,6 +54,10 @@ class WayfController
      * @var LoggerInterface
      */
     private $logger;
+    /**
+     * @var EngineBlock_Corto_Adapter
+     */
+    private $proxyServer;
 
     /**
      * @param EngineBlock_ApplicationSingleton $engineBlockApplicationSingleton
@@ -72,6 +76,7 @@ class WayfController
         $this->sessionService = $sessionService;
         $this->discoverySelectionService = $discoverySelectionService;
         $this->logger = $logger;
+        $this->proxyServer = new EngineBlock_Corto_Adapter();
     }
 
     /**
@@ -79,21 +84,19 @@ class WayfController
      */
     public function processWayfAction(Request $request)
     {
-        $proxyServer = new EngineBlock_Corto_Adapter();
-        $proxyServer->processWayf();
+        $this->proxyServer->processWayf();
 
         $response = ResponseFactory::fromEngineBlockResponse($this->engineBlockApplicationSingleton->getHttpResponse());
 
         $session = $request->getSession();
         if ($session === null) {
+            $this->logger->log(LogLevel::ERROR, 'Could not set discovery override, no session available!');
             throw new EngineBlock_Exception('Could not set discovery override, no session available!');
         }
 
-        if ($request->request->get(DiscoverySelectionService::USED_DISCOVERY_HASH_PARAM, '') !== '') {
-            $this->discoverySelectionService->registerDiscoveryHash(
-                $session,
-                $request->request->get(DiscoverySelectionService::USED_DISCOVERY_HASH_PARAM)
-            );
+        $discoveryHash = $request->request->get(DiscoverySelectionService::USED_DISCOVERY_HASH_PARAM, '');
+        if ($discoveryHash !== '') {
+            $this->discoverySelectionService->registerDiscoveryHash($session, $discoveryHash);
         } else {
             $this->discoverySelectionService->clearDiscoveryHash($session);
         }
@@ -127,54 +130,66 @@ class WayfController
     public function cookieAction(Request $request)
     {
         $application = $this->engineBlockApplicationSingleton;
-        if (($application->getDiContainer()->getRememberChoice() === true)) {
-            $postData = $request->request->all();
-            $cookiesSet = $request->cookies->all();
-            $cookies = $this->getCookies();
-            $response = new Response();
-            $removal = false;
-            $all = false;
-            if (array_key_exists('remove_all', $postData)) {
-                foreach ($cookies as $cookie) {
-                    if (array_key_exists($cookie, $cookiesSet)) {
-                        unset($cookiesSet[$cookie]);
-                        $response->headers->clearCookie($cookie);
-                    }
-                }
-                // Clear all session-data on the server
-                session_start();
-                session_destroy();
-                $removal = true;
-                $all = true;
-            } else {
-                if (!empty($postData)) {
-                    foreach ($cookies as $cookie) {
-                        if (array_key_exists('remove_'.$cookie, $postData)) {
-                            unset($cookiesSet[$cookie]);
-                            $response->headers->clearCookie($cookie);
-                            if ($cookie === SsoSessionService::SSO_SESSION_COOKIE_NAME) {
-                                $this->sessionService->clearSsoSessionCookie();
-                            }
-                            $removal = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            return $response->setContent(
-                $this->twig->render(
-                    '@theme/Authentication/View/IdentityProvider/remove-cookies.html.twig',
-                    [
-                        'removal' => $removal,
-                        'all' => $all,
-                        'cookies' => $cookies,
-                        'cookiesSet' => $cookiesSet,
-                    ]
-                )
-            );
+        if ($application->getDiContainer()->getRememberChoice() !== true) {
+            return new Response($this->twig->render('@theme/Default/View/Error/not-found.html.twig'), 404);
         }
 
-        return new Response($this->twig->render('@theme/Default/View/Error/not-found.html.twig'), 404);
+        $postData = $request->request->all();
+        $cookiesSet = $request->cookies->all();
+        $cookies = $this->getCookies();
+        $response = new Response();
+        $removal = false;
+        $all = false;
+
+        if (array_key_exists('remove_all', $postData)) {
+            $this->handleRemoveAllCookies($cookies, $cookiesSet, $response);
+            $removal = true;
+            $all = true;
+        } elseif (!empty($postData)) {
+            $removal = $this->handleRemoveSelectedCookies($cookies, $cookiesSet, $postData, $response);
+        }
+
+        return $response->setContent(
+            $this->twig->render(
+                '@theme/Authentication/View/IdentityProvider/remove-cookies.html.twig',
+                [
+                    'removal' => $removal,
+                    'all' => $all,
+                    'cookies' => $cookies,
+                    'cookiesSet' => $cookiesSet,
+                ]
+            )
+        );
+    }
+
+    private function handleRemoveAllCookies(array $cookies, array &$cookiesSet, Response $response): void
+    {
+        foreach ($cookies as $cookie) {
+            if (array_key_exists($cookie, $cookiesSet)) {
+                unset($cookiesSet[$cookie]);
+                $response->headers->clearCookie($cookie);
+            }
+        }
+        // Clear all session-data on the server
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        session_destroy();
+    }
+
+    private function handleRemoveSelectedCookies(array $cookies, array &$cookiesSet, array $postData, Response $response): bool
+    {
+        $removal = false;
+        foreach ($cookies as $cookie) {
+            if (array_key_exists('remove_' . $cookie, $postData)) {
+                unset($cookiesSet[$cookie]);
+                $response->headers->clearCookie($cookie);
+                if ($cookie === SsoSessionService::SSO_SESSION_COOKIE_NAME) {
+                    $this->sessionService->clearSsoSessionCookie();
+                }
+                $removal = true;
+            }
+        }
+        return $removal;
     }
 }

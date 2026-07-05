@@ -78,23 +78,16 @@ class X509Certificate
     {
         $pemKey = $this->toPem();
 
-        $lines = explode("\n", $pemKey);
-        $data = '';
-        foreach ($lines as $line) {
-            $line = rtrim($line);
-
-            // Skip the header
-            if ($line === self::PEM_HEADER) {
-                continue;
-            }
-
-            // End transformation on footer
-            if ($line === self::PEM_FOOTER) {
-                break;
-            }
-
-            $data .= $line;
-        }
+        // Remove header, footer, and all whitespace (including newlines)
+        $data = preg_replace(
+            [
+                '/^' . preg_quote(self::PEM_HEADER, '/') . '\s+/m',
+                '/\s+' . preg_quote(self::PEM_FOOTER, '/') . '$/m',
+                '/\s+/'
+            ],
+            ['', '', ''],
+            $pemKey
+        );
 
         return $data;
     }

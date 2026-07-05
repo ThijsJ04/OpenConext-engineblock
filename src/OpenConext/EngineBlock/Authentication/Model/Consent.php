@@ -59,23 +59,23 @@ final class Consent implements JsonSerializable
      * @param string $serviceProviderEntityId
      * @param DateTime $consentGivenOn
      * @param ConsentType $consentType
-     * @param string $attributeHash
+     * @param string|null $attributeHash
      */
     public function __construct(
-        $userId,
-        $serviceProviderEntityId,
+        string $userId,
+        string $serviceProviderEntityId,
         DateTime $consentGivenOn,
         ConsentType $consentType,
-        $attributeHash = null
+        ?string $attributeHash = null
     ) {
         Assertion::nonEmptyString($userId, 'userId');
         Assertion::nonEmptyString($serviceProviderEntityId, 'serviceProviderEntityId');
 
-        $this->userId                  = $userId;
+        $this->userId = $userId;
         $this->serviceProviderEntityId = $serviceProviderEntityId;
-        $this->consentGivenOn          = $consentGivenOn;
-        $this->consentType             = $consentType;
-        $this->attributeHash           = $attributeHash;
+        $this->consentGivenOn = $consentGivenOn;
+        $this->consentType = $consentType;
+        $this->attributeHash = $attributeHash;
     }
 
     /**

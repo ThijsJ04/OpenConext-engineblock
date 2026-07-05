@@ -33,10 +33,16 @@ class LanguageSupportProvider
      */
     public function __construct(array $availableLanguages, array $enabledLanguages)
     {
+        if (empty($enabledLanguages)) {
+            throw new UnsupportedLanguageException('No active languages are configured, please check your configuration');
+        }
+
+        $availableLookup = array_flip($availableLanguages);
         $languages = [];
+        
         foreach ($enabledLanguages as $language) {
-            if (in_array($language, $availableLanguages)) {
-                $languages[$language] = $language;
+            if (isset($availableLookup[$language])) {
+                $languages[$language] = true;
             } else {
                 throw new UnsupportedLanguageException(
                     sprintf("Unable to activate unsupported language '%s', please check your configuration", $language)
@@ -44,11 +50,7 @@ class LanguageSupportProvider
             }
         }
 
-        if (empty($languages)) {
-            throw new UnsupportedLanguageException('No active languages are configured, please check your configuration');
-        }
-
-        $this->supportedLanguages = array_values($languages);
+        $this->supportedLanguages = array_keys($languages);
     }
 
     /**

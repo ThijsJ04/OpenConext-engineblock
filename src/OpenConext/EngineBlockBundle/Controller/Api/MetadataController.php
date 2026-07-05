@@ -81,30 +81,34 @@ final class MetadataController
             throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_GET]);
         }
 
-        $entityIdValue = $request->query->get('entity-id');
-
         if (!$this->featureConfiguration->isEnabled('api.metadata_api')) {
             throw new ApiNotFoundHttpException('Metadata API is disabled');
         }
 
         $this->assertAuthorized();
 
+        $entityIdValue = $request->query->get('entity-id');
+        
+        if (empty($entityIdValue)) {
+            throw new BadApiRequestHttpException('Could not get metadata for IdP: missing entity-id parameter');
+        }
+
         try {
             $entityId = new EntityId($entityIdValue);
+            $identityProvider = $this->metadataService->findIdentityProvider($entityId);
+            
+            if ($identityProvider === null) {
+                throw new ApiNotFoundHttpException();
+            }
+            
+            return new JsonResponse(JsonHelper::serializeIdentityProvider($identityProvider), JsonResponse::HTTP_OK);
+            
         } catch (InvalidArgumentException $exception) {
             throw new BadApiRequestHttpException(sprintf(
                 'Could not get metadata for IdP: invalid EntityId format ("%s")',
                 $exception->getMessage()
             ));
         }
-
-        $identityProvider = $this->metadataService->findIdentityProvider($entityId);
-
-        if ($identityProvider === null) {
-            throw new ApiNotFoundHttpException();
-        }
-
-        return new JsonResponse(JsonHelper::serializeIdentityProvider($identityProvider), JsonResponse::HTTP_OK);
     }
 
     private function assertAuthorized(): void

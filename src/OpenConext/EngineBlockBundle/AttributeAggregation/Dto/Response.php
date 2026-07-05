@@ -55,22 +55,23 @@ final class Response
      */
     private static function parseAggregatedAttribute(array $attributeData)
     {
-        if (!isset($attributeData['name'])) {
-            throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute name');
-        }
-
-        if (!isset($attributeData['values'])) {
-            throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute value');
-        }
-
-        if (!isset($attributeData['source'])) {
+        // Validate all required keys exist in a single check
+        if (!isset($attributeData['name'], $attributeData['values'], $attributeData['source'])) {
+            if (!isset($attributeData['name'])) {
+                throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute name');
+            }
+            if (!isset($attributeData['values'])) {
+                throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute value');
+            }
+            // If we reach here, source must be missing
             throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute source');
         }
 
-        return AggregatedAttribute::from(
-            (string) $attributeData['name'],
-            (array) $attributeData['values'],
-            (string) $attributeData['source']
-        );
+        // Extract values once and cast them
+        $name = (string) $attributeData['name'];
+        $values = (array) $attributeData['values'];
+        $source = (string) $attributeData['source'];
+
+        return AggregatedAttribute::from($name, $values, $source);
     }
 }

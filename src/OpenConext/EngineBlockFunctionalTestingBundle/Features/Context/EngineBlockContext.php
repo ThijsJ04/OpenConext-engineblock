@@ -212,40 +212,73 @@ class EngineBlockContext extends AbstractSubContext
         $listItemsSelector = 'ul#attribute-source-' . strtolower($source) . ' li.consent__attribute';
 
         $listItems = $page->findAll('css', $listItemsSelector);
-        // Count the number of expected attributes for a given source, the minus one is to subtract the name/value row
-        // specified in the scenario (added for readability of the table)
-        $expectedNumberOfAttributes = count($attributes->getRows()) - 1;
+        $attributeRows = $attributes->getRows();
+        
+        // Skip the header row if present (first row typically contains column names)
+        if (count($attributeRows) === 0) {
+            throw new RuntimeException(sprintf('Unable to find any attributes from source "%s"', $source));
+        }
+        
+        // Use the first row as header if it looks like a header (contains common column names)
+        $headerRow = $attributeRows[0];
+        $hasHeader = (strtolower($headerRow[0]) === 'name' || strtolower($headerRow[0]) === 'attribute') 
+                   && (strtolower($headerRow[1]) === 'value');
+        
+        $expectedAttributes = $hasHeader ? array_slice($attributeRows, 1) : $attributeRows;
+        $expectedCount = count($expectedAttributes);
 
-        if ($expectedNumberOfAttributes === 0) {
+        if ($expectedCount === 0) {
             throw new RuntimeException(sprintf('Unable to find any attributes from source "%s"', $source));
         }
 
-        // Ugly algo to test if the expected attributes (incl value) are found on the consent page
-        $matchedNumberOfAttributes = 0;
+        // Build a lookup array for expected attributes for O(1) lookups
+        $expectedAttributeMap = [];
+        foreach ($expectedAttributes as $expectedAttribute) {
+            $expectedName = $expectedAttribute[0];
+            $expectedValue = $expectedAttribute[1];
+            $expectedAttributeMap[$expectedName . '|' . $expectedValue] = false; // false means not found yet
+        }
+
+        $foundCount = 0;
+        
+        // Iterate through actual attributes on the page
         foreach ($listItems as $attributeRow) {
             $divs = $attributeRow->findAll('css', 'div');
+            if (count($divs) < 2) {
+                continue; // Skip malformed rows
+            }
+            
             $name = $divs[0]->getText();
             $value = $divs[1]->getText();
-
-            foreach ($attributes->getRows() as $expectedAttribute) {
-                $expectedName = $expectedAttribute[0];
-                $expectedValue = $expectedAttribute[1];
-
-                if ($name === $expectedName && $value === $expectedValue) {
-                    $matchedNumberOfAttributes++;
+            $attributeKey = $name . '|' . $value;
+            
+            // Check if this attribute was expected
+            if (isset($expectedAttributeMap[$attributeKey]) && !$expectedAttributeMap[$attributeKey]) {
+                $expectedAttributeMap[$attributeKey] = true; // Mark as found
+                $foundCount++;
+                
+                // Early exit if we found all expected attributes
+                if ($foundCount === $expectedCount) {
+                    return;
                 }
             }
         }
-        // In the end, the number of expected attributes should have been found on the page, if the count does
-        // not match, that indicates some items where missing
-        if ($matchedNumberOfAttributes !== $expectedNumberOfAttributes) {
+        
+        // Generate more specific error message about missing attributes
+        $missingAttributes = [];
+        foreach ($expectedAttributeMap as $attributeKey => $wasFound) {
+            if (!$wasFound) {
+                list($missingName, $missingValue) = explode('|', $attributeKey, 2);
+                $missingAttributes[] = sprintf('"%s" => "%s"', $missingName, $missingValue);
+            }
+        }
+        
+        if (!empty($missingAttributes)) {
             throw new RuntimeException(
                 sprintf(
-                    'The expected attribute values where not (all) found in the specified source list ("%s")'
-                    . ' generated on the consent page. Expected %d, found %d',
+                    'The following expected attributes were not found in source "%s" on the consent page: %s',
                     $source,
-                    $expectedNumberOfAttributes,
-                    $matchedNumberOfAttributes
+                    implode(', ', $missingAttributes)
                 )
             );
         }
@@ -338,22 +371,18 @@ class EngineBlockContext extends AbstractSubContext
      */
     public function iSelectOnTheWAYF($idpName)
     {
-        /** @var MockIdentityProvider $mockIdp */
         $mockIdp = $this->mockIdpRegistry->get($idpName);
-
-        if (!$mockIdp) {
-            throw new RuntimeException(
-                sprintf('Unable to find idp with name "%s"', $idpName)
-            );
+        
+        if ($mockIdp === null) {
+            throw new RuntimeException(sprintf('Identity Provider "%s" not found in registry', $idpName));
         }
 
         $selector = '[data-entityid="' . $mockIdp->entityId() . '"] button.idp__submit';
+        $page = $this->getMinkContext()->getSession()->getPage();
+        $button = $page->find('css', $selector);
 
-        $mink = $this->getMinkContext()->getSession()->getPage();
-        $button = $mink->find('css', $selector);
-
-        if (!$button) {
-            throw new RuntimeException(sprintf('Unable to find button with selector "%s"', $selector));
+        if ($button === null) {
+            throw new RuntimeException(sprintf('WAYF button not found for IdP "%s" using selector: %s', $idpName, $selector));
         }
 
         $button->click();
@@ -610,18 +639,16 @@ class EngineBlockContext extends AbstractSubContext
      */
     public function theReceivedAuthnRequestShouldNotMatchXpath($xpath)
     {
+        $authnRequestXml = $this->getAuthnRequestXml();
         $session = $this->getMinkContext()->getSession();
-        try {
-            $this->theAuthnRequestToSubmitShouldMatchXpath($xpath);
-            throw new RuntimeException('The xpath was found in the AuthnRequest, it should not');
-        } catch (ExpectationException $e) {
-            if (false === preg_match('/The xpath "(w+)" did not result in at least one match./', $e->getMessage())) {
-                throw new ExpectationException(
-                    'Unexepected match on the xpath that should NOT match the AuthnRequest xml',
-                    $session,
-                    $e
-                );
-            }
+        
+        $nodeList = $this->queryAuthnRequestXPath($authnRequestXml, $xpath);
+
+        if ($nodeList && $nodeList->length > 0) {
+            throw new ExpectationException(
+                sprintf('The xpath "%s" should not match the AuthnRequest, but it did', $xpath),
+                $session
+            );
         }
     }
 
@@ -630,7 +657,7 @@ class EngineBlockContext extends AbstractSubContext
      */
     public function theReceivedAuthnRequestShouldMatchXpath($xpath)
     {
-        return $this->theAuthnRequestToSubmitShouldMatchXpath($xpath);
+        $this->theAuthnRequestToSubmitShouldMatchXpath($xpath);
     }
 
     /**
@@ -638,29 +665,52 @@ class EngineBlockContext extends AbstractSubContext
      */
     public function theAuthnRequestToSubmitShouldMatchXpath($xpath)
     {
+        $authnRequestXml = $this->getAuthnRequestXml();
         $session = $this->getMinkContext()->getSession();
-        $mink    = $session->getPage();
-        $authnRequestElement = $mink->find('css', 'input[name="authnRequestXml"]');
-        if ($authnRequestElement === null) {
-            throw new ExpectationException('Element with the name "authnRequestXml" could not be found', $session);
-        }
-
-        $authnRequestXml = html_entity_decode($authnRequestElement->getValue());
-
-        /**
-         * @see MinkContext::theResponseShouldMatchXpath()
-         */
-        $authnRequest = new DOMDocument();
-        $authnRequest->loadXML($authnRequestXml);
-
-        $xpathObject = new DOMXPath($authnRequest);
-        $xpathObject->registerNamespace('gssp', 'urn:mace:surf.nl:stepup:gssp-extensions');
-        $nodeList = $xpathObject->query($xpath);
+        
+        $nodeList = $this->queryAuthnRequestXPath($authnRequestXml, $xpath);
 
         if (!$nodeList || $nodeList->length === 0) {
             $message = sprintf('The xpath "%s" did not result in at least one match.', $xpath);
             throw new ExpectationException($message, $session);
         }
+    }
+
+    /**
+     * Extracts the AuthnRequest XML from the form input field.
+     *
+     * @return string The decoded AuthnRequest XML
+     * @throws ExpectationException If the authnRequestXml element cannot be found
+     */
+    private function getAuthnRequestXml()
+    {
+        $session = $this->getMinkContext()->getSession();
+        $mink = $session->getPage();
+        $authnRequestElement = $mink->find('css', 'input[name="authnRequestXml"]');
+        
+        if ($authnRequestElement === null) {
+            throw new ExpectationException('Element with the name "authnRequestXml" could not be found', $session);
+        }
+
+        return html_entity_decode($authnRequestElement->getValue());
+    }
+
+    /**
+     * Queries an AuthnRequest XML document using XPath.
+     *
+     * @param string $authnRequestXml The AuthnRequest XML to query
+     * @param string $xpath The XPath expression to evaluate
+     * @return DOMNodeList|null The result of the XPath query
+     */
+    private function queryAuthnRequestXPath($authnRequestXml, $xpath)
+    {
+        $authnRequest = new DOMDocument();
+        $authnRequest->loadXML($authnRequestXml);
+
+        $xpathObject = new DOMXPath($authnRequest);
+        $xpathObject->registerNamespace('gssp', 'urn:mace:surf.nl:stepup:gssp-extensions');
+        
+        return $xpathObject->query($xpath);
     }
 
     /**
@@ -676,19 +726,18 @@ class EngineBlockContext extends AbstractSubContext
      */
     public function aLangCookieShouldBeSetWithValue($locale)
     {
-        $cookie = $this->getMinkContext()->getSession()->getCookie('lang');
+        $session = $this->getMinkContext()->getSession();
+        $cookie = $session->getCookie('lang');
+        $driver = $session->getDriver();
 
         if ($cookie === null) {
-            throw new ExpectationException(
-                'The lang cookie has not been set',
-                $this->getMinkContext()->getSession()->getDriver()
-            );
+            throw new ExpectationException('The lang cookie has not been set', $driver);
         }
 
         if ($cookie !== $locale) {
             throw new ExpectationException(
                 sprintf('The lang cookie should contain "%s", but contains "%s"', $locale, $cookie),
-                $this->getMinkContext()->getSession()->getDriver()
+                $driver
             );
         }
     }
@@ -755,16 +804,20 @@ class EngineBlockContext extends AbstractSubContext
         $mink = $session->getPage();
         // Grab the ART code from the page with an xpath expression.
         $result = $mink->find('xpath', '//span[text()="EC:"]/../span[2]');
-        if ($result) {
-            $artOnPage = $result->getText();
-            if ($artOnPage == $artCode) {
-                return;
-            }
-            throw new RuntimeException(
-                sprintf('Expected Error Code "%s" did not match the Error Code on the page "%s"', $artCode, $artOnPage)
-            );
+        
+        if (!$result) {
+            throw new RuntimeException('Unable to find the Error Code on the page');
         }
-        throw new RuntimeException('Unable to find the Error Code on the page');
+        
+        $artOnPage = $result->getText();
+        
+        if ($artOnPage === $artCode) {
+            return;
+        }
+        
+        throw new RuntimeException(
+            sprintf('Expected Error Code "%s" did not match the Error Code on the page "%s"', $artCode, $artOnPage)
+        );
     }
 
     /**
@@ -921,30 +974,23 @@ class EngineBlockContext extends AbstractSubContext
      */
     public function theRelayStateShouldBeSetInTheForm($expectedRelayState)
     {
-        $mink = $this->getMinkContext();
-        $page = $mink->getSession()->getPage();
+        $session = $this->getMinkContext()->getSession();
+        $page = $session->getPage();
 
-        // Check if the page contains a RelayState hidden form field
-        // This is how RelayState is typically preserved in SAML POST bindings
         $relayStateField = $page->find('css', 'input[name="RelayState"]');
 
         if ($relayStateField === null) {
             throw new ExpectationException(
-                'The RelayState field should be present, but it is not',
-                $mink->getSession()->getDriver()
+                'RelayState field not found',
+                $session->getDriver()
             );
         }
 
-        // RelayState found as a form field
-        $relayStateValue = $relayStateField->getValue();
-        if ($expectedRelayState !== $relayStateValue) {
+        $actualRelayState = $relayStateField->getValue();
+        if ($expectedRelayState !== $actualRelayState) {
             throw new ExpectationException(
-                sprintf(
-                    'The RelayState field should contain "%s", but contains "%s"',
-                    $expectedRelayState,
-                    $relayStateValue
-                ),
-                $mink->getSession()->getDriver()
+                sprintf('Expected RelayState "%s", got "%s"', $expectedRelayState, $actualRelayState),
+                $session->getDriver()
             );
         }
     }

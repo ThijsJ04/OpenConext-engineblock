@@ -67,23 +67,31 @@ class ServiceProviderController extends AbstractController
             throw new BadRequestHttpException(sprintf('No SP found for "%s"', $spName));
         }
 
-        /** @var MockServiceProvider $sp */
-        $sp = $this->mockSpRegistry->get($spName);
+        /** @var MockServiceProvider $serviceProvider */
+        $serviceProvider = $this->mockSpRegistry->get($spName);
 
         $factory = new AuthnRequestFactory();
-        $authnRequest = $factory->createForRequestFromTo(
-            $sp,
+        $authenticationRequest = $factory->createForRequestFromTo(
+            $serviceProvider,
             $this->engineBlock
         );
 
-        $redirect = new HTTPRedirect();
-        $url = $redirect->getRedirectURL($authnRequest);
+        $redirectUrl = (new HTTPRedirect())->getRedirectURL($authenticationRequest);
 
-        if (isset($sp->getEntityDescriptor()->getExtensions()['Malformed'])) {
-            $url = str_replace('SAMLRequest', 'AuthNRequest', $url);
+        if ($this->shouldUseMalformedRequestParameter($serviceProvider)) {
+            $redirectUrl = str_replace('SAMLRequest', 'AuthNRequest', $redirectUrl);
         }
 
-        return new RedirectResponse($url);
+        return new RedirectResponse($redirectUrl);
+    }
+
+    /**
+     * @param MockServiceProvider $serviceProvider
+     * @return bool
+     */
+    private function shouldUseMalformedRequestParameter(MockServiceProvider $serviceProvider)
+    {
+        return isset($serviceProvider->getEntityDescriptor()->getExtensions()['Malformed']);
     }
 
     /**
@@ -97,23 +105,17 @@ class ServiceProviderController extends AbstractController
             throw new BadRequestHttpException(sprintf('No SP found for "%s"', $spName));
         }
 
+        $serviceProvider = $this->mockSpRegistry->get($spName);
         $factory = new AuthnRequestFactory();
-        $sp = $this->mockSpRegistry->get($spName);
-        $authnRequest = $factory->createForRequestFromTo(
-            $sp,
-            $this->engineBlock
-        );
+        $authnRequest = $factory->createForRequestFromTo($serviceProvider, $this->engineBlock);
 
-        $redirect = new HTTPPost();
-        $redirect->send($authnRequest);
+        $httpPost = new HTTPPost();
+        $httpPost->send($authnRequest);
 
-        /** @var Container $container */
-        $container = Utils::getContainer();
-        $response = $container->getPostResponse();
+        $response = Utils::getContainer()->getPostResponse();
 
-        if (isset($sp->getEntityDescriptor()->getExtensions()['Malformed'])) {
-            $body = $response->getContent();
-            $response->setContent(str_replace('SAMLRequest', 'AuthNRequest', $body));
+        if ($this->shouldUseMalformedRequestParameter($serviceProvider)) {
+            $response->setContent(str_replace('SAMLRequest', 'AuthNRequest', $response->getContent()));
         }
 
         return $response;
@@ -126,16 +128,21 @@ class ServiceProviderController extends AbstractController
      */
     public function assertionConsumerAction(Request $request)
     {
-        try {
-            $httpPostBinding = new HTTPPost();
-            $message = $httpPostBinding->receive();
-        } catch (\Exception $e1) {
+        $bindings = [new HTTPPost(), new HTTPRedirect()];
+        $message = null;
+        $lastException = null;
+
+        foreach ($bindings as $binding) {
             try {
-                $httpRedirectBinding = new HTTPRedirect();
-                $message = $httpRedirectBinding->receive();
-            } catch (\Exception $e2) {
-                throw new \RuntimeException('Unable to retrieve SAML message?', 1, $e1);
+                $message = $binding->receive();
+                break;
+            } catch (\Exception $e) {
+                $lastException = $e;
             }
+        }
+
+        if ($message === null) {
+            throw new \RuntimeException('Unable to retrieve SAML message?', 1, $lastException);
         }
 
         if (!$message instanceof SAMLResponse) {
@@ -151,11 +158,7 @@ class ServiceProviderController extends AbstractController
         $doc->loadXML($xml);
         $xml = $doc->saveXML();
 
-        return new Response(
-            $xml,
-            200,
-            ['Content-Type' => 'application/xml']
-        );
+        return new Response($xml, 200, ['Content-Type' => 'application/xml']);
     }
 
     /**

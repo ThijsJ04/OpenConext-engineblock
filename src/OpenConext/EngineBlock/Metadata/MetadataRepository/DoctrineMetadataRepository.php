@@ -147,18 +147,11 @@ class DoctrineMetadataRepository extends AbstractMetadataRepository
 
         $this->compositeFilter->toQueryBuilder($queryBuilder, $this->idpRepository->getClassName());
 
-        $result = $queryBuilder->getQuery()->execute();
+        $identityProvider = $queryBuilder->getQuery()->getOneOrNullResult();
 
-        if (empty($result)) {
-            return null;
+        if ($identityProvider !== null) {
+            $identityProvider->accept($this->compositeVisitor);
         }
-
-        if (count($result) > 1) {
-            throw new RuntimeException(sprintf('Multiple Identity Providers found for entityId: "%s"', $entityId));
-        }
-
-        $identityProvider = reset($result);
-        $identityProvider->accept($this->compositeVisitor);
 
         return $identityProvider;
     }
@@ -176,21 +169,16 @@ class DoctrineMetadataRepository extends AbstractMetadataRepository
 
         $this->compositeFilter->toQueryBuilder($queryBuilder, $this->idpRepository->getClassName());
 
-        $result = $queryBuilder->getQuery()->execute();
+        $query = $queryBuilder->getQuery();
+        $query->setMaxResults(1);
+        
+        $result = $query->getOneOrNullResult(AbstractQuery::HYDRATE_SINGLE_SCALAR);
 
-        if (empty($result)) {
-            return null;
-        }
-
-        if (count($result) > 1) {
-            throw new RuntimeException(sprintf('Multiple Identity Providers found for entityId MD5 hash: "%s"', $hash));
-        }
-
-        return reset($result)['entityId'];
+        return $result;
     }
 
     /**
-     * @param $entityId
+     * @param string $entityId
      * @param LoggerInterface|null $logger
      * @return null|ServiceProvider
      */
@@ -202,18 +190,15 @@ class DoctrineMetadataRepository extends AbstractMetadataRepository
 
         $this->compositeFilter->toQueryBuilder($queryBuilder, $this->spRepository->getClassName());
 
-        $result = $queryBuilder->getQuery()->execute();
-
-        if (empty($result)) {
-            return null;
-        }
-
-        if (count($result) > 1) {
+        try {
+            $serviceProvider = $queryBuilder->getQuery()->getOneOrNullResult();
+        } catch (\Doctrine\ORM\NonUniqueResultException $e) {
             throw new RuntimeException(sprintf('Multiple Service Providers found for entityId: "%s"', $entityId));
         }
 
-        $serviceProvider = reset($result);
-        $serviceProvider->accept($this->compositeVisitor);
+        if ($serviceProvider !== null) {
+            $serviceProvider->accept($this->compositeVisitor);
+        }
 
         return $serviceProvider;
     }

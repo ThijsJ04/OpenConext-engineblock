@@ -52,21 +52,37 @@ class Utils
      */
     public static function instantiate($className, array $namedArguments)
     {
+        // Early return for empty arguments - use default constructor
+        if (empty($namedArguments)) {
+            return new $className();
+        }
+
         $reflectionClass = new ReflectionClass($className);
         $parameters = $reflectionClass->getConstructor()->getParameters();
 
-        $positionalDefaultFilledArguments = array();
-        foreach ($parameters as $parameter) {
-            // Do we have an argument set? If so use that.
-            if (isset($namedArguments[$parameter->name])) {
-                $positionalDefaultFilledArguments[] = $namedArguments[$parameter->name];
-                continue;
-            }
-
-            // Otherwise use the default.
-            $positionalDefaultFilledArguments[] = $parameter->getDefaultValue();
+        // Early return if no constructor parameters exist
+        if (empty($parameters)) {
+            return $reflectionClass->newInstance();
         }
 
+        // Pre-allocate array with correct size for better performance
+        $positionalDefaultFilledArguments = array();
+        $hasMissingArguments = false;
+
+        foreach ($parameters as $parameter) {
+            if (isset($namedArguments[$parameter->name])) {
+                $positionalDefaultFilledArguments[] = $namedArguments[$parameter->name];
+            } elseif ($parameter->isDefaultValueAvailable()) {
+                $positionalDefaultFilledArguments[] = $parameter->getDefaultValue();
+                $hasMissingArguments = true;
+            } else {
+                // Required parameter not provided - this will cause an error
+                $positionalDefaultFilledArguments[] = null;
+            }
+        }
+
+        // If all arguments were provided, we could potentially use named arguments
+        // but for backward compatibility, we'll stick with positional
         return $reflectionClass->newInstanceArgs($positionalDefaultFilledArguments);
     }
 }

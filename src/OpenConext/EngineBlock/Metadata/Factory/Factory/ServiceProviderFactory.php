@@ -39,49 +39,14 @@ use OpenConext\EngineBlockBundle\Url\UrlProvider;
  */
 class ServiceProviderFactory
 {
-    /**
-     * @var AttributesMetadata
-     */
-    private $attributes;
-
-    /**
-     * @var KeyPairFactory
-     */
-    private $keyPairFactory;
-
-    /**
-     * @var EngineBlockConfiguration
-     */
-    private $engineBlockConfiguration;
-    /**
-     * @var UrlProvider
-     */
-    private $urlProvider;
-
-    /**
-     * @var string
-     */
-    private $entityIdOverrideValue;
-
-    /**
-     * @var FeatureConfigurationInterface
-     */
-    private $featureConfiguration;
-
     public function __construct(
-        AttributesMetadata $attributes,
-        KeyPairFactory $keyPairFactory,
-        EngineBlockConfiguration $engineBlockConfiguration,
-        UrlProvider $urlProvider,
-        FeatureConfigurationInterface $featureConfiguration,
-        string $entityIdOverrideValue
+        private AttributesMetadata $attributes,
+        private KeyPairFactory $keyPairFactory,
+        private EngineBlockConfiguration $engineBlockConfiguration,
+        private UrlProvider $urlProvider,
+        private FeatureConfigurationInterface $featureConfiguration,
+        private string $entityIdOverrideValue
     ) {
-        $this->attributes = $attributes;
-        $this->keyPairFactory = $keyPairFactory;
-        $this->engineBlockConfiguration = $engineBlockConfiguration;
-        $this->urlProvider = $urlProvider;
-        $this->featureConfiguration = $featureConfiguration;
-        $this->entityIdOverrideValue = $entityIdOverrideValue;
     }
 
     public function createEngineBlockEntityFrom(string $keyId): ServiceProviderEntityInterface
@@ -103,11 +68,11 @@ class ServiceProviderFactory
 
     public function createStepupEntityFrom(string $keyId): ServiceProviderEntityInterface
     {
-        $isConfigured = $this->featureConfiguration->hasFeature('eb.stepup.sfo.override_engine_entityid');
-        $isEnabled = $this->featureConfiguration->isEnabled('eb.stepup.sfo.override_engine_entityid');
         $entityId = $this->urlProvider->getUrl('metadata_stepup', false, null, null);
 
-        if ($isEnabled && $isConfigured) {
+        if ($this->featureConfiguration->hasFeature('eb.stepup.sfo.override_engine_entityid') 
+            && $this->featureConfiguration->isEnabled('eb.stepup.sfo.override_engine_entityid')) {
+            
             if (empty($this->entityIdOverrideValue)) {
                 throw new MissingParameterException(
                     'When feature "feature_stepup_sfo_override_engine_entityid" is enabled, you must provide the '.
@@ -117,10 +82,8 @@ class ServiceProviderFactory
             $entityId = $this->entityIdOverrideValue;
         }
 
-        $entity = $this->buildServiceProviderOrmEntity($entityId);
-
-        return new ServiceProviderStepup( // Add stepup data
-            new ServiceProviderEntity($entity),
+        return new ServiceProviderStepup(
+            new ServiceProviderEntity($this->buildServiceProviderOrmEntity($entityId)),
             $this->keyPairFactory->buildFromIdentifier($keyId),
             $this->urlProvider
         );

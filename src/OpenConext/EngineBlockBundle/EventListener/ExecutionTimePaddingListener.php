@@ -71,11 +71,7 @@ final class ExecutionTimePaddingListener
     {
         $exception = $event->getThrowable();
 
-        if (!$exception instanceof AddExecutionTimePadding) {
-            return;
-        }
-
-        if (!$this->executionTimeTracker->isTracking()) {
+        if (!$exception instanceof AddExecutionTimePadding || !$this->executionTimeTracker->isTracking()) {
             return;
         }
 
@@ -83,27 +79,23 @@ final class ExecutionTimePaddingListener
             sprintf('Handling exception: "%s": "%s"', get_class($exception), $exception->getMessage())
         );
 
-        if ($this->executionTimeTracker->currentExecutionTimeExceeds($this->minimumExecutionTime)) {
-            $this->logger->warning(sprintf(
-                'Not padding response time: it exceeds the configured padded response time (%d milliseconds)',
-                $this->minimumExecutionTime->getExecutionTime()
-            ));
-        } else {
+        if (!$this->executionTimeTracker->currentExecutionTimeExceeds($this->minimumExecutionTime)) {
             $requiredPadding = $this->executionTimeTracker->timeRemainingUntil($this->minimumExecutionTime);
-
             $this->logger->info(sprintf(
                 'Padding response time with %d milliseconds',
                 $requiredPadding->getExecutionTime()
             ));
-
             usleep($requiredPadding->toMicroseconds());
+        } else {
+            $this->logger->warning(sprintf(
+                'Not padding response time: it exceeds the configured padded response time (%d milliseconds)',
+                $this->minimumExecutionTime->getExecutionTime()
+            ));
         }
 
-        $message         = 'Unable to verify message';
         $redirectToRoute = 'authentication_feedback_verification_failed';
-
         $this->logger->debug(sprintf('Redirecting to route "%s"', $redirectToRoute));
-        $this->logger->notice($message);
+        $this->logger->notice('Unable to verify message');
         $this->errorReporter->reportError($exception, '-> Redirecting to feedback page');
 
         $event->setResponse(new RedirectResponse(

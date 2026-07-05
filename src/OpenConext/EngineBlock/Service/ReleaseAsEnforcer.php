@@ -37,6 +37,8 @@ class ReleaseAsEnforcer implements ReleaseAsEnforcerInterface
     {
         foreach ($releaseAsOverrides as $oldAttributeName => $overrideValue) {
             $newAttributeName = $overrideValue[0]['release_as'];
+            
+            // Early exit if attribute doesn't exist
             if (!array_key_exists($oldAttributeName, $attributes)) {
                 $this->logger->notice(
                     sprintf(
@@ -48,6 +50,8 @@ class ReleaseAsEnforcer implements ReleaseAsEnforcerInterface
                 );
                 continue;
             }
+            
+            // Early exit if attribute value is null
             if (is_null($attributes[$oldAttributeName])) {
                 $this->logger->warning(
                     sprintf(
@@ -60,8 +64,11 @@ class ReleaseAsEnforcer implements ReleaseAsEnforcerInterface
                 unset($attributes[$oldAttributeName]);
                 continue;
             }
-            $attributeValue = $attributes[$oldAttributeName];
+            
+            // Perform the attribute rename
+            $attributes[$newAttributeName] = $attributes[$oldAttributeName];
             unset($attributes[$oldAttributeName]);
+            
             $this->logger->notice(
                 sprintf(
                     'Releasing attribute "%s" as "%s" as specified in the release_as ARP setting',
@@ -69,8 +76,8 @@ class ReleaseAsEnforcer implements ReleaseAsEnforcerInterface
                     $newAttributeName
                 )
             );
-            $attributes[$newAttributeName] = $attributeValue;
         }
+        
         return $attributes;
     }
 }

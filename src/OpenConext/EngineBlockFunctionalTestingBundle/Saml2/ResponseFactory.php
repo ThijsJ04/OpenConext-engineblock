@@ -35,30 +35,41 @@ class ResponseFactory
         $response = $mockIdp->getResponse();
 
         $this->setResponseReferencesToRequest($request, $response);
-
         $this->setResponseStatus($mockIdp, $response);
-
         $this->setResponseSignatureKey($mockIdp, $response);
-
         $this->setResponseIssuer($mockIdp, $response);
-
         $this->encryptAssertions($mockIdp, $response);
 
+        $this->handleAssertionModifications($mockIdp, $response);
+
+        return $response;
+    }
+
+    /**
+     * Handle assertion modifications based on MockIdentityProvider settings.
+     * 
+     * @param MockIdentityProvider $mockIdp
+     * @param Response $response
+     */
+    private function handleAssertionModifications(MockIdentityProvider $mockIdp, Response $response)
+    {
         if ($mockIdp->shouldNotSendAssertions()) {
             $response->setAssertions([]);
+            return;
+        }
+
+        $assertions = $response->getAssertions();
+        if (empty($assertions)) {
+            return;
         }
 
         if ($mockIdp->shouldTurnBackTheTime()) {
-            // Set the timestamp to Unix Epoch
-            $response->getAssertions()[0]->setNotOnOrAfter(0);
+            $assertions[0]->setNotOnOrAfter(0);
         }
 
         if ($mockIdp->isFromTheFuture()) {
-            // Set the timestamp to current time + i year
-            $response->getAssertions()[0]->setNotBefore(strtotime(date('Y-m-d H:i:s', strtotime('+1 year'))));
+            $assertions[0]->setNotBefore(strtotime('+1 year'));
         }
-
-        return $response;
     }
 
     /**
@@ -86,27 +97,34 @@ class ResponseFactory
     private function setResponseStatus(MockIdentityProvider $mockIdp, Response $response)
     {
         $responseStatus = $response->getStatus();
-
         $statusOverride = [];
+        $hasChanges = false;
+
         $mockIdpTopStatusCode = $mockIdp->getStatusCodeTop();
+        if (!empty($mockIdpTopStatusCode)) {
+            $statusOverride['Code'] = $mockIdpTopStatusCode;
+            $hasChanges = true;
+        }
+
         $mockIdpSubStatusCode = $mockIdp->getStatusCodeSecond();
-        $mockIdpStatusMessage = $mockIdp->getStatusMessage();
-
-        $statusOverride['Code'] = $mockIdpTopStatusCode;
-
         if (!empty($mockIdpSubStatusCode)) {
             $statusOverride['SubCode'] = $mockIdpSubStatusCode;
-        } else {
+            $hasChanges = true;
+        } elseif (isset($responseStatus['SubCode'])) {
             $statusOverride['SubCode'] = $responseStatus['SubCode'];
         }
 
+        $mockIdpStatusMessage = $mockIdp->getStatusMessage();
         if ($mockIdpStatusMessage !== null) {
             $statusOverride['Message'] = $mockIdpStatusMessage;
-        } elseif ($responseStatus['Message'] !== null) {
+            $hasChanges = true;
+        } elseif (isset($responseStatus['Message'])) {
             $statusOverride['Message'] = $responseStatus['Message'];
         }
 
-        $response->setStatus($statusOverride);
+        if ($hasChanges) {
+            $response->setStatus($statusOverride);
+        }
     }
 
     /**
@@ -123,8 +141,7 @@ class ResponseFactory
         }
 
         if ($mockIdp->mustSignAssertions()) {
-            $assertions = $response->getAssertions();
-            foreach ($assertions as $assertion) {
+            foreach ($response->getAssertions() as $assertion) {
                 $assertion->setSignatureKey($key);
             }
         }
@@ -144,13 +161,17 @@ class ResponseFactory
             return;
         }
 
-        $encryptedAssertions = [];
         $assertions = $response->getAssertions();
-        foreach ($assertions as $assertion) {
+        if (empty($assertions)) {
+            return;
+        }
+
+        $encryptedAssertions = array_map(function ($assertion) use ($encryptionKey) {
             $encryptedAssertion = new EncryptedAssertion();
             $encryptedAssertion->setAssertion($assertion, $encryptionKey);
-            $encryptedAssertions[] = $encryptedAssertion;
-        }
+            return $encryptedAssertion;
+        }, $assertions);
+
         $response->setAssertions($encryptedAssertions);
     }
 }

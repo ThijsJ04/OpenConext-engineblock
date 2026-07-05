@@ -51,11 +51,15 @@ class LoaRepository
                 ['engineblock', 'gateway'],
                 'Both the engineblock and gateway keys must be present in every LoA mapping.'
             );
-            Assertion::string($mapping['engineblock'], 'The EngineBlock LoA must be a string value');
-            Assertion::string($mapping['gateway'], 'The Gateway LoA must be a string value');
+            
+            $engineBlockLoa = $mapping['engineblock'];
+            $gatewayLoa = $mapping['gateway'];
+            
+            Assertion::string($engineBlockLoa, 'The EngineBlock LoA must be a string value');
+            Assertion::string($gatewayLoa, 'The Gateway LoA must be a string value');
 
-            $this->store[self::EB][$mapping['engineblock']] = Loa::create($level, $mapping['engineblock']);
-            $this->store[self::GW][$mapping['gateway']] = Loa::create($level, $mapping['gateway']);
+            $this->store[self::EB][$engineBlockLoa] = Loa::create($level, $engineBlockLoa);
+            $this->store[self::GW][$gatewayLoa] = Loa::create($level, $gatewayLoa);
         }
     }
 

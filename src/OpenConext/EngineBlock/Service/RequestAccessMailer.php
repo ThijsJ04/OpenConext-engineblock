@@ -75,28 +75,19 @@ TPL;
      */
     public function sendRequestAccessEmailForIdp($spName, $spEntityId, $institution, $idpEntityId, $name, $email, $comment)
     {
-        $subject = self::REQUEST_IDP_ACCESS_SUBJECT;
-        $body = sprintf(
-            self::REQUEST_IDP_ACCESS_TEMPLATE,
-            $institution,
-            $idpEntityId,
-            $spName,
-            $spEntityId,
-            $name,
-            $email,
-            $comment
+        $this->sendAccessEmail(
+            self::REQUEST_IDP_ACCESS_SUBJECT,
+            sprintf(
+                self::REQUEST_IDP_ACCESS_TEMPLATE,
+                $institution,
+                $idpEntityId,
+                $spName,
+                $spEntityId,
+                $name,
+                $email,
+                $comment
+            )
         );
-
-        // We use the destination email address also as a From since we do
-        // not have a better generic sender address available currently.
-        $message = new Email();
-        $message
-            ->subject($subject)
-            ->from($this->requestAccessEmailAddress)
-            ->to($this->requestAccessEmailAddress)
-            ->text($body);
-
-        $this->mailer->send($message);
     }
 
     /**
@@ -111,24 +102,25 @@ TPL;
      */
     public function sendRequestAccessEmailForInstitution($spName, $spEntityId, $institution, $name, $email, $comment)
     {
-        $subject = self::REQUEST_INSTITUTION_ACCESS_SUBJECT;
-        $body = sprintf(
-            self::REQUEST_INSTITUTION_ACCESS_TEMPLATE,
-            $institution,
-            $spName,
-            $spEntityId,
-            $name,
-            $email,
-            $comment
+        $this->sendAccessEmail(
+            self::REQUEST_INSTITUTION_ACCESS_SUBJECT,
+            sprintf(self::REQUEST_INSTITUTION_ACCESS_TEMPLATE, $institution, $spName, $spEntityId, $name, $email, $comment)
         );
+    }
 
-        $message = new Email();
-        $message
+    /**
+     * Send an access request email with the given subject and body.
+     *
+     * @param string $subject
+     * @param string $body
+     */
+    private function sendAccessEmail($subject, $body)
+    {
+        $message = (new Email())
             ->subject($subject)
             ->from($this->requestAccessEmailAddress)
             ->to($this->requestAccessEmailAddress)
             ->text($body);
-
 
         $this->mailer->send($message);
     }

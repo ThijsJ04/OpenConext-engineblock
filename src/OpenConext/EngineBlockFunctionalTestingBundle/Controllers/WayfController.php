@@ -42,23 +42,27 @@ class WayfController extends AbstractController
     {
         $currentLocale = $request->get('lang', 'en');
         $request->cookies->set('lang', $currentLocale);
-        $backLink = (bool) $request->get('backLink', false);
-        $displayUnconnectedIdpsWayf = (bool) $request->get('displayUnconnectedIdpsWayf', false);
-        $addDiscoveries = (bool) $request->get('addDiscoveries', true);
-        $rememberChoiceFeature = (bool) $request->get('rememberChoiceFeature', false);
-        $cutoffPointForShowingUnfilteredIdps = $request->get('cutoffPointForShowingUnfilteredIdps', 100);
-        $showIdPBanner = $request->get('showIdPBanner', true);
-        $defaultIdpEntityId = $request->get('defaultIdpEntityId', null);
-        // Casting a string 'true' or 'false' using filter_var (bool) does not work here
-        $showIdPBanner = filter_var($showIdPBanner, FILTER_VALIDATE_BOOLEAN);
 
+        // Extract and validate boolean parameters
+        $backLink = filter_var($request->get('backLink', false), FILTER_VALIDATE_BOOLEAN);
+        $displayUnconnectedIdpsWayf = filter_var($request->get('displayUnconnectedIdpsWayf', false), FILTER_VALIDATE_BOOLEAN);
+        $addDiscoveries = filter_var($request->get('addDiscoveries', true), FILTER_VALIDATE_BOOLEAN);
+        $rememberChoiceFeature = filter_var($request->get('rememberChoiceFeature', false), FILTER_VALIDATE_BOOLEAN);
+        $showIdPBanner = filter_var($request->get('showIdPBanner', true), FILTER_VALIDATE_BOOLEAN);
+
+        // Extract numeric parameters
+        $cutoffPointForShowingUnfilteredIdps = (int) $request->get('cutoffPointForShowingUnfilteredIdps', 100);
         $connectedIdps = (int) $request->get('connectedIdps', 5);
         $unconnectedIdps = (int) $request->get('unconnectedIdps', 0);
         $randomIdps = (int) $request->get('randomIdps', 0);
+        $defaultIdpEntityId = $request->get('defaultIdpEntityId', null);
 
-        $idpList = $randomIdps === 0
-            ? TestEntitySeeder::buildIdps($connectedIdps, $unconnectedIdps, $currentLocale, $defaultIdpEntityId, $addDiscoveries)
-            : TestEntitySeeder::buildRandomIdps($randomIdps, $currentLocale, $defaultIdpEntityId);
+        // Build IDP list based on configuration
+        if ($randomIdps === 0) {
+            $idpList = TestEntitySeeder::buildIdps($connectedIdps, $unconnectedIdps, $currentLocale, $defaultIdpEntityId, $addDiscoveries);
+        } else {
+            $idpList = TestEntitySeeder::buildRandomIdps($randomIdps, $currentLocale, $defaultIdpEntityId);
+        }
 
         return new Response($this->twig->render(
             '@theme/Authentication/View/Proxy/wayf.html.twig',

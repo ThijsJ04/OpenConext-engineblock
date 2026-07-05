@@ -170,47 +170,51 @@ class XmlToArray
      * @return array
      */
     public function attributesToArray(array $attributes) {
+        if (empty($attributes)) {
+            return [];
+        }
+
         $res = [];
-        foreach($attributes as $attribute) {
-            if(!isset($attribute['_Name'])) {
+        foreach ($attributes as $attribute) {
+            // Validate attribute name exists
+            if (!isset($attribute['_Name'])) {
                 throw new \RuntimeException('Missing attribute name');
             }
 
-            $res[$attribute['_Name']] = [];
-            if(!isset($attribute['saml:AttributeValue'])) {
+            $attributeName = $attribute['_Name'];
+            $res[$attributeName] = [];
+
+            // Skip if no attribute values
+            if (!isset($attribute['saml:AttributeValue'])) {
                 continue;
             }
 
-            if(!is_array($attribute['saml:AttributeValue'])) {
+            $attributeValues = $attribute['saml:AttributeValue'];
+            if (!is_array($attributeValues)) {
                 throw new \RuntimeException('AttributeValue collection is not an array');
             }
 
-            // Add each value of the collection to the result
-            foreach ($attribute['saml:AttributeValue'] as $value) {
-                if(!is_array($value)) {
+            // Process each attribute value
+            foreach ($attributeValues as $value) {
+                if (!is_array($value)) {
                     throw new \RuntimeException('AttributeValue is not an array');
                 }
 
-                if(!isset($value[self::VALUE_PFX])) {
-                    continue;
+                if (isset($value[self::VALUE_PFX])) {
+                    $res[$attributeName][] = $value[self::VALUE_PFX];
                 }
-
-                $res[$attribute['_Name']][] = $value[self::VALUE_PFX];
             }
         }
+
         return $res;
     }
 
     public static function xml2array($xml)
     {
         $parser = xml_parser_create_ns();
-        $foldingOptionSet = xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);
-        if (!$foldingOptionSet) {
+        if (!xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0)) {
             throw new \RuntimeException(
-                sprintf(
-                    'Unable to set XML_OPTION_CASE_FOLDING on parser object? Error message: "%s"',
-                    xml_error_string(xml_get_error_code($parser))
-                )
+                'Unable to set XML_OPTION_CASE_FOLDING on parser object? Error message: "' . xml_error_string(xml_get_error_code($parser)) . '"'
             );
         }
 
@@ -229,10 +233,12 @@ class XmlToArray
         }
 
         xml_parser_free($parser);
+        $singularsBackup = self::$_singulars;
         self::$_singulars = array_fill_keys(self::$_singulars, 1);
-        $return = self::xml2arrayRecursive($values);
-        self::$_singulars = array_keys(self::$_singulars);
-        return $return[0];
+        $counter = 0;
+        $result = self::xml2arrayRecursive($values, 1, [], $counter);
+        self::$_singulars = $singularsBackup;
+        return $result[0];
     }
 
     /**
@@ -245,59 +251,70 @@ class XmlToArray
      * @return array
      */
 
-    protected static $counter = 0;
-
-    protected static function xml2arrayRecursive(&$elements, $level = 1, $namespaceMapping = [])
+    protected static function xml2arrayRecursive(&$elements, $level = 1, $namespaceMapping = [], &$counter = 0)
     {
         $newElement = [];
 
-        while(isset($elements[self::$counter])) {
-            $value = $elements[self::$counter];
-            self::$counter++;
+        while(isset($elements[$counter])) {
+            $value = $elements[$counter];
+            $counter++;
 
+            // Handle close and cdata types
             if ($value['type'] == 'close') {
                 return $newElement;
-            } elseif ($value['type'] == 'cdata') {
+            }
+            if ($value['type'] == 'cdata') {
                 continue;
             }
 
+            // Process attributes
             $hashedAttributes = [];
-            $tagName = $value['tag'];
-            if (isset($value['attributes']) && $attributes = $value['attributes']) {
-                foreach($attributes as $attributeKey => $attributeValue) {
-                    unset($attributes[$attributeKey]);
+            if (isset($value['attributes'])) {
+                foreach($value['attributes'] as $attributeKey => $attributeValue) {
                     $hashedAttributes[self::ATTRIBUTE_PFX . $attributeKey] = $attributeValue;
                 }
             }
 
-            $complete = [];
+            // Map namespace and create base element
+            $tagName = self::mapNamespacesToSaml($value['tag']);
+            $complete = [self::TAG_NAME_PFX => $tagName];
 
-            $tagName = self::mapNamespacesToSaml($tagName);
+            // Add attributes if they exist
+            if (!empty($hashedAttributes)) {
+                foreach ($hashedAttributes as $key => $val) {
+                    $complete[$key] = $val;
+                }
+            }
 
-            $complete[self::TAG_NAME_PFX] = $tagName;
-            if ($hashedAttributes) {
-                $complete = array_merge($complete, $hashedAttributes);
+            // Add value if it exists and is not empty
+            if (isset($value['value'])) {
+                $trimmedValue = trim($value['value']);
+                if ($trimmedValue !== '') {
+                    $complete[self::VALUE_PFX] = $trimmedValue;
+                }
             }
-            if (isset($value['value']) && $attributeValue = trim($value['value'])) {
-                $complete[self::VALUE_PFX] = $attributeValue;
-            }
+
+            // Handle open tags recursively
             if ($value['type'] == 'open') {
-                $cs = self::xml2arrayRecursive($elements, $level + 1, $namespaceMapping);
+                $cs = self::xml2arrayRecursive($elements, $level + 1, $namespaceMapping, $counter);
                 foreach($cs as $c) {
-                    $tagName = $c[self::TAG_NAME_PFX];
+                    $childTagName = $c[self::TAG_NAME_PFX];
                     unset($c[self::TAG_NAME_PFX]);
 
-                    if (!isset(self::$_singulars[$tagName])) {
-                        $complete[$tagName][] = $c;
+                    if (!isset(self::$_singulars[$childTagName])) {
+                        $complete[$childTagName][] = $c;
                     } else {
-                        $complete[$tagName] = $c;
-                        unset($complete[$tagName][self::TAG_NAME_PFX]);
+                        $complete[$childTagName] = $c;
+                        if (isset($complete[$childTagName][self::TAG_NAME_PFX])) {
+                            unset($complete[$childTagName][self::TAG_NAME_PFX]);
+                        }
                     }
                 }
             }
+
             $newElement[] = $complete;
         }
-        self::$counter = 0;
+
         return $newElement;
     }
 
@@ -360,45 +377,53 @@ class XmlToArray
 
     protected static function array2xmlRecursive($hash, $elementName, \XMLWriter $writer, $level = 0)
     {
-        if (is_array($hash) && array_key_exists(self::COMMENT_PFX, $hash)) {
-            $writer->writeComment($hash[self::COMMENT_PFX]);
+        // Early return for placeholders
+        if ($hash === self::PLACEHOLDER_VALUE) {
+            return;
         }
 
+        // Check recursion level early
         if ($level > self::MAX_RECURSION_LEVEL) {
             throw new \RuntimeException(
                 sprintf(
-                    'Recursion threshold exceed on element: "%s" for hashvalue: "%s"',
+                    'Recursion threshold exceeded on element: "%s" for hash value: "%s"',
                     $elementName,
                     var_export($hash, true)
                 )
             );
         }
-        if ($hash == self::PLACEHOLDER_VALUE) {
-            // Ignore placeholders
-            return;
+
+        // Handle comments if present
+        if (is_array($hash) && isset($hash[self::COMMENT_PFX])) {
+            $writer->writeComment($hash[self::COMMENT_PFX]);
         }
-        if (!isset($hash[0])) {
+
+        // Start element if not a numeric array
+        $isNumericArray = isset($hash[0]);
+        if (!$isNumericArray) {
             $writer->startElement($elementName);
         }
 
-        foreach((array)$hash as $key => $value) {
-            if (is_int($key)) {
-                // Normal numeric index, value is probably a hash structure, recurse...
-                self::array2xmlRecursive($value, $elementName, $writer, $level + 1);
-
-            } elseif ($key === self::VALUE_PFX) {
-                $writer->text($value);
-
-            } elseif (strpos($key, self::PRIVATE_PFX) === 0) {
-                # [__][<x>] is used for private attributes for internal consumption
-
-            } elseif (strpos($key, self::ATTRIBUTE_PFX) === 0) {
-                $writer->writeAttribute(substr($key, 1), $value);
-
-            } elseif (is_array($value) || $value === self::PLACEHOLDER_VALUE) {
-                self::array2xmlRecursive($value, $key, $writer, $level + 1);
+        foreach ((array)$hash as $key => $value) {
+            // Skip private attributes early
+            if (strpos($key, self::PRIVATE_PFX) === 0) {
+                continue;
             }
-            else {
+
+            if (is_int($key)) {
+                // Recurse for numeric indices
+                self::array2xmlRecursive($value, $elementName, $writer, $level + 1);
+            } elseif ($key === self::VALUE_PFX) {
+                // Write text content
+                $writer->text($value);
+            } elseif (strpos($key, self::ATTRIBUTE_PFX) === 0) {
+                // Write attributes
+                $writer->writeAttribute(substr($key, 1), $value);
+            } elseif (is_array($value)) {
+                // Recurse for array values
+                self::array2xmlRecursive($value, $key, $writer, $level + 1);
+            } else {
+                // Unrecognized value type
                 throw new \RuntimeException(
                     sprintf(
                         'Value for key "%s" unrecognized (key naming error?)! Value: "%s"',
@@ -409,31 +434,34 @@ class XmlToArray
             }
         }
 
-        if (!isset($hash[0])) {
+        // End element if not a numeric array
+        if (!$isNumericArray) {
             $writer->endElement();
         }
     }
 
     public static function array2attributes($attributes)
     {
+        // Early return for empty input
+        if (empty($attributes)) {
+            return [];
+        }
+
         $res = [];
-        foreach((array)$attributes as $name => $attribute) {
-            // Name must be a uri
-            // Uri checking is hard, so at least check for a scheme.
+        $attributes = (array)$attributes;
+        
+        foreach($attributes as $name => $attribute) {
+            // Name must be a uri - check for scheme (colon) as basic validation
             assert((bool) preg_match("|(\\w+)\\:.+|", $name));
+            assert(strpos($name, ':') !== false, 'Attribute name must contain a URI scheme');
             $newAttribute = [
                 '_Name' => $name,
                 '_NameFormat' => 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri',
             ];
             foreach ((array)$attribute as $value) {
-                if (is_array($value)) {
-                    $newAttribute['saml:AttributeValue'][] = $value;
-                }
-                else {
-                    $newAttribute['saml:AttributeValue'][] = [
-                        self::VALUE_PFX  => $value,
-                    ];
-                }
+                $newAttribute['saml:AttributeValue'][] = is_array($value) 
+                    ? $value 
+                    : [self::VALUE_PFX => $value];
             }
             $res[] = $newAttribute;
         }
@@ -443,50 +471,93 @@ class XmlToArray
     /**
      * Format XML, adds newlines and whitespace.
      *
-     * @link http://recurser.com/articles/2007/04/05/format-xml-with-php/
-     *
      * @static
      * @param string $xml Unformatted XML
      * @return string Formatted XML
      */
     public static function formatXml($xml)
     {
-        // add marker linefeeds to aid the pretty-tokeniser (adds a linefeed between all tag-end boundaries)
+        // Early return for empty input
+        if (empty(trim($xml))) {
+            return $xml;
+        }
+
+        // Use DOMDocument for reliable XML formatting
+        $dom = new \DOMDocument();
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = true;
+        
+        // Suppress warnings for malformed XML - let the function handle it gracefully
+        $previousErrorHandling = libxml_use_internal_errors(true);
+        
+        try {
+            // Load the XML
+            $loaded = $dom->loadXML($xml);
+            
+            if (!$loaded) {
+                // Fallback to simple formatting if DOMDocument fails
+                return self::simpleFormatXmlFallback($xml);
+            }
+            
+            // Get formatted XML
+            $formattedXml = $dom->saveXML();
+            
+            // Clean up empty lines that DOMDocument might leave
+            $formattedXml = preg_replace('/^\s+$/m', '', $formattedXml);
+            
+            return $formattedXml;
+        } finally {
+            // Restore previous error handling
+            libxml_use_internal_errors($previousErrorHandling);
+        }
+    }
+
+    /**
+     * Fallback XML formatter using simple regex-based approach
+     * Used when DOMDocument fails to parse the XML
+     *
+     * @param string $xml
+     * @return string
+     */
+    private static function simpleFormatXmlFallback($xml)
+    {
+        // Add line breaks between tags
         $xml = preg_replace('/(>)(<)(\/*)/', "$1\n$2$3", $xml);
-
-        // now indent the tags
-        $token = strtok($xml, "\n");
-        $result = ''; // holds formatted version as it is built
-        $pad = 0; // initial indent
-        $matches = []; // returns from preg_matches()
-        $indent = 0;
-
-        // scan each line and adjust indent based on opening/closing tags
-        while ($token !== false) :
-
-            // test for the various tag states
-
-            // 1. open and closing tags on same line - no change
-            if (preg_match('/.+<\/\w[^>]*>$/', $token, $matches)) :
-                $indent = 0;
-            // 2. closing tag - outdent now
-            elseif (preg_match('/^<\/\w/', $token, $matches)) :
-                $pad--;
-            // 3. opening tag - don't pad this one, only subsequent tags
-            elseif (preg_match('/^<\w[^>]*[^\/]>.*$/', $token, $matches)) :
-                $indent = 1;
-            // 4. no indentation needed
-            else :
-                $indent = 0;
-            endif;
-
-            // pad the line with the required number of leading spaces
-            $line = str_pad($token, strlen($token) + $pad, ' ', STR_PAD_LEFT);
-            $result .= $line . "\n"; // add to the cumulative result, with linefeed
-            $token = strtok("\n"); // get the next token
-            $pad += $indent; // update the pad size for subsequent lines
-        endwhile;
-
+        
+        // Remove empty lines
+        $xml = preg_replace('/\n+/', "\n", $xml);
+        $xml = trim($xml);
+        
+        $lines = explode("\n", $xml);
+        $result = '';
+        $indentLevel = 0;
+        
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) {
+                continue;
+            }
+            
+            // Calculate indentation
+            $indent = str_repeat('    ', $indentLevel);
+            
+            // Check if line contains opening or closing tags
+            if (preg_match('/^<\w/', $line) && !preg_match('/^<\//', $line)) {
+                // Opening tag - current line gets current indent, next lines get more
+                $result .= $indent . $line . "\n";
+                if (!preg_match('/\/>$/', $line)) { // Not self-closing
+                    $indentLevel++;
+                }
+            } elseif (preg_match('/^<\//', $line)) {
+                // Closing tag - reduce indent after this line
+                $indentLevel = max(0, $indentLevel - 1);
+                $result .= $indent . $line . "\n";
+            } else {
+                // Other content
+                $result .= $indent . $line . "\n";
+            }
+        }
+        
         return $result;
     }
 }

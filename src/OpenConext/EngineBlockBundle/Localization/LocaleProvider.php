@@ -66,23 +66,31 @@ final class LocaleProvider
             return $this->defaultLocale;
         }
 
-        if (in_array($this->request->query->get('lang'), $this->availableLocales, true)) {
-            return $this->request->query->get('lang');
+        // Helper function to check and return valid locale
+        $getValidLocale = function ($value) {
+            return in_array($value, $this->availableLocales, true) ? $value : null;
+        };
+
+        // Check query parameter
+        $locale = $getValidLocale($this->request->query->get('lang'));
+        if ($locale !== null) {
+            return $locale;
         }
 
-        if (in_array($this->request->request->get('lang'), $this->availableLocales, true)) {
-            return $this->request->request->get('lang');
+        // Check request body
+        $locale = $getValidLocale($this->request->request->get('lang'));
+        if ($locale !== null) {
+            return $locale;
         }
 
-        if (in_array($this->request->cookies->get('lang'), $this->availableLocales, true)) {
-            return $this->request->cookies->get('lang');
+        // Check cookies
+        $locale = $getValidLocale($this->request->cookies->get('lang'));
+        if ($locale !== null) {
+            return $locale;
         }
 
-        // As the Request::getPreferredLanguage method works with an ordered array of available locales, the default
-        // locale must be moved to the start of the array.
-        $availableLocales = $this->availableLocales;
-        array_unshift($availableLocales, $this->defaultLocale);
-        $availableLocales = array_unique($availableLocales);
+        // Prepare available locales with default locale prioritized
+        $availableLocales = array_unique(array_merge([$this->defaultLocale], $this->availableLocales));
 
         return $this->request->getPreferredLanguage($availableLocales);
     }

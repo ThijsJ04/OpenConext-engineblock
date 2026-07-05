@@ -45,18 +45,16 @@ final class Consent
 
     public function jsonSerialize(): array
     {
-        $supportContacts = array_values(
-            array_filter(
-                $this->serviceProvider->contactPersons,
-                function (ContactPerson $contact) {
-                    return $contact->contactType === Consent::CONTACT_TYPE_SUPPORT;
-                }
-            )
-        );
-
         $supportEmail = null;
-        if (count($supportContacts) > 0) {
-            $supportEmail = $supportContacts[0]->emailAddress;
+        $supportContacts = array_filter(
+            $this->serviceProvider->contactPersons,
+            function (ContactPerson $contact) {
+                return $contact->contactType === Consent::CONTACT_TYPE_SUPPORT;
+            }
+        );
+        
+        if (!empty($supportContacts)) {
+            $supportEmail = reset($supportContacts)->emailAddress;
         }
 
         $serviceProvider = [
@@ -71,11 +69,12 @@ final class Consent
             'name_id_format' => $this->serviceProvider->nameIdFormat,
         ];
 
-        $serviceProvider += $this->getDisplayNameFields();
-        $serviceProvider += $this->getOrganizationDisplayNameFields();
-
         return [
-            'service_provider' => $serviceProvider,
+            'service_provider' => array_merge(
+                $serviceProvider,
+                $this->getDisplayNameFields(),
+                $this->getOrganizationDisplayNameFields()
+            ),
             'consent_given_on' => $this->consent->getDateConsentWasGivenOn()->format(DateTime::ATOM),
             'consent_type'     => $this->consent->getConsentType()->jsonSerialize(),
         ];
@@ -84,28 +83,15 @@ final class Consent
     private function getDisplayNameFields(): array
     {
         $fields = [];
-        if (!empty($this->serviceProvider->getMdui()->hasDisplayName('en'))) {
-            $fields['display_name']['en'] = $this->serviceProvider->getMdui()->getDisplayName('en');
-        } elseif (!empty($this->serviceProvider->nameEn)) {
-            $fields['display_name']['en'] = $this->serviceProvider->nameEn;
-        } else {
-            $fields['display_name']['en'] = $this->serviceProvider->entityId;
-        }
-
-        if (!empty($this->serviceProvider->getMdui()->hasDisplayName('nl'))) {
-            $fields['display_name']['nl'] = $this->serviceProvider->getMdui()->getDisplayName('nl');
-        } elseif (!empty($this->serviceProvider->nameNl)) {
-            $fields['display_name']['nl'] = $this->serviceProvider->nameNl;
-        } else {
-            $fields['display_name']['nl'] = $this->serviceProvider->entityId;
-        }
-
-        if (!empty($this->serviceProvider->getMdui()->hasDisplayName('pt'))) {
-            $fields['display_name']['pt'] = $this->serviceProvider->getMdui()->getDisplayName('pt');
-        } elseif (!empty($this->serviceProvider->namePt)) {
-            $fields['display_name']['pt'] = $this->serviceProvider->namePt;
-        } else {
-            $fields['display_name']['pt'] = $this->serviceProvider->entityId;
+        foreach (['en', 'nl', 'pt'] as $lang) {
+            $nameProperty = 'name' . ucfirst($lang);
+            $mdui = $this->serviceProvider->getMdui();
+            
+            $fields['display_name'][$lang] = !empty($mdui->hasDisplayName($lang))
+                ? $mdui->getDisplayName($lang)
+                : (!empty($this->serviceProvider->$nameProperty)
+                    ? $this->serviceProvider->$nameProperty
+                    : $this->serviceProvider->entityId);
         }
 
         return $fields;
@@ -114,28 +100,27 @@ final class Consent
     private function getOrganizationDisplayNameFields(): array
     {
         $fields = [];
+        $languages = ['en', 'nl', 'pt'];
+        $englishFallback = "unknown";
+        
+        // Process English first to establish fallback
         if (!empty($this->serviceProvider->organizationEn->displayName)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->displayName;
+            $englishFallback = $this->serviceProvider->organizationEn->displayName;
         } elseif (!empty($this->serviceProvider->organizationEn->name)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->name;
-        } else {
-            $fields['organization_display_name']['en'] = "unknown";
+            $englishFallback = $this->serviceProvider->organizationEn->name;
         }
-
-        if (!empty($this->serviceProvider->organizationNl->displayName)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->displayName;
-        } elseif (!empty($this->serviceProvider->organizationNl->name)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->name;
-        } else {
-            $fields['organization_display_name']['nl'] = $fields['organization_display_name']['en'];
-        }
-
-        if (!empty($this->serviceProvider->organizationPt->displayName)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->displayName;
-        } elseif (!empty($this->serviceProvider->organizationPt->name)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->name;
-        } else {
-            $fields['organization_display_name']['pt'] = $fields['organization_display_name']['en'];
+        
+        // Process all languages with unified logic
+        foreach ($languages as $lang) {
+            $orgProperty = 'organization' . ucfirst($lang);
+            
+            if (!empty($this->serviceProvider->$orgProperty->displayName)) {
+                $fields['organization_display_name'][$lang] = $this->serviceProvider->$orgProperty->displayName;
+            } elseif (!empty($this->serviceProvider->$orgProperty->name)) {
+                $fields['organization_display_name'][$lang] = $this->serviceProvider->$orgProperty->name;
+            } else {
+                $fields['organization_display_name'][$lang] = $lang === 'en' ? $englishFallback : ($fields['organization_display_name']['en'] ?? $englishFallback);
+            }
         }
 
         return $fields;

@@ -44,58 +44,14 @@ use Symfony\Component\Security\Core\Exception\AuthenticationCredentialsNotFoundE
  */
 class ConnectionsController
 {
-    /**
-     * @var MetadataAssemblerInterface
-     */
-    private $pushMetadataAssembler;
-
-    /**
-     * @var TokenStorageInterface
-     */
-    private $tokenStorage;
-
-    /**
-     * @var AccessDecisionManagerInterface
-     */
-    private $accessDecisionManager;
-
-    /**
-     * @var FeatureConfigurationInterface
-     */
-    private $featureConfiguration;
-
-    /**
-     * @var DoctrineMetadataPushRepository
-     */
-    private $repository;
-
-    /**
-     * @var string
-     */
-    private $memoryLimit;
-
-    /**
-     * @param MetadataAssemblerInterface $assembler
-     * @param TokenStorageInterface $tokenStorage
-     * @param AccessDecisionManagerInterface $accessDecisionManager
-     * @param FeatureConfigurationInterface $featureConfiguration
-     * @param DoctrineMetadataPushRepository $repository
-     * @param string|null $memoryLimit
-     */
     public function __construct(
-        MetadataAssemblerInterface $assembler,
-        TokenStorageInterface $tokenStorage,
-        AccessDecisionManagerInterface $accessDecisionManager,
-        FeatureConfigurationInterface $featureConfiguration,
-        DoctrineMetadataPushRepository $repository,
-        $memoryLimit
+        private MetadataAssemblerInterface $pushMetadataAssembler,
+        private TokenStorageInterface $tokenStorage,
+        private AccessDecisionManagerInterface $accessDecisionManager,
+        private FeatureConfigurationInterface $featureConfiguration,
+        private DoctrineMetadataPushRepository $repository,
+        private $memoryLimit
     ) {
-        $this->pushMetadataAssembler           = $assembler;
-        $this->tokenStorage                    = $tokenStorage;
-        $this->accessDecisionManager           = $accessDecisionManager;
-        $this->featureConfiguration            = $featureConfiguration;
-        $this->repository                      = $repository;
-        $this->memoryLimit                     = $memoryLimit;
     }
 
     /**
@@ -125,15 +81,12 @@ class ConnectionsController
 
         try {
             $roles = $this->pushMetadataAssembler->assemble($body->connections);
-        } catch (Exception $exception) {
-            throw new BadApiRequestHttpException(sprintf('Unable to assemble the pushed metadata: %s', $exception->getMessage()), $exception);
-        }
-
-        unset($body);
-
-        try {
             $result = $this->repository->synchronize($roles);
         } catch (Exception $exception) {
+            // Differentiate between assembly and synchronization errors
+            if (strpos($exception->getMessage(), 'assemble') !== false) {
+                throw new BadApiRequestHttpException(sprintf('Unable to assemble the pushed metadata: %s', $exception->getMessage()), $exception);
+            }
             throw new ApiInternalServerErrorHttpException('Unable to synchronize the assembled roles to the repository', $exception);
         }
 

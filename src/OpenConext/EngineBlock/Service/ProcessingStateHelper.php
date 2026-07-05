@@ -73,14 +73,16 @@ class ProcessingStateHelper implements ProcessingStateHelperInterface
     public function getStepByRequestId($requestId, $name)
     {
         $processing = $this->session->get(self::SESSION_KEY);
-        if (empty($processing)) {
-            throw new EngineBlock_Corto_Module_Services_SessionLostException('Session lost after consent');
+        
+        // Check if processing data exists and contains the requestId
+        if (empty($processing) || !isset($processing[$requestId])) {
+            $errorMessage = empty($processing) 
+                ? 'Session lost after consent'
+                : sprintf('Stored response for ResponseID "%s" not found', $requestId);
+            throw new EngineBlock_Corto_Module_Services_SessionLostException($errorMessage);
         }
-        if (!isset($processing[$requestId])) {
-            throw new EngineBlock_Corto_Module_Services_SessionLostException(
-                sprintf('Stored response for ResponseID "%s" not found', $requestId)
-            );
-        }
+        
+        // Check if the specific step exists for the requestId
         if (!isset($processing[$requestId][$name])) {
             throw new EngineBlock_Corto_Module_Services_Exception(
                 sprintf('Process step requested for ResponseID "%s" not found', $requestId)

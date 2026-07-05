@@ -50,32 +50,20 @@ class TestEntitySeeder
             throw new LogicException('The number of IdPs that are to be created should be greater or equal to the number of unconnected IdPs');
         }
 
-        // Discoveries
+        if ($numberOfIdps === 0) {
+            return [];
+        }
+
         $idps = [];
+        $connectedCount = $numberOfIdps - $numberOfUnconnectedIdps;
 
-        for ($i=1; $i < (int) ($numberOfIdps - $numberOfUnconnectedIdps) + 1; $i++) {
-            $entityId = sprintf("https://example.com/entityId/%d", $i);
-            $name = sprintf("%s IdP %d %s", 'Connected', $i, $locale);
-            $isDefaultIdp = false;
-            if ($defaultIdpEntityId === $entityId) {
-                $isDefaultIdp = true;
-            }
+        // Build connected IdPs
+        for ($i = 1; $i <= $connectedCount; $i++) {
+            $entityId = "https://example.com/entityId/$i";
+            $name = "Connected IdP $i $locale";
+            $isDefaultIdp = $defaultIdpEntityId === $entityId;
 
-            $discoveries = [];
-            if ($addDiscoveries && $i === 1) {
-                $discoveries = [
-                    Discovery::create(
-                        ['en' => 'National University of the Netherlands', 'nl' => 'Rijksuniversiteit der Nederlanden'],
-                        ['en' => 'royal', 'nl' => 'koninklijke'],
-                        new Logo('/images/logo.png')
-                    ),
-                    Discovery::create(
-                        ['en' => 'Foreign embassy of the Republic'],
-                        [],
-                        null
-                    )
-                ];
-            }
+            $discoveries = $addDiscoveries && $i === 1 ? self::createDefaultDiscoveries() : [];
 
             $idps[$entityId] = [
                 'name' => $name,
@@ -85,36 +73,55 @@ class TestEntitySeeder
             ];
         }
 
-        if ($numberOfUnconnectedIdps > 0) {
-            for ($i=1; $i < (int) $numberOfUnconnectedIdps + 1; $i++) {
-                $entityId = sprintf("https://unconnected.example.com/entityId/%d", $i);
-                $name = sprintf("%s IdP %d %s", 'Disconnected', $i, $locale);
-                $isDefaultIdp = false;
-                if ($defaultIdpEntityId === $entityId) {
-                    $isDefaultIdp = true;
-                }
+        // Build unconnected IdPs
+        for ($i = 1; $i <= $numberOfUnconnectedIdps; $i++) {
+            $entityId = "https://unconnected.example.com/entityId/$i";
+            $name = "Disconnected IdP $i $locale";
+            $isDefaultIdp = $defaultIdpEntityId === $entityId;
 
-                $discoveries = [];
-                if ($addDiscoveries && $i === 1) {
-                    $discoveries = [
-                        Discovery::create(
-                            ['en' => 'Disconnected National University of the Netherlands', 'nl' => 'Disconnected Rijksuniversiteit der Nederlanden'],
-                            ['en' => 'Disconnected royal', 'nl' => 'Disconnected koninklijke'],
-                            new Logo('/images/logo.png')
-                        ),
-                        Discovery::create(
-                            ['en' => 'Disconnected Foreign embassy of the Republic'],
-                            [],
-                            null
-                        )
-                    ];
-                }
+            $discoveries = $addDiscoveries && $i === 1 ? self::createDisconnectedDiscoveries() : [];
 
-                $idps[$entityId] = ['name' => $name, 'enabled' => false, 'isDefaultIdp' => $isDefaultIdp, 'discoveries' => $discoveries];
-            }
+            $idps[$entityId] = [
+                'name' => $name,
+                'enabled' => false,
+                'isDefaultIdp' => $isDefaultIdp,
+                'discoveries' => $discoveries,
+            ];
         }
 
         return self::transformIdpsForWayf($idps, $locale);
+    }
+
+    private static function createDefaultDiscoveries(): array
+    {
+        return [
+            Discovery::create(
+                ['en' => 'National University of the Netherlands', 'nl' => 'Rijksuniversiteit der Nederlanden'],
+                ['en' => 'royal', 'nl' => 'koninklijke'],
+                new Logo('/images/logo.png')
+            ),
+            Discovery::create(
+                ['en' => 'Foreign embassy of the Republic'],
+                [],
+                null
+            )
+        ];
+    }
+
+    private static function createDisconnectedDiscoveries(): array
+    {
+        return [
+            Discovery::create(
+                ['en' => 'Disconnected National University of the Netherlands', 'nl' => 'Disconnected Rijksuniversiteit der Nederlanden'],
+                ['en' => 'Disconnected royal', 'nl' => 'Disconnected koninklijke'],
+                new Logo('/images/logo.png')
+            ),
+            Discovery::create(
+                ['en' => 'Disconnected Foreign embassy of the Republic'],
+                [],
+                null
+            )
+        ];
     }
 
     /**
@@ -132,6 +139,11 @@ class TestEntitySeeder
     {
         Assert::integer($numberOfIdps);
         Assert::stringNotEmpty($locale);
+        
+        if ($numberOfIdps === 0) {
+            return [];
+        }
+        
         $idpNames = [
             'Academisch Medisch Centrum (AMC)',
             'AMOLF',
@@ -160,26 +172,24 @@ class TestEntitySeeder
             'Thomas More Hogeschool',
             'VSNU',
         ];
-        $randomIdpNames = $numberOfIdps < count($idpNames) ? array_rand($idpNames, $numberOfIdps) : array_keys($idpNames);
-
+        
         $idps = [];
 
-        for ($i=1; $i < (int) $numberOfIdps + 1; $i++) {
+        for ($i = 1; $i <= $numberOfIdps; $i++) {
             $connected = random_int(0, 1) === 1;
             $entityId = $connected ? sprintf("https://example.com/entityId/%d", $i) : sprintf("https://unconnected.example.com/entityId/%d", $i);
+            
+            // Use real institution names when available, fall back to generic names
+            $name = isset($idpNames[$i - 1]) 
+                ? sprintf("%s %d %s", $idpNames[$i - 1], $i, $locale)
+                : sprintf("%s IdP %d %s", $connected ? 'Connected' : 'Disconnected', $i, $locale);
 
-            if ($i < 25) {
-                $name = sprintf("%s %d %s", $idpNames[$randomIdpNames[$i - 1]], $i, $locale);
-            } else {
-                $variableString = $connected ? 'Connected' : 'Disconnected';
-                $name = sprintf("%s IdP %d %s", $variableString, $i, $locale);
-            }
-
-            $isDefaultIdp = false;
-            if ($defaultIdpEntityId === $entityId) {
-                $isDefaultIdp = true;
-            }
-            $idps[$entityId] = ['name' => $name, 'enabled' => $connected, 'isDefaultIdp' => $isDefaultIdp];
+            $idps[$entityId] = [
+                'name' => $name,
+                'enabled' => $connected,
+                'isDefaultIdp' => $defaultIdpEntityId === $entityId,
+                'discoveries' => [],
+            ];
         }
 
         return self::transformIdpsForWayf($idps, $locale);
@@ -195,40 +205,46 @@ class TestEntitySeeder
         $discoveryService = new DiscoverySelectionService();
         $identityProviders = self::findIdentityProvidersByEntityId($idpEntityIds);
 
-        $wayfIdps = array();
+        $wayfIdps = [];
+        $nameProperty = 'name' . ucfirst($currentLocale);
+        
         foreach ($identityProviders as $identityProvider) {
-            $name = 'name' . ucfirst($currentLocale);
-            $wayfIdp = array(
-                'Name' => $identityProvider->$name,
-                'Logo' => $identityProvider->logo ? $identityProvider->logo->url : '/images/placeholder.png',
-                'Keywords' => $identityProvider->keywordsEn,
-                'Access' => ($identityProvider->enabledInWayf) ? '1' : '0',
-                'ID' => md5($identityProvider->entityId),
-                'EntityID' => $identityProvider->entityId,
-                'isDefaultIdp' => $idpEntityIds[$identityProvider->entityId]['isDefaultIdp'],
-            );
-            $wayfIdps[] = $wayfIdp;
+            $entityId = $identityProvider->entityId;
+            $entityIdHash = md5($entityId);
+            $isDefaultIdp = $idpEntityIds[$entityId]['isDefaultIdp'];
+            $accessValue = $identityProvider->enabledInWayf ? '1' : '0';
+            $logoUrl = $identityProvider->logo ? $identityProvider->logo->url : '/images/placeholder.png';
 
+            // Add main IdP entry
+            $wayfIdps[] = [
+                'Name' => $identityProvider->$nameProperty,
+                'Logo' => $logoUrl,
+                'Keywords' => $identityProvider->keywordsEn,
+                'Access' => $accessValue,
+                'ID' => $entityIdHash,
+                'EntityID' => $entityId,
+                'isDefaultIdp' => $isDefaultIdp,
+            ];
+
+            // Add discovery entries
             foreach ($identityProvider->getDiscoveries() as $discovery) {
-                $wayfIdps[] = array(
+                $wayfIdps[] = [
                     'Name' => $discovery->getName($currentLocale),
                     'Logo' => $discovery->getLogo() ? $discovery->getLogo()->url : '/images/placeholder.png',
                     'Keywords' => $discovery->getKeywords('en'),
-                    'Access' => ($identityProvider->enabledInWayf) ? '1' : '0',
-                    'ID' => md5($identityProvider->entityId),
-                    'EntityID' => $identityProvider->entityId,
-                    'isDefaultIdp' => $idpEntityIds[$identityProvider->entityId]['isDefaultIdp'],
+                    'Access' => $accessValue,
+                    'ID' => $entityIdHash,
+                    'EntityID' => $entityId,
+                    'isDefaultIdp' => $isDefaultIdp,
                     'DiscoveryHash' => $discoveryService->hash($discovery),
-                );
+                ];
             }
         }
 
-        $nameSort = static function ($a, $b) {
+        // Sort the IdP entries by name using case-insensitive comparison
+        usort($wayfIdps, static function ($a, $b) {
             return strcmp(strtolower($a['Name']), strtolower($b['Name']));
-        };
-
-        // Sort the IdP entries by name
-        usort($wayfIdps, $nameSort);
+        });
 
         return $wayfIdps;
     }
@@ -238,21 +254,21 @@ class TestEntitySeeder
      */
     private static function findIdentityProvidersByEntityId(array $idpEntityIds): array
     {
-        $idps = [];
-        foreach ($idpEntityIds as $idpEntityId => $idpData) {
+        $logo = new Logo('/images/logo.png');
+        $defaultKeywords = 'Awesome IdP, Another keyword, Example';
+
+        return array_map(function ($idpEntityId, $idpData) use ($logo, $defaultKeywords) {
             $idp = new IdentityProvider($idpEntityId);
-            $idp->getMdui()->setLogo(new Logo('/images/logo.png'));
+            $idp->getMdui()->setLogo($logo);
             $idp->nameEn = $idpData['name'];
             $idp->nameNl = $idpData['name'];
             $idp->namePt = $idpData['name'];
-            $idp->keywordsEn = 'Awesome IdP, Another keyword, Example';
+            $idp->keywordsEn = $defaultKeywords;
             $idp->enabledInWayf = $idpData['enabled'];
             $idp->setDiscoveries($idpData['discoveries'] ?? []);
 
-            $idps[] = $idp;
-        }
-
-        return $idps;
+            return $idp;
+        }, array_keys($idpEntityIds), $idpEntityIds);
     }
 
     /**
@@ -261,16 +277,14 @@ class TestEntitySeeder
      */
     public static function buildSp(?string $spName = null)
     {
-        if (!$spName) {
-            $spName = 'DisplayName';
-        }
+        $spName = $spName ?? 'DisplayName';
         $serviceProvider = new ServiceProvider('https://acme-sp.example.com');
         $serviceProvider->nameNl = $spName . ' NL';
         $serviceProvider->nameEn = $spName . ' EN';
         $serviceProvider->namePt = $spName . ' PT';
-        $serviceProvider->displayNameNl = $spName . '';
-        $serviceProvider->displayNameEn = $spName . '';
-        $serviceProvider->displayNamePt = $spName . '';
+        $serviceProvider->displayNameNl = $spName;
+        $serviceProvider->displayNameEn = $spName;
+        $serviceProvider->displayNamePt = $spName;
         $serviceProvider->getMdui()->setLogo(new Logo('/images/logo.png'));
         return $serviceProvider;
     }
@@ -281,16 +295,15 @@ class TestEntitySeeder
      */
     public static function buildIdP(?string $idpName)
     {
-        if (!$idpName) {
-            $idpName = 'DisplayName';
-        }
+        $idpName = $idpName ?? 'DisplayName';
         $identityProvider = new IdentityProvider('https://acme-idp.example.com');
-        $identityProvider->nameNl = $idpName . ' NL';
-        $identityProvider->nameEn = $idpName . ' EN';
-        $identityProvider->namePt = $idpName . ' PT';
-        $identityProvider->displayNameNl = $idpName . ' NL';
-        $identityProvider->displayNameEn = $idpName . ' EN';
-        $identityProvider->displayNamePt = $idpName . ' PT';
+        
+        // Set localized names efficiently
+        foreach (['Nl', 'En', 'Pt'] as $locale) {
+            $identityProvider->{'name' . $locale} = $idpName . ' ' . $locale;
+            $identityProvider->{'displayName' . $locale} = $idpName . ' ' . $locale;
+        }
+        
         $identityProvider->getMdui()->setLogo(new Logo('/images/logo.png'));
         return $identityProvider;
     }

@@ -44,11 +44,8 @@ class MetadataCoinType extends Type
 
         if (!$value instanceof Coins) {
             throw new ConversionException(
-                sprintf(
-                    'Value "%s" must be null or an instance of Coins to be able to ' .
-                    'convert it to a database value',
-                    is_object($value) ? get_class($value) : (string)$value
-                )
+                sprintf('Value "%s" must be null or an instance of Coins to be able to convert it to a database value',
+                    is_object($value) ? get_class($value) : (string)$value)
             );
         }
 
@@ -67,20 +64,14 @@ class MetadataCoinType extends Type
         }
 
         try {
-            $coins = Coins::fromJson($value);
+            return Coins::fromJson($value);
         } catch (InvalidArgumentException $e) {
-            // get nice standard message, so we can throw it keeping the exception chain
-            $doctrineExceptionMessage = sprintf(
-                'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
-                $value,
-                $this->getName(),
-                'valid serialized coin json'
+            throw new ConversionException(
+                sprintf('Could not convert database value "%s" to Doctrine Type %s', $value, $this->getName()),
+                0,
+                $e
             );
-
-            throw new ConversionException($doctrineExceptionMessage, 0, $e);
         }
-
-        return $coins;
     }
 
     public function getName(): string

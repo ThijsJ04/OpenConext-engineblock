@@ -137,21 +137,28 @@ class Feedback extends AbstractExtension
      */
     public function getIdPContactMailLink()
     {
-        $feedbackInfo = $this->retrieveFeedbackInfo();
-        if ($feedbackInfo->has('identityProvider')) {
-            /** @var IdentityProvider $idp */
-            $idp = $this->metadataRepository->findIdentityProviderByEntityId($feedbackInfo->get('identityProvider'));
-            if ($idp) {
-                foreach ($idp->contactPersons as $contactPerson) {
-                    if ($contactPerson->contactType === 'support' && !empty($contactPerson->emailAddress)) {
-                        return $contactPerson->emailAddress;
-                    }
-                }
-                $this->application->getLogInstance()->info(
-                    'Showing de IdP support contact mailto link failed, no support email address was found in the IdP metadata'
-                );
+        $session = $this->application->getSession();
+        $feedbackInfo = $session->get('feedbackInfo');
+        
+        // Early return if no identity provider in feedback info
+        if (empty($feedbackInfo['identityProvider'])) {
+            return '';
+        }
+        
+        /** @var IdentityProvider $idp */
+        $idp = $this->metadataRepository->findIdentityProviderByEntityId($feedbackInfo['identityProvider']);
+        
+        if (!$idp || empty($idp->contactPersons)) {
+            return '';
+        }
+        
+        // Find support contact with email address
+        foreach ($idp->contactPersons as $contactPerson) {
+            if ($contactPerson->contactType === 'support' && !empty($contactPerson->emailAddress)) {
+                return $contactPerson->emailAddress;
             }
         }
+        
         return '';
     }
 
@@ -182,20 +189,20 @@ class Feedback extends AbstractExtension
     {
         $session = $this->application->getSession();
         $feedbackInfo = $session->get('feedbackInfo');
-        // If AuthnFailedResponse is not set, we are unable to render a createAuthnFailedResponse
-        $sspResponse = $feedbackInfo['AuthnFailedResponse'] ?? null;
-        $value = '';
-        if (!is_null($sspResponse)) {
-            // Compose the Saml error response that can be used to travel back to the SP
-            $value = $this->samlResponseHelper->createAuthnFailedResponse(
-                $feedbackInfo['serviceProvider'],
-                $feedbackInfo['identityProvider'],
-                $feedbackInfo['requestId'],
-                $feedbackInfo['statusMessage'] ?? '',
-                $sspResponse
-            );
+        
+        // Early return if AuthnFailedResponse is not set
+        if (empty($feedbackInfo['AuthnFailedResponse'])) {
+            return '';
         }
-        return $value;
+        
+        // Compose the Saml error response that can be used to travel back to the SP
+        return $this->samlResponseHelper->createAuthnFailedResponse(
+            $feedbackInfo['serviceProvider'],
+            $feedbackInfo['identityProvider'],
+            $feedbackInfo['requestId'],
+            $feedbackInfo['statusMessage'] ?? '',
+            $feedbackInfo['AuthnFailedResponse']
+        );
     }
 
     /**
@@ -207,28 +214,38 @@ class Feedback extends AbstractExtension
     {
         $session = $this->application->getSession();
         $feedbackInfo = $session->get('feedbackInfo');
-        $feedbackInfoMap = new FeedbackInformationMap();
-
-        // Remove the empty valued feedback info entries.
-        if (!empty($feedbackInfo)) {
-            foreach ($feedbackInfo as $key => $value) {
-                if (empty($value)) {
-                    unset($feedbackInfo[$key]);
-                    continue;
-                }
-                if ($value instanceof Issuer) {
-                    $value = $value->getValue();
-                }
-                if ($key === 'AuthnFailedResponse') {
-                    // Don't show the AuthnFailedResponse base64 encoded response message in the feedback info table
-                    continue;
-                }
-                $feedbackInfoMap->add(new FeedbackInformation($key, $value));
-            }
+        
+        // Early return if no feedback info exists
+        if (empty($feedbackInfo)) {
+            return new FeedbackInformationMap();
         }
-
-        $feedbackInfoMap->sort();
-
+        
+        $feedbackInfoMap = new FeedbackInformationMap();
+        
+        foreach ($feedbackInfo as $key => $value) {
+            // Skip AuthnFailedResponse as it should not be shown in feedback info table
+            if ($key === 'AuthnFailedResponse') {
+                continue;
+            }
+            
+            // Skip empty values
+            if (empty($value)) {
+                continue;
+            }
+            
+            // Convert Issuer objects to their string value
+            if ($value instanceof Issuer) {
+                $value = $value->getValue();
+            }
+            
+            $feedbackInfoMap->add(new FeedbackInformation($key, $value));
+        }
+        
+        // Only sort if there are items in the map
+        if (!$feedbackInfoMap->isEmpty()) {
+            $feedbackInfoMap->sort();
+        }
+        
         return $feedbackInfoMap;
     }
 }

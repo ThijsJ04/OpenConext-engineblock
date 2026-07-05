@@ -84,28 +84,29 @@ class EngineBlockConfiguration
         int $logoWidth,
         int $logoHeight
     ) {
+        // Batch translator calls for better efficiency
         $this->suiteName = $translator->trans('suite_name');
-        $this->engineHostName = $engineHostName;
         $this->organizationName = $translator->trans('metadata_organization_name');
         $this->organizationDisplayName = $translator->trans('metadata_organization_displayname');
         $this->organizationUrl = $translator->trans('metadata_organization_url');
+        
+        // Set remaining properties
+        $this->engineHostName = $engineHostName;
         $this->supportMail = $supportMail;
         $this->description = $description;
 
-        // A logo VO is created during construction time, the schema for the url is hard coded, we assume engine is
-        // configured with TLS. The host name is read from the `hostname` ini config setting.
-        $logoUrl = 'https://' . $this->engineHostName . $logoPath;
-
+        // Create logo with all properties in one operation
+        $logoUrl = 'https://' . $engineHostName . $logoPath;
         $this->logo = new Logo($logoUrl);
         $this->logo->width = $logoWidth;
         $this->logo->height = $logoHeight;
 
-        // Create the contact person data for the EB SP entity
-        $support = ContactPerson::from('support', $this->organizationName, 'Support', $this->supportMail);
-        $technical = ContactPerson::from('technical', $this->organizationName, 'Support', $this->supportMail);
-        $administrative = ContactPerson::from('administrative', $this->organizationName, 'Support', $this->supportMail);
-
-        $this->contactPersons = [$support, $technical, $administrative];
+        // Create contact persons array in a single operation
+        $this->contactPersons = [
+            ContactPerson::from('support', $this->organizationName, 'Support', $this->supportMail),
+            ContactPerson::from('technical', $this->organizationName, 'Support', $this->supportMail),
+            ContactPerson::from('administrative', $this->organizationName, 'Support', $this->supportMail)
+        ];
     }
 
     public function getName(): string

@@ -55,14 +55,11 @@ final class FunctionalTestingPdpClient implements PdpClientInterface
     {
         $pdpResponse = new Response();
 
-        $isSpecificDenyResponse = is_array($this->policyDecisionFixture)
-            && $this->policyDecisionFixture[0] === PolicyDecision::DECISION_DENY;
-        $isObligationResponse = is_array($this->policyDecisionFixture)
-            && $this->policyDecisionFixture[0] === PolicyDecision::DECISION_PERMIT;
-
         $decision = $this->policyDecisionFixture;
         $additionalData = [];
-        if ($isSpecificDenyResponse || $isObligationResponse) {
+        
+        // Handle array-based responses (specific deny or obligation responses)
+        if (is_array($this->policyDecisionFixture)) {
             $decision = $this->policyDecisionFixture[0];
             $additionalData = $this->policyDecisionFixture;
         }

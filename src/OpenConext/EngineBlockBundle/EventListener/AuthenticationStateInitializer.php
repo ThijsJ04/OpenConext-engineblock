@@ -40,19 +40,16 @@ final class AuthenticationStateInitializer
     public function onKernelController(ControllerEvent $event): void
     {
         $controller = $event->getController();
+        if (!is_array($controller) && !$controller instanceof AuthenticationLoopThrottlingController) {
+            return;
+        }
+
         if (is_array($controller)) {
             $controller = $controller[0];
         }
 
-        if (!$controller instanceof AuthenticationLoopThrottlingController) {
-            return;
-        }
-
-        $authenticationState = $this->session->get('authentication_state');
-        if ($authenticationState === null) {
-            $authenticationLoopGuard = $this->getAuthenticationLoopGuard();
-
-            $this->session->set('authentication_state', new AuthenticationState($authenticationLoopGuard));
+        if ($this->session->get('authentication_state') === null) {
+            $this->session->set('authentication_state', new AuthenticationState($this->getAuthenticationLoopGuard()));
         }
     }
 

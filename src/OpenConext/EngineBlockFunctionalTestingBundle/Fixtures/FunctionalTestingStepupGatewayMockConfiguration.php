@@ -55,19 +55,26 @@ final class FunctionalTestingStepupGatewayMockConfiguration
 
         $keysConfig = $engineBlockApplicationSingleton->getDiContainer()->getEncryptionKeysConfiguration();
 
-        // Set gateway configured IDP
-        $mockEbIdp = $this->mockIdentityProviderFactory->createNew('Stepup gateway');
-        $mockEbIdp->setEntityId('https://engine.dev.openconext.local/authentication/stepup/metadata');
-        $mockEbIdp->setPrivateKey($keysConfig['default']['privateFile']);
-        $mockEbIdp->setCertificate($keysConfig['default']['publicFile']);
+        $this->setupIdentityProvider($keysConfig);
+        $this->setupServiceProvider();
+    }
 
-        $this->mockIdentityProvider = $mockEbIdp;
+    private function setupIdentityProvider(array $keysConfig): void
+    {
+        $identityProvider = $this->mockIdentityProviderFactory->createNew('Stepup gateway');
+        $identityProvider->setEntityId('https://engine.dev.openconext.local/authentication/stepup/metadata');
+        $identityProvider->setPrivateKey($keysConfig['default']['privateFile']);
+        $identityProvider->setCertificate($keysConfig['default']['publicFile']);
 
-        // Set gateway configured SP
-        $mockSp = $this->mockServiceProviderFactory->createNew('ebStepupSp');
-        $mockSp->setEntityId('https://engine.dev.openconext.local/authentication/stepup/metadata');
+        $this->mockIdentityProvider = $identityProvider;
+    }
 
-        $this->mockServiceProvider = $mockSp;
+    private function setupServiceProvider(): void
+    {
+        $serviceProvider = $this->mockServiceProviderFactory->createNew('ebStepupSp');
+        $serviceProvider->setEntityId('https://engine.dev.openconext.local/authentication/stepup/metadata');
+
+        $this->mockServiceProvider = $serviceProvider;
     }
 
     public function getIdentityProviderEntityId() : string

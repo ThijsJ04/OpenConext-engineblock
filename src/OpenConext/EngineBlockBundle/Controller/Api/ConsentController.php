@@ -81,16 +81,13 @@ final class ConsentController
      */
     public function userAction($userId, Request $request)
     {
-        if (!$request->isMethod(Request::METHOD_GET)) {
+        if ($request->getMethod() !== Request::METHOD_GET) {
             throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_GET]);
         }
 
-        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent')) {
-            throw new ApiNotFoundHttpException('Consent feature is disabled');
-        }
-
-        if (!$this->featureConfiguration->isEnabled('api.consent_listing')) {
-            throw new ApiNotFoundHttpException('Consent listing API is disabled');
+        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent') || 
+            !$this->featureConfiguration->isEnabled('api.consent_listing')) {
+            throw new ApiNotFoundHttpException('Consent feature or API is disabled');
         }
 
         $this->assertAuthorized();
@@ -99,11 +96,7 @@ final class ConsentController
             $consentList = $this->consentService->findAllFor($userId)->jsonSerialize();
         } catch (RuntimeException $e) {
             throw new ApiInternalServerErrorHttpException(
-                sprintf(
-                    'An unknown error occurred while fetching a list of services the user has given consent for to ' .
-                    'release attributes to ("%s")',
-                    $e->getMessage()
-                ),
+                'An unknown error occurred while fetching consent list: ' . $e->getMessage(),
                 $e
             );
         }
@@ -116,24 +109,21 @@ final class ConsentController
      */
     public function removeAction(Request $request): JsonResponse
     {
-        if (!$request->isMethod(Request::METHOD_POST)) {
+        if ($request->getMethod() !== Request::METHOD_POST) {
             throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_POST]);
         }
 
-        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent')) {
-            throw new ApiNotFoundHttpException('Consent feature is disabled');
-        }
-
-        if (!$this->featureConfiguration->isEnabled('api.consent_remove')) {
-            throw new ApiNotFoundHttpException('Consent remove API is disabled');
+        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent') ||
+            !$this->featureConfiguration->isEnabled('api.consent_remove')) {
+            throw new ApiNotFoundHttpException('Consent feature or remove API is disabled');
         }
 
         $this->assertAuthorized();
 
-        // The data is posted json encoded from EngineBlock
+        // Validate and decode JSON data
         $data = json_decode($request->getContent(), true);
-        if (!$data || !array_key_exists('collabPersonId', $data) || !array_key_exists('serviceProviderEntityId', $data)) {
-            return new JsonResponse('The required data for removing the consent is not present in the request parameters json', Response::HTTP_FOUND);
+        if (!is_array($data) || !isset($data['collabPersonId'], $data['serviceProviderEntityId'])) {
+            return new JsonResponse('Required consent removal data is missing or invalid', Response::HTTP_FOUND);
         }
 
         $userId = $data['collabPersonId'];
@@ -144,11 +134,7 @@ final class ConsentController
             $removed = $this->consentService->deleteOneConsentFor($user, $serviceProviderEntityId);
         } catch (RuntimeException $e) {
             throw new ApiInternalServerErrorHttpException(
-                sprintf(
-                    'An unknown error occurred while removing a service the user has given consent for to ' .
-                    'release attributes to ("%s")',
-                    $e->getMessage()
-                ),
+                'Failed to remove consent: ' . $e->getMessage(),
                 $e
             );
         }

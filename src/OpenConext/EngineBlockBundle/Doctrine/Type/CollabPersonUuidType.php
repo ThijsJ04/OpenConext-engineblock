@@ -35,17 +35,15 @@ class CollabPersonUuidType extends Type
 
     public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
     {
-        if (is_null($value)) {
-            return $value;
+        if ($value === null) {
+            return null;
         }
 
         if (!$value instanceof CollabPersonUuid) {
-            $valueForMessage = $this->getValueForExceptionMessage($value);
             throw new ConversionException(
                 sprintf(
-                    'Value "%s" must be null or an instance of CollabPersonUuid to be able to ' .
-                    'convert it to a database value',
-                    $valueForMessage
+                    'Value "%s" must be null or an instance of CollabPersonUuid to be able to convert it to a database value',
+                    $this->getValueForExceptionMessage($value)
                 )
             );
         }
@@ -55,25 +53,24 @@ class CollabPersonUuidType extends Type
 
     public function convertToPHPValue($value, AbstractPlatform $platform): mixed
     {
-        if (is_null($value)) {
-            return $value;
+        if ($value === null) {
+            return null;
         }
 
         try {
-            $collabPersonUuid = new CollabPersonUuid($value);
+            return new CollabPersonUuid($value);
         } catch (InvalidArgumentException $e) {
-            // get nice standard message, so we can throw it keeping the exception chain
-            $doctrineExceptionMessage = sprintf(
-                'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
-                $value,
-                $this->getName(),
-                'valid UUIDv4'
+            throw new ConversionException(
+                sprintf(
+                    'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
+                    $value,
+                    $this->getName(),
+                    'valid UUIDv4'
+                ),
+                0,
+                $e
             );
-
-            throw new ConversionException($doctrineExceptionMessage, 0, $e);
         }
-
-        return $collabPersonUuid;
     }
 
     public function getName(): string

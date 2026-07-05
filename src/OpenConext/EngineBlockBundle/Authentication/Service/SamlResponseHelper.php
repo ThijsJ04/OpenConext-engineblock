@@ -47,23 +47,24 @@ class SamlResponseHelper
     ): string {
         $response = new SAMLResponse();
         $response->setDestination($this->getAcu($spEntityId));
-        $response->setIssuer($originalResponse->getIssuer());
         $response->setIssueInstant(time());
         $response->setInResponseTo($originalRequestId);
+        
         $status = $originalResponse->getStatus();
         $response->setStatus([
-            'Code' => array_key_exists('Code', $status) ? $status['Code'] : Constants::STATUS_RESPONDER,
-            'SubCode' => array_key_exists('SubCode', $status) ? $status['SubCode'] : Constants::STATUS_AUTHN_FAILED,
+            'Code' => $status['Code'] ?? Constants::STATUS_RESPONDER,
+            'SubCode' => $status['SubCode'] ?? Constants::STATUS_AUTHN_FAILED,
             'Message' => $message
         ]);
 
-        // Copy of behavior found in: https://github.com/OpenConext/OpenConext-engineblock/blob/8aea9cdaa8162d92b391c35c7c66ce6802273f72/library/EngineBlock/Corto/ProxyServer.php#L582-L598
+        // Set issuer based on transparent issuer check
         $serviceProvider = $this->metaDataRepository->findServiceProviderByEntityId($spEntityId);
-        $isTransparant = $serviceProvider->getCoins()->isTransparentIssuer();
-        if ($isTransparant) {
+        if ($serviceProvider->getCoins()->isTransparentIssuer()) {
             $issuer = new Issuer();
             $issuer->setValue($originalResponse->getOriginalIssuer());
             $response->setIssuer($issuer);
+        } else {
+            $response->setIssuer($originalResponse->getIssuer());
         }
 
         return base64_encode($response->toUnsignedXML()->ownerDocument->saveXML());
@@ -72,17 +73,21 @@ class SamlResponseHelper
     public function getAcu(string $spEntityId)
     {
         $sp = $this->metaDataRepository->findServiceProviderByEntityId($spEntityId);
-        if ($sp) {
-            $acsLocations = $sp->assertionConsumerServices;
-            foreach ($acsLocations as $acsLocation) {
-                if ($acsLocation->binding === Constants::BINDING_HTTP_POST) {
-                    return $acsLocation->location;
-                }
-            }
+        if (!$sp) {
+            throw new RuntimeException(
+                sprintf('The SP with entity id "%s" could not be found while building the error response', $spEntityId)
+            );
+        }
+
+        $acsLocations = $sp->assertionConsumerServices;
+        $httpPostAcs = array_filter($acsLocations, function($acsLocation) {
+            return $acsLocation->binding === Constants::BINDING_HTTP_POST;
+        });
+
+        if (empty($httpPostAcs)) {
             throw new RuntimeException('No suitable ACS location could be find, no HTTP-POST binding available');
         }
-        throw new RuntimeException(
-            sprintf('The SP with entity id "%s" could not be found while building the error response', $spEntityId)
-        );
+
+        return reset($httpPostAcs)->location;
     }
 }

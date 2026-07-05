@@ -78,6 +78,9 @@ final class DeprovisionService implements DeprovisionServiceInterface
             return [];
         }
 
+        $persistentIds = $this->findPersistentIds($user);
+        $consent = $this->findConsent($user);
+
         return [
             [
                 'name'  => 'user',
@@ -85,11 +88,11 @@ final class DeprovisionService implements DeprovisionServiceInterface
             ],
             [
                 'name'  => 'saml_persistent_id',
-                'value' => $this->findPersistentIds($user),
+                'value' => $persistentIds,
             ],
             [
                 'name'  => 'consent',
-                'value' => $this->findConsent($user),
+                'value' => $consent,
             ],
         ];
     }
@@ -100,22 +103,19 @@ final class DeprovisionService implements DeprovisionServiceInterface
      */
     private function findPersistentIds(User $user)
     {
-        $idsWithSpEntityId = [];
         $idsWithoutSpEntityId = $this->persistentIdRepository->findByUuid(
             $user->getCollabPersonUuid()
         );
 
-        foreach ($idsWithoutSpEntityId as $id) {
-            $idsWithSpEntityId[] = [
+        return array_map(function ($id) {
+            return [
                 'persistent_id' => $id->persistentId,
                 'user_uuid' => $id->userUuid,
                 'service_provider_entity_id' => $this->serviceProviderUuidRepository->findEntityIdByUuid(
                     $id->serviceProviderUuid
                 ),
             ];
-        }
-
-        return $idsWithSpEntityId;
+        }, $idsWithoutSpEntityId);
     }
 
     /**

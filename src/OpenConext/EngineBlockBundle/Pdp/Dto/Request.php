@@ -61,45 +61,46 @@ final class Request implements JsonSerializable
         Assertion::allIsArray($responseAttributes, 'The values of the Response attributes must be arrays');
 
         $request = new self;
-
-        $subjectIdAttribute = new Attribute;
-        $subjectIdAttribute->attributeId = NameIdFormat::UNSPECIFIED;
-        $subjectIdAttribute->value = $subjectId;
-
         $request->accessSubject = new AccessSubject;
-        $request->accessSubject->attributes = [$subjectIdAttribute];
-
-        $clientIdAttribute  = new Attribute;
-        $clientIdAttribute->attributeId = 'ClientID';
-        $clientIdAttribute->value = $clientId;
-
-        $spEntityIdAttribute  = new Attribute;
-        $spEntityIdAttribute->attributeId = 'SPentityID';
-        $spEntityIdAttribute->value = $spEntityId;
-
-        $idpEntityIdAttribute = new Attribute;
-        $idpEntityIdAttribute->attributeId = 'IDPentityID';
-        $idpEntityIdAttribute->value = $idpEntityId;
-
         $request->resource = new Resource;
-        $request->resource->attributes = [$clientIdAttribute, $spEntityIdAttribute, $idpEntityIdAttribute];
 
+        // Initialize access subject attributes with subject ID
+        $accessSubjectAttributes = [
+            self::createAttribute(NameIdFormat::UNSPECIFIED, $subjectId)
+        ];
+
+        // Initialize resource attributes
+        $resourceAttributes = [
+            self::createAttribute('ClientID', $clientId),
+            self::createAttribute('SPentityID', $spEntityId),
+            self::createAttribute('IDPentityID', $idpEntityId)
+        ];
+
+        // Add response attributes to access subject
         foreach ($responseAttributes as $id => $values) {
             foreach ($values as $value) {
-                $attribute = new Attribute;
-                $attribute->attributeId = $id;
-                $attribute->value = $value;
-
-                $request->accessSubject->attributes[] = $attribute;
+                $accessSubjectAttributes[] = self::createAttribute($id, $value);
             }
         }
 
-        $attribute = new Attribute;
-        $attribute->attributeId = 'urn:mace:surfnet.nl:collab:xacml-attribute:ip-address';
-        $attribute->value = $remoteIp;
-        $request->accessSubject->attributes[] = $attribute;
+        // Add IP address attribute
+        $accessSubjectAttributes[] = self::createAttribute(
+            'urn:mace:surfnet.nl:collab:xacml-attribute:ip-address',
+            $remoteIp
+        );
+
+        $request->accessSubject->attributes = $accessSubjectAttributes;
+        $request->resource->attributes = $resourceAttributes;
 
         return $request;
+    }
+
+    private static function createAttribute(string $attributeId, string $value): Attribute
+    {
+        $attribute = new Attribute;
+        $attribute->attributeId = $attributeId;
+        $attribute->value = $value;
+        return $attribute;
     }
 
     public function jsonSerialize() : array

@@ -283,10 +283,12 @@ class FeedbackController
      */
     public function invalidAttributeValueAction(Request $request)
     {
-        $feedbackInfo = $request->getSession()->get('feedbackInfo');
+        $session = $request->getSession();
+        $feedbackInfo = $session->get('feedbackInfo', []);
 
-        $attributeName = $feedbackInfo['attributeName'];
-        $attributeValue = $feedbackInfo['attributeValue'];
+        // Extract required values with null coalescing for safety
+        $attributeName = $feedbackInfo['attributeName'] ?? null;
+        $attributeValue = $feedbackInfo['attributeValue'] ?? null;
 
         return new Response(
             $this->twig->render(
@@ -309,23 +311,12 @@ class FeedbackController
      */
     public function metadataEntityNotFoundAction(Request $request)
     {
-        // The exception message is used on the error page. As mostly developers or other tech-savvy people will see
-        // this message. The ExceptionListener is responsible for setting the message on the feedback_custom field.
-        $session = $request->getSession();
-        if ($session->has('feedback_custom')) {
-            $message = $session->get('feedback_custom');
-        } else {
-            // This should never occur, when it does, this error page is called from outside the application context
-            // or the exception that shows this page was triggered elsewhere in code without a message.
-            $message = 'More elaborate error details could not be found..';
-        }
+        $message = $request->getSession()->get('feedback_custom', 'More elaborate error details could not be found..');
 
         return new Response(
             $this->twig->render(
                 '@theme/Authentication/View/Feedback/metadata-entity-not-found.html.twig',
-                [
-                    'message' => $message,
-                ]
+                ['message' => $message]
             ),
             404
         );
@@ -443,19 +434,16 @@ class FeedbackController
         $logo = null;
         $policyDecisionMessage = null;
 
-        $session = $request->getSession();
-        if ($session->has('error_authorization_policy_decision')) {
+        if ($request->getSession()->has('error_authorization_policy_decision')) {
             /** @var PolicyDecision $policyDecision */
-            $policyDecision = $session->get('error_authorization_policy_decision');
+            $policyDecision = $request->getSession()->get('error_authorization_policy_decision');
 
-            if ($policyDecision->hasLocalizedDenyMessage()) {
-                $policyDecisionMessage = $policyDecision->getLocalizedDenyMessage($locale, 'en');
-            } elseif ($policyDecision->hasStatusMessage()) {
-                $policyDecisionMessage = $policyDecision->getStatusMessage();
-            }
+            $policyDecisionMessage = $policyDecision->hasLocalizedDenyMessage()
+                ? $policyDecision->getLocalizedDenyMessage($locale, 'en')
+                : ($policyDecision->hasStatusMessage() ? $policyDecision->getStatusMessage() : null);
+            
             $logo = $policyDecision->getIdpLogo();
         }
-
 
         return new Response(
             $this->twig->render(
@@ -542,23 +530,12 @@ class FeedbackController
      */
     public function noAuthenticationRequestReceivedAction(Request $request)
     {
-        // The exception message is used on the error page. As mostly developers or other tech-savvy people will see
-        // this message. The ExceptionListener is responsible for setting the message on the feedback_custom field.
-        $session = $request->getSession();
-        if ($session->has('feedback_custom')) {
-            $message = $session->get('feedback_custom');
-        } else {
-            // This should never occur, when it does, this error page is called from outside the application context
-            // or the exception that shows this page was triggered elsewhere in code without a message.
-            $message = 'More elaborate error details could not be found..';
-        }
+        $message = $request->getSession()->get('feedback_custom', 'More elaborate error details could not be found..');
 
         return new Response(
             $this->twig->render(
                 '@theme/Authentication/View/Feedback/no-authentication-request-received.html.twig',
-                [
-                    'message' => $message,
-                ]
+                ['message' => $message]
             ),
             400
         );

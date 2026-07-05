@@ -111,15 +111,17 @@ class MetadataProvider
         ?string $spEntityId,
         ?string $keyId
     ): string {
+        $identityProviders = null;
 
         if ($spEntityId) {
             // See if an sp-entity-id was specified for which we need to use sp specific metadata
             $spEntity = $this->metadataRepository->fetchServiceProviderByEntityId($spEntityId);
-            if (!$spEntity->allowAll) {
+            if ($spEntity && !$spEntity->allowAll) {
                 $identityProviders = $this->metadataRepository->findIdentityProvidersByEntityId($spEntity->allowedIdpEntityIds, $keyId);
             }
         }
-        if (!isset($identityProviders)) {
+
+        if ($identityProviders === null) {
             $identityProviders = $this->metadataRepository->findIdentityProviders($keyId);
         }
 

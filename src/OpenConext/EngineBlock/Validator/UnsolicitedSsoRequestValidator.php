@@ -34,13 +34,12 @@ class UnsolicitedSsoRequestValidator implements RequestValidator
 
     public function isValid(Request $request)
     {
-        $requestMethod = $request->getMethod();
         // Defense in depth; anything other than GET is probably already rejected at routing time.
-        if (!in_array($requestMethod, $this->supportedRequestMethods)) {
+        if ($request->getMethod() !== Request::METHOD_GET) {
             throw new RuntimeException(
                 sprintf(
                     'The HTTP request method "%s" is not supported on the IdP initiated SSO endpoint',
-                    $requestMethod
+                    $request->getMethod()
                 )
             );
         }

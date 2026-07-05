@@ -142,56 +142,36 @@ class IdentityProvider extends AbstractRole
         ?string $defaultRAC = null,
         bool $policyEnforcementDecisionRequired = false
     ) {
-        if (is_null($mdui)) {
-            $mdui = Mdui::emptyMdui();
-        }
-        parent::__construct(
-            $entityId,
-            $mdui,
-            $organizationEn,
-            $organizationNl,
-            $organizationPt,
-            $singleLogoutService,
-            $certificates,
-            $contactPersons,
-            $descriptionEn,
-            $descriptionNl,
-            $descriptionPt,
-            $displayNameEn,
-            $displayNameNl,
-            $displayNamePt,
-            $keywordsEn,
-            $keywordsNl,
-            $keywordsPt,
-            $logo,
-            $nameEn,
-            $nameNl,
-            $namePt,
-            $nameIdFormat,
-            $supportedNameIdFormats,
-            $requestsMustBeSigned,
-            $workflowState,
-            $manipulation
-        );
+        $mdui = $mdui ?? Mdui::emptyMdui();
+        
+        // Prepare parent constructor parameters
+        $parentParams = [
+            $entityId, $mdui, $organizationEn, $organizationNl, $organizationPt,
+            $singleLogoutService, $certificates, $contactPersons,
+            $descriptionEn, $descriptionNl, $descriptionPt,
+            $displayNameEn, $displayNameNl, $displayNamePt,
+            $keywordsEn, $keywordsNl, $keywordsPt,
+            $logo, $nameEn, $nameNl, $namePt,
+            $nameIdFormat, $supportedNameIdFormats,
+            $requestsMustBeSigned, $workflowState, $manipulation
+        ];
+        
+        parent::__construct(...$parentParams);
 
+        // Set properties efficiently
         $this->enabledInWayf = $enabledInWayf;
         $this->shibMdScopes = $shibMdScopes;
         $this->singleSignOnServices = $singleSignOnServices;
         $this->consentSettings = $consentSettings;
 
+        // Create Coins object with optimized parameter passing
         $this->coins = Coins::createForIdentityProvider(
-            $guestQualifier,
-            $schacHomeOrganization,
-            $hidden,
-            $stepupConnections,
-            $disableScoping,
-            $additionalLogging,
-            $signatureMethod,
-            $mfaEntities,
-            $defaultRAC,
-            $policyEnforcementDecisionRequired
+            $guestQualifier, $schacHomeOrganization, $hidden, $stepupConnections,
+            $disableScoping, $additionalLogging, $signatureMethod, $mfaEntities,
+            $defaultRAC, $policyEnforcementDecisionRequired
         );
 
+        // Validate and set discoveries in one step
         $this->assertAllDiscoveries($discoveries);
         $this->discoveries = $discoveries;
     }
@@ -210,18 +190,14 @@ class IdentityProvider extends AbstractRole
      */
     public function getDisplayName($preferredLocale = '')
     {
-        $idpName = '';
-        if ($preferredLocale === 'nl') {
-            $idpName = $this->nameNl;
-        } elseif ($preferredLocale === 'en') {
-            $idpName = $this->nameEn;
-        } elseif ($preferredLocale === 'pt') {
-            $idpName = $this->namePt;
-        }
-        if (empty($idpName)) {
-            $idpName = $this->entityId;
-        }
-        return $idpName;
+        $idpName = match ($preferredLocale) {
+            'nl' => $this->nameNl,
+            'en' => $this->nameEn,
+            'pt' => $this->namePt,
+            default => '',
+        };
+        
+        return empty($idpName) ? $this->entityId : $idpName;
     }
 
     /**
@@ -271,31 +247,41 @@ class IdentityProvider extends AbstractRole
 
     private function ensureDiscoveriesDeserialized(): void
     {
-        if (!is_array($this->discoveries)) {
-            $this->discoveries = [];
-            return;
-        }
-
-        foreach ($this->discoveries as $index => $discovery) {
+        $this->discoveries = array_values(array_filter(array_map(function ($discovery) {
             try {
-                if (!$discovery instanceof Discovery) {
-                    $logo = null;
-                    if (isset($discovery['logo']) && is_array($discovery['logo'])) {
-                        $logo = new Logo($discovery['logo']['url']);
-                        $logo->width = $discovery['logo']['width'];
-                        $logo->height = $discovery['logo']['height'];
-                    }
-
-                    $this->discoveries[$index] = Discovery::create(
-                        $discovery['names'] ?? [],
-                        $discovery['keywords'] ?? [],
-                        $logo
-                    );
+                if ($discovery instanceof Discovery) {
+                    return $discovery;
                 }
+                
+                return $this->createDiscoveryFromArray($discovery);
             } catch (InvalidDiscoveryException $e) {
-                unset($this->discoveries[$index]);
+                return null;
             }
+        }, $this->discoveries ?? [])));
+    }
+
+    private function createDiscoveryFromArray(array $discoveryData): Discovery
+    {
+        $logo = $this->createLogoFromArray($discoveryData['logo'] ?? null);
+        
+        return Discovery::create(
+            $discoveryData['names'] ?? [],
+            $discoveryData['keywords'] ?? [],
+            $logo
+        );
+    }
+
+    private function createLogoFromArray(?array $logoData): ?Logo
+    {
+        if (!$logoData) {
+            return null;
         }
+        
+        $logo = new Logo($logoData['url']);
+        $logo->width = $logoData['width'] ?? null;
+        $logo->height = $logoData['height'] ?? null;
+        
+        return $logo;
     }
 
     private function assertAllDiscoveries(array $discoveries): void
@@ -310,16 +296,19 @@ class IdentityProvider extends AbstractRole
     /**
      * Certificates are not available on the object after deserialisation!
      *
-     * @return array
+     * @return string[]
      */
     public function __sleep()
     {
         return [
+            // IdentityProvider specific properties
             'enabledInWayf',
             'singleSignOnServices',
             'consentSettings',
             'shibMdScopes',
             'discoveries',
+            
+            // Inherited from AbstractRole - core properties
             'id',
             'entityId',
             'nameNl',

@@ -59,40 +59,33 @@ class ErrorReporter
     public function reportError(Exception $exception, $messageSuffix)
     {
         $logContext = ['exception' => $exception];
-
-        if ($exception instanceof EngineBlock_Exception) {
-            $severity = $exception->getSeverity();
-        } else {
-            $severity = EngineBlock_Exception::CODE_ERROR;
-        }
+        $severity = $exception instanceof EngineBlock_Exception 
+            ? $exception->getSeverity() 
+            : EngineBlock_Exception::CODE_ERROR;
 
         // unwrap the exception stack
+        $previousExceptions = [];
         $prevException = $exception;
         while ($prevException = $prevException->getPrevious()) {
-            if (!isset($logContext['previous_exceptions'])) {
-                $logContext['previous_exceptions'] = [];
-            }
-
-            $logContext['previous_exceptions'][] = (string)$prevException;
+            $previousExceptions[] = (string)$prevException;
+        }
+        
+        if (!empty($previousExceptions)) {
+            $logContext['previous_exceptions'] = $previousExceptions;
         }
 
         // message building
         $message = $exception->getMessage();
         if (empty($message)) {
             $message = 'Exception without message "' . get_class($exception) . '"';
-        }
-
-        if ($messageSuffix) {
+        } elseif ($messageSuffix) {
             $message .= ' | ' . $messageSuffix;
         }
 
         $this->logger->log($severity, $message, $logContext);
 
         // Store some valuable debug info in session so it can be displayed on feedback pages
-        $feedback = $this->session->get('feedbackInfo');
-        if (empty($feedback)) {
-            $feedback = [];
-        }
+        $feedback = $this->session->get('feedbackInfo', []);
 
         if ($exception instanceof EngineBlock_Corto_Exception_HasFeedbackInfoInterface) {
             $feedback = array_merge($feedback, $exception->getFeedbackInfo());

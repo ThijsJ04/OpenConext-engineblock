@@ -64,60 +64,57 @@ final class Request implements JsonSerializable
         Assertion::string($subjectId, 'The SubjectId must be a string, received "%s" (%s)');
         Assertion::allIsInstanceOf($rules, AttributeRule::class, 'All attributes must be of type AttributeRule');
 
-        // Filter the non string valued attributes
-        $attributes = self::filterNonStringValuesFromAttributes($attributes);
+        // Filter the non string valued attributes using a more efficient approach
+        $filteredAttributes = [];
+        foreach ($attributes as $name => $values) {
+            $allStrings = true;
+            foreach ($values as $value) {
+                if (!is_string($value)) {
+                    $allStrings = false;
+                    break;
+                }
+            }
+            if ($allStrings) {
+                $filteredAttributes[$name] = $values;
+            }
+        }
 
-        $request = new self;
+        $request = new self();
         $request->spEntityId = $spEntityId;
         $request->idpEntityId = $idpEntityId;
         $request->subjectId = $subjectId;
-        $request->attributes = $attributes;
+        $request->attributes = $filteredAttributes;
         $request->rules = $rules;
 
         return $request;
     }
 
-    private static function filterNonStringValuesFromAttributes($attributes)
-    {
-        return array_filter($attributes, function ($attributeValues) {
-            foreach ($attributeValues as $attributeValue) {
-                if (!is_string($attributeValue)) {
-                    return false;
-                }
-            }
-            return true;
-        });
-    }
-
     public function jsonSerialize(): mixed
     {
+        $userAttributes = [
+            [
+                'name' => 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified',
+                'values' => [$this->subjectId],
+            ],
+            [
+                'name' => 'SPentityID',
+                'values' => [$this->spEntityId],
+            ],
+            [
+                'name' => 'IDPentityID',
+                'values' => [$this->idpEntityId],
+            ]
+        ];
+
+        foreach ($this->attributes as $name => $values) {
+            $userAttributes[] = [
+                'name' => $name,
+                'values' => $values,
+            ];
+        }
+
         return [
-            'userAttributes' => array_merge(
-                [
-                    [
-                        'name' => 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified',
-                        'values' => [$this->subjectId],
-                    ],
-                    [
-                        'name' => 'SPentityID',
-                        'values' => [$this->spEntityId],
-                    ],
-                    [
-                        'name' => 'IDPentityID',
-                        'values' => [$this->idpEntityId],
-                    ]
-                ],
-                array_map(
-                    function ($values, $name) {
-                        return [
-                            'name' => $name,
-                            'values' => $values,
-                        ];
-                    },
-                    $this->attributes,
-                    array_keys($this->attributes)
-                )
-            ),
+            'userAttributes' => $userAttributes,
             'arpAttributes' => $this->getAttributeRulesByName(),
         ];
     }
@@ -131,6 +128,9 @@ final class Request implements JsonSerializable
     {
         $attributes = [];
         foreach ($this->rules as $rule) {
+            if (!isset($attributes[$rule->name])) {
+                $attributes[$rule->name] = [];
+            }
             $attributes[$rule->name][] = [
                 'value' => $rule->value,
                 'source' => $rule->source,

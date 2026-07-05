@@ -39,18 +39,22 @@ class SsoRequestValidator implements RequestValidator
     public function isValid(Request $request)
     {
         $requestMethod = $request->getMethod();
-        // Defense in depth; anything other than POST and GET are probably already rejected at routing time.
+        
+        // Validate request method
         if (!in_array($requestMethod, $this->supportedRequestMethods)) {
-            // Only Redirect binding is supported for Single Sign On
             throw new InvalidRequestMethodException(
                 sprintf('The HTTP request method "%s" is not supported on this SAML SSO endpoint', $requestMethod)
             );
         }
 
-        if (($requestMethod ===  Request::METHOD_POST && !$request->request->has('SAMLRequest')) ||
-            ($requestMethod ===  Request::METHOD_GET && !$request->query->has('SAMLRequest'))) {
+        // Validate SAMLRequest parameter based on request method
+        $hasSamlRequest = $requestMethod === Request::METHOD_POST
+            ? $request->request->has('SAMLRequest')
+            : $request->query->has('SAMLRequest');
+            
+        if (!$hasSamlRequest) {
             throw new MissingParameterException(
-                sprintf('The parameter "SAMLRequest" is missing on the SAML SSO request')
+                'The parameter "SAMLRequest" is missing on the SAML SSO request'
             );
         }
 

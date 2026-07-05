@@ -97,16 +97,10 @@ class MockIdpContext extends AbstractSubContext
      */
     public function anIdentityProviderNamed($name, string $discoveryName = null)
     {
-        $discoveries = [];
-        if ($discoveryName !== null) {
-            $discoveries[] = Discovery::create(['en' => $discoveryName], [], null);
-        } else {
-            $discoveries[] = Discovery::create(['en' => $name], [], null);
-        }
-
+        $discoveries = [Discovery::create(['en' => $discoveryName ?? $name], [], null)];
+        
         $mockIdp = $this->mockIdpFactory->createNew($name);
-        $this->mockIdpRegistry->set($name, $mockIdp);
-        $this->mockIdpRegistry->save();
+        $this->mockIdpRegistry->set($name, $mockIdp)->save();
         $this->serviceRegistryFixture->registerIdp(
             $name,
             $mockIdp->entityId(),

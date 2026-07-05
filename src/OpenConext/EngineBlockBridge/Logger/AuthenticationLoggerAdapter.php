@@ -66,26 +66,29 @@ class AuthenticationLoggerAdapter
         ?array $requestedIdPlist,
         array $logAttributes = []
     ) {
-        $keyId = $keyId ? new KeyId($keyId) : null;
+        // Pre-create entities to avoid redundant object creation
+        $spEntity = new Entity(new EntityId($serviceProvider->entityId), EntityType::SP());
+        $idpEntity = new Entity(new EntityId($identityProvider->entityId), EntityType::IdP());
+        $collabPersonIdObj = new CollabPersonId($collabPersonId);
+        $keyIdObj = $keyId ? new KeyId($keyId) : null;
 
-        $proxiedSpEntities = array_map(
-            function (ServiceProvider $serviceProvider) {
-                return new Entity(new EntityId($serviceProvider->entityId), EntityType::SP());
-            },
-            $proxiedServiceProviders
-        );
+        // Optimize proxied service providers mapping
+        $proxiedSpEntities = [];
+        foreach ($proxiedServiceProviders as $sp) {
+            $proxiedSpEntities[] = new Entity(new EntityId($sp->entityId), EntityType::SP());
+        }
 
         $this->authenticationLogger->logGrantedLogin(
-            new Entity(new EntityId($serviceProvider->entityId), EntityType::SP()),
-            new Entity(new EntityId($identityProvider->entityId), EntityType::IdP()),
-            new CollabPersonId($collabPersonId),
+            $spEntity,
+            $idpEntity,
+            $collabPersonIdObj,
             $proxiedSpEntities,
             $serviceProvider->workflowState,
             $originalNameId,
             $authnContextClassRef,
             $engineSsoEndpointUsed,
             $requestedIdPlist,
-            $keyId,
+            $keyIdObj,
             $logAttributes
         );
     }

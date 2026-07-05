@@ -40,10 +40,23 @@ class AuthenticationLogger
     }
 
     /**
-     * KeyId is nullable in order to be able to differentiate between asking no specific key,
-     * the default key KeyId('default') and a specific key.
+     * Logs a granted login with comprehensive authentication details.
+     *
+     * KeyId is nullable to differentiate between no specific key, default key, and specific key.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList)
+     *
+     * @param Entity $serviceProvider The service provider entity
+     * @param Entity $identityProvider The identity provider entity
+     * @param CollabPersonId $collabPersonId The collaborator person ID
+     * @param Entity[] $proxiedServiceProviders Array of proxied service provider entities
+     * @param string $workflowState The workflow state
+     * @param string $originalNameId The original name ID
+     * @param string|null $authnContextClassRef The authentication context class reference
+     * @param string|null $engineSsoEndpointUsed The engine SSO endpoint used
+     * @param array|null $requestedIdPlist The requested identity provider list
+     * @param KeyId|null $keyId The key ID (nullable)
+     * @param array $logAttributes Additional log attributes
      */
     public function logGrantedLogin(
         Entity $serviceProvider,
@@ -58,15 +71,15 @@ class AuthenticationLogger
         KeyId $keyId = null,
         array $logAttributes = []
     ) {
-        $proxiedServiceProviderEntityIds = array_map(
-            function (Entity $entity) {
-                return $entity->getEntityId()->getEntityId();
-            },
-            $proxiedServiceProviders
-        );
+        // Extract entity IDs from proxied service providers using foreach for better performance
+        $proxiedServiceProviderEntityIds = [];
+        foreach ($proxiedServiceProviders as $entity) {
+            $proxiedServiceProviderEntityIds[] = $entity->getEntityId()->getEntityId();
+        }
 
         $timestamp = $this->generateTimestamp();
 
+        // Build log data array with all required information
         $logData = [
             'login_stamp' => $timestamp,
             'user_id' => $collabPersonId->getCollabPersonId(),
@@ -80,14 +93,13 @@ class AuthenticationLogger
             'requestedidps' => $requestedIdPlist,
             'engine_sso_endpoint_used' => $engineSsoEndpointUsed
         ];
-        if (!empty($logAttributes)) {
+
+        // Add log attributes if provided
+        if ($logAttributes) {
             $logData['response_attributes'] = $logAttributes;
         }
 
-        $this->logger->info(
-            'login granted',
-            $logData
-        );
+        $this->logger->info('login granted', $logData);
     }
 
     /**

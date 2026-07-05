@@ -112,50 +112,85 @@ class Container extends AbstractContainer
      */
     public function postRedirect($url, $data = []): void
     {
+        $formData = $this->buildFormData($data);
+        $authnRequestXml = $this->processAuthnRequest($data);
+        $responseDebug = $this->processResponseDebug($data);
+
+        $this->response = new Response($this->buildHtmlResponse($url, $formData, $authnRequestXml, $responseDebug));
+    }
+
+    /**
+     * Build form input HTML from data array.
+     *
+     * @param array $data
+     * @return string
+     */
+    private function buildFormData(array $data): string
+    {
         $formData = '';
         foreach ($data as $name => $value) {
             $value = htmlentities($value, ENT_COMPAT, 'utf-8');
-            $formData .= "            <input name=\"$name\" type=\"text\" value=\"$value\" />" . PHP_EOL;
+            $formData .= '            <input name="' . $name . '" type="text" value="' . $value . '" />' . PHP_EOL;
         }
+        return $formData;
+    }
 
+    /**
+     * Process SAMLRequest data and return formatted XML or 'N/A'.
+     *
+     * @param array $data
+     * @return string
+     */
+    private function processAuthnRequest(array $data): string
+    {
         if (isset($data['SAMLRequest'])) {
             $requestXml = base64_decode($data['SAMLRequest']);
-
-            $requestXml = self::formatXml($requestXml);
-
-            $data['authnRequestXml'] = $requestXml;
+            return self::formatXml($requestXml);
         }
-        if (!isset($data['authnRequestXml'])) {
-            $data['authnRequestXml'] = 'N/A';
-        }
+        return 'N/A';
+    }
 
-        $responseDebug = '';
+    /**
+     * Process SAMLResponse data and return formatted debug HTML.
+     *
+     * @param array $data
+     * @return string
+     */
+    private function processResponseDebug(array $data): string
+    {
         if (isset($data['SAMLResponse'])) {
             $responseXml = base64_decode($data['SAMLResponse']);
-
             $responseXml = self::formatXml($responseXml);
-
-            $responseDebug = '<pre id="responseDebug">' . htmlentities($responseXml, ENT_QUOTES, 'utf-8')  . '</pre>';
+            return '<pre id="responseDebug">' . htmlentities($responseXml, ENT_QUOTES, 'utf-8') . '</pre>';
         }
+        return '';
+    }
 
-        $this->response = new Response(<<<HTML
-<html>
+    /**
+     * Build the complete HTML response.
+     *
+     * @param string $url
+     * @param string $formData
+     * @param string $authnRequestXml
+     * @param string $responseDebug
+     * @return string
+     */
+    private function buildHtmlResponse(string $url, string $formData, string $authnRequestXml, string $responseDebug): string
+    {
+        return '<html>
     <head>
         <title>Redirecting...</title>
     </head>
     <body>
-        <pre id="authnRequestXml">{$data['authnRequestXml']}</pre>
-        $responseDebug
-        <form id="postform" action="{$url}" method="post">
-            $formData
-
+        <pre id="authnRequestXml">' . $authnRequestXml . '</pre>
+        ' . $responseDebug . '
+        <form id="postform" action="' . $url . '" method="post">
+            ' . $formData . '
             <input type="submit" value="GO" />
         </form>
-        <script>setTimeout(function() {document.getElementById('postform').submit();}, 1500);</script>
+        <script>setTimeout(function() {document.getElementById("postform").submit();}, 1500);</script>
     </body>
-</html>
-HTML
-        );
+</html>';
     }
 
     public function getPostResponse()

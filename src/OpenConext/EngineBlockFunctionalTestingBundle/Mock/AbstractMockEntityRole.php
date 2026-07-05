@@ -62,68 +62,80 @@ abstract class AbstractMockEntityRole
     public function publicKeyCertData()
     {
         $role = $this->getSsoRole();
-
-        foreach ($role->getKeyDescriptor()[0]->getKeyInfo()->getInfo() as $info) {
-            if (!$info instanceof X509Data) {
-                continue;
-            }
-
-            foreach ($info->getData() as $data) {
-                if (!$data instanceof X509Certificate) {
-                    continue;
+        $keyInfo = $role->getKeyDescriptor()[0]->getKeyInfo();
+        
+        foreach ($keyInfo->getInfo() as $info) {
+            if ($info instanceof X509Data) {
+                foreach ($info->getData() as $data) {
+                    if ($data instanceof X509Certificate) {
+                        return $data->getCertificate();
+                    }
                 }
-
-                return $data->getCertificate();
             }
         }
+        
         throw new RuntimeException("MockIdp does not have KeyInfo with an X509Certificate");
     }
 
     public function setCertificate($certificateFile)
     {
-        $certData = str_replace(
-            ["-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----", "\n"],
-            '',
-            $this->readFile($certificateFile)
-        );
-
+        $certData = $this->processCertificateFile($certificateFile);
         $role = $this->getSsoRole();
+        
+        $this->findAndSetCertificate($role, $certData);
+    }
 
-        foreach ($role->getKeyDescriptor()[0]->getKeyInfo()->getInfo() as $info) {
-            if (!$info instanceof X509Data) {
-                continue;
-            }
+    protected function processCertificateFile($certificateFile)
+    {
+        $fileContent = $this->readFile($certificateFile);
+        return str_replace(
+            ["-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----", "\n", "\r", "\t", " "],
+            '',
+            $fileContent
+        );
+    }
 
-            foreach ($info->getData() as $data) {
-                if (!$data instanceof X509Certificate) {
-                    continue;
+    protected function findAndSetCertificate($role, $certData)
+    {
+        $keyInfo = $role->getKeyDescriptor()[0]->getKeyInfo();
+        
+        foreach ($keyInfo->getInfo() as $info) {
+            if ($info instanceof X509Data) {
+                foreach ($info->getData() as $data) {
+                    if ($data instanceof X509Certificate) {
+                        $data->setCertificate($certData);
+                        return;
+                    }
                 }
-
-                $data->setCertificate($certData);
-                return;
             }
         }
+        
         throw new RuntimeException("MockIdp does not have KeyInfo with an X509Certificate");
     }
 
     public function setPrivateKey($privateKeyFile)
     {
         $role = $this->getSsoRole();
+        $privateKeyData = $this->processPrivateKeyFile($privateKeyFile);
 
         foreach ($role->getKeyDescriptor()[0]->getKeyInfo()->getInfo() as $info) {
-            if (!$info instanceof Chunk) {
-                continue;
+            if ($info instanceof Chunk && $info->getLocalName() === 'PrivateKey') {
+                $info->getXML()->nodeValue = $privateKeyData;
+                return;
             }
-
-            if ($info->getLocalName() !== 'PrivateKey') {
-                continue;
-            }
-
-            $info->getXML()->nodeValue = $this->readFile($privateKeyFile);
-            return;
         }
 
-        throw new RuntimeException("Unable to set private key, no KeyInfo with PrivateKey element set");
+        throw new RuntimeException("Unable to set private key: no KeyInfo with PrivateKey element found");
+    }
+
+    protected function processPrivateKeyFile($privateKeyFile)
+    {
+        $fileContent = $this->readFile($privateKeyFile);
+        return str_replace(
+            ["-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----", "-----BEGIN RSA PRIVATE KEY-----", "-----END RSA PRIVATE KEY-----", "\n", "\r", "\t", " "],
+            '',
+            $fileContent
+        );
     }
 
     public function getPrivateKeyPem()
@@ -168,21 +180,23 @@ abstract class AbstractMockEntityRole
 
     protected function findFile($filePath)
     {
+        // Check if file exists at the given path
         if (file_exists($filePath)) {
             return $filePath;
         }
 
-        $componentPath = __DIR__ . '/../../../../';
-        $fullFilePath = realpath($componentPath . $filePath);
-        if (file_exists($fullFilePath)) {
-            return $fullFilePath;
+        // Check component path
+        $componentPath = __DIR__ . '/../../../../' . $filePath;
+        if (file_exists($componentPath)) {
+            return $componentPath;
         }
 
+        // Check path from root
         $pathFromRoot = ENGINEBLOCK_FOLDER_ROOT . $filePath;
         if (file_exists($pathFromRoot)) {
             return $pathFromRoot;
         }
 
-        throw new RuntimeException(sprintf('Unable to find file: "%s" ("%s")', $filePath, $fullFilePath));
+        throw new RuntimeException(sprintf('Unable to find file: "%s"', $filePath));
     }
 }

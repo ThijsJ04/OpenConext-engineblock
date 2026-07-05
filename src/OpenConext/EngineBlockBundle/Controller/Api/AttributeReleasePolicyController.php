@@ -81,7 +81,7 @@ final class AttributeReleasePolicyController
         $this->assertAuthorized();
 
         $body = JsonRequestHelper::decodeContentAsArrayOf($request);
-
+        
         if (!is_array($body)) {
             throw new BadApiRequestHttpException(sprintf(
                 'Unrecognized structure for JSON: expected decoded root value to be an array, got "%s"',
@@ -89,29 +89,31 @@ final class AttributeReleasePolicyController
             ));
         }
 
+        // Validate entityIds (existence and structure)
         if (!isset($body['entityIds'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "entityIds" not found');
         }
 
-        if (!is_array($body['entityIds']) || empty($body['entityIds'])) {
+        $entityIds = $body['entityIds'];
+        if (!is_array($entityIds) || empty($entityIds)) {
             throw new BadApiRequestHttpException('Invalid JSON structure: "entityIds" must be a non-empty array');
         }
 
+        // Validate attributes (existence and structure)
         if (!isset($body['attributes'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "attributes" not found');
         }
 
-        if (!is_array($body['attributes'])) {
+        $attributes = $body['attributes'];
+        if (!is_array($attributes)) {
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }
 
-        if (!isset($body['showSources']) || !is_bool($body['showSources'])) {
-            $showSources = false;
-        } else {
-            $showSources = $body['showSources'];
-        }
+        // Validate showSources
+        $showSources = isset($body['showSources']) && is_bool($body['showSources']) ? $body['showSources'] : false;
 
-        foreach ($body['attributes'] as $attributeName => $attributeValues) {
+        // Validate attribute structure
+        foreach ($attributes as $attributeName => $attributeValues) {
             if (!is_string($attributeName) || !is_array($attributeValues)) {
                 throw new BadApiRequestHttpException(
                     'Invalid JSON structure: attributes should have strings as keys and an array of values'
@@ -119,10 +121,11 @@ final class AttributeReleasePolicyController
             }
         }
 
+        // Process ARP for each entity
         $releasedAttributes = [];
-        foreach ($body['entityIds'] as $entityId) {
+        foreach ($entityIds as $entityId) {
             $arp = $this->metadataService->findArpForServiceProviderByEntityId(new EntityId($entityId));
-            $releasedAttributes[$entityId] = $this->arpEnforcer->enforceArp($body['attributes'], $arp, $showSources);
+            $releasedAttributes[$entityId] = $this->arpEnforcer->enforceArp($attributes, $arp, $showSources);
         }
 
         return new JsonResponse(json_encode($releasedAttributes));
@@ -133,12 +136,24 @@ final class AttributeReleasePolicyController
      */
     public function readArpAction(Request $request)
     {
+        $this->assertMethodPost($request);
+        $this->assertAuthorized();
+
+        $requestData = $this->validateAndExtractRequestData($request);
+        $entityIds = $this->validateEntityIds($requestData);
+
+        return $this->createArpCollectionResponse($entityIds);
+    }
+
+    private function assertMethodPost(Request $request): void
+    {
         if (!$request->isMethod(Request::METHOD_POST)) {
             throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_POST]);
         }
+    }
 
-        $this->assertAuthorized();
-
+    private function validateAndExtractRequestData(Request $request): array
+    {
         $body = JsonRequestHelper::decodeContentAsArrayOf($request);
         if (!is_array($body)) {
             throw new BadApiRequestHttpException(sprintf(
@@ -146,17 +161,27 @@ final class AttributeReleasePolicyController
                 gettype($body)
             ));
         }
+        return $body;
+    }
 
-        if (!isset($body['entityIds'])) {
+    private function validateEntityIds(array $requestData): array
+    {
+        if (!isset($requestData['entityIds'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "entityIds" not found');
         }
 
-        if (!is_array($body['entityIds']) || empty($body['entityIds'])) {
+        $entityIds = $requestData['entityIds'];
+        if (!is_array($entityIds) || empty($entityIds)) {
             throw new BadApiRequestHttpException('Invalid JSON structure: "entityIds" must be a non-empty array');
         }
 
+        return $entityIds;
+    }
+
+    private function createArpCollectionResponse(array $entityIds): JsonResponse
+    {
         $arpCollection = [];
-        foreach ($body['entityIds'] as $entityId) {
+        foreach ($entityIds as $entityId) {
             $arp = $this->metadataService->findArpForServiceProviderByEntityId(new EntityId($entityId));
             if ($arp) {
                 $arpCollection[$entityId] = $arp->getAttributeRules();

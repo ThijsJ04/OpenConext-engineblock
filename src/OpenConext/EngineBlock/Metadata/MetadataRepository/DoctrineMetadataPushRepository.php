@@ -84,65 +84,91 @@ class DoctrineMetadataPushRepository
             $idpsToBeRemoved = $this->findAllRoleEntityIds($this->idpMetadata);
             $spsToBeRemoved = $this->findAllRoleEntityIds($this->spMetadata);
 
-            foreach ($roles as $roleKey => $role) {
-                if ($role instanceof IdentityProvider) {
-                    // Does the IDP already exist in the database?
-                    $index = array_search($role->entityId, $idpsToBeRemoved);
-
-                    if ($index === false) {
-                        // The IDP is new: create it.
-                        $this->insertRole($role, $this->idpMetadata);
-                        $result->createdIdentityProviders[] = $role->entityId;
-                    } else {
-                        // Remove from the list of entity ids so it won't get deleted later on.
-                        unset($idpsToBeRemoved[$index]);
-
-                        // The IDP already exists: update it.
-                        $role->id = $index;
-                        $this->updateRole($role, $this->idpMetadata);
-                        $result->updatedIdentityProviders[] = $role->entityId;
-                    }
-                    unset($roles[$roleKey]);
-                    continue;
-                }
-
-                if ($role instanceof ServiceProvider) {
-                    // Does the SP already exist in the database?
-                    $index = array_search($role->entityId, $spsToBeRemoved);
-                    if ($index === false) {
-                        // The SP is new: create it.
-                        $this->insertRole($role, $this->spMetadata);
-                        $result->createdServiceProviders[] = $role->entityId;
-                    } else {
-                        // Remove from the list of entity ids so it won't get deleted later on.
-                        unset($spsToBeRemoved[$index]);
-
-                        // The SP already exists: update it.
-                        $role->id = $index;
-                        $this->updateRole($role, $this->spMetadata);
-                        $result->updatedServiceProviders[] = $role->entityId;
-                    }
-                    unset($roles[$roleKey]);
-                    continue;
-                }
-
-                throw new RuntimeException(
-                    sprintf('Unsupported role provided to synchronization: "%s"', var_export($role, true))
-                );
+            foreach ($roles as $role) {
+                $this->processRole($role, $idpsToBeRemoved, $spsToBeRemoved, $result);
             }
 
-            if ($idpsToBeRemoved) {
-                $this->deleteRolesByIds(array_keys($idpsToBeRemoved), $this->idpMetadata);
-                $result->removedIdentityProviders = array_values($idpsToBeRemoved);
-            }
-
-            if ($spsToBeRemoved) {
-                $this->deleteRolesByIds(array_keys($spsToBeRemoved), $this->spMetadata);
-                $result->removedServiceProviders = array_values($spsToBeRemoved);
-            }
+            $this->deleteRemovedRoles($idpsToBeRemoved, $this->idpMetadata, $result);
+            $this->deleteRemovedRoles($spsToBeRemoved, $this->spMetadata, $result);
         });
 
         return $result;
+    }
+
+    private function processRole(
+        AbstractRole $role, 
+        array &$idpsToBeRemoved, 
+        array &$spsToBeRemoved, 
+        SynchronizationResult $result
+    ): void {
+        if ($role instanceof IdentityProvider) {
+            $this->processIdentityProvider($role, $idpsToBeRemoved, $result);
+        } elseif ($role instanceof ServiceProvider) {
+            $this->processServiceProvider($role, $spsToBeRemoved, $result);
+        } else {
+            throw new RuntimeException(
+                sprintf('Unsupported role provided to synchronization: "%s"', var_export($role, true))
+            );
+        }
+    }
+
+    private function processIdentityProvider(
+        IdentityProvider $role, 
+        array &$idpsToBeRemoved, 
+        SynchronizationResult $result
+    ): void {
+        $index = array_search($role->entityId, $idpsToBeRemoved);
+
+        if ($index === false) {
+            // The IDP is new: create it.
+            $this->insertRole($role, $this->idpMetadata);
+            $result->createdIdentityProviders[] = $role->entityId;
+        } else {
+            // Remove from the list of entity ids so it won't get deleted later on.
+            unset($idpsToBeRemoved[$index]);
+
+            // The IDP already exists: update it.
+            $role->id = $index;
+            $this->updateRole($role, $this->idpMetadata);
+            $result->updatedIdentityProviders[] = $role->entityId;
+        }
+    }
+
+    private function processServiceProvider(
+        ServiceProvider $role, 
+        array &$spsToBeRemoved, 
+        SynchronizationResult $result
+    ): void {
+        $index = array_search($role->entityId, $spsToBeRemoved);
+
+        if ($index === false) {
+            // The SP is new: create it.
+            $this->insertRole($role, $this->spMetadata);
+            $result->createdServiceProviders[] = $role->entityId;
+        } else {
+            // Remove from the list of entity ids so it won't get deleted later on.
+            unset($spsToBeRemoved[$index]);
+
+            // The SP already exists: update it.
+            $role->id = $index;
+            $this->updateRole($role, $this->spMetadata);
+            $result->updatedServiceProviders[] = $role->entityId;
+        }
+    }
+
+    private function deleteRemovedRoles(
+        array $rolesToBeRemoved, 
+        ClassMetadata $metadata, 
+        SynchronizationResult $result
+    ): void {
+        if ($rolesToBeRemoved) {
+            $this->deleteRolesByIds(array_keys($rolesToBeRemoved), $metadata);
+            if ($metadata === $this->idpMetadata) {
+                $result->removedIdentityProviders = array_values($rolesToBeRemoved);
+            } else {
+                $result->removedServiceProviders = array_values($rolesToBeRemoved);
+            }
+        }
     }
 
     private function insertRole(AbstractRole $role, ClassMetadata $metadata)
@@ -240,15 +266,18 @@ class DoctrineMetadataPushRepository
     {
         $result = [];
         foreach ($metadata->fieldMappings as $id => $columnInfo) {
+            // Skip the primary id field as it's autogenerated and shouldn't be in SQL statements
+            if ($columnInfo->columnName === 'id') {
+                continue;
+            }
+            
             $result[$columnInfo->columnName] = [
                 self::FIELD_VALUE => $metadata->propertyAccessors[$id]->getValue($role),
                 self::FIELD_TYPE => $columnInfo->type,
             ];
         }
 
-        // The primary id field is autogenerated and should not be added to the SQL statement.
-        unset($result["id"]);
-
+        // Add discriminator column
         $result[$metadata->discriminatorColumn->name] = [
             self::FIELD_VALUE => $metadata->discriminatorValue,
             self::FIELD_TYPE => $metadata->discriminatorColumn->type,

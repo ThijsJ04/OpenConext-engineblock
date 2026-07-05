@@ -50,14 +50,27 @@ class UrlProvider
             throw new UnableToCreateUrlException($e->getMessage());
         }
 
-        // Append the key identifier
-        if (!$processingMode && $keyId && $name === 'authentication_idp_sso') {
-            $url .= '/key:' . $keyId;
+        // Early return if processing mode is enabled (no modifications needed)
+        if ($processingMode) {
+            return $url;
         }
 
-        // Append the Transparent identifier
-        if ($remoteEntityId && !$processingMode && $name !== 'metadata_idp' && $name !== 'authentication_logout') {
-            $url .= '/' . md5($remoteEntityId);
+        // Build URL modifications in a single operation
+        $modifications = [];
+        
+        // Append the key identifier if conditions are met
+        if ($keyId && $name === 'authentication_idp_sso') {
+            $modifications[] = 'key:' . $keyId;
+        }
+
+        // Append the Transparent identifier if conditions are met
+        if ($remoteEntityId && $name !== 'metadata_idp' && $name !== 'authentication_logout') {
+            $modifications[] = md5($remoteEntityId);
+        }
+
+        // Append all modifications at once if any exist
+        if (!empty($modifications)) {
+            $url .= '/' . implode('/', $modifications);
         }
 
         return $url;

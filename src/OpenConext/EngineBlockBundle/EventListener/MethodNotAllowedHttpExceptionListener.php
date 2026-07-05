@@ -57,15 +57,12 @@ final class MethodNotAllowedHttpExceptionListener
         }
 
         $request = $event->getRequest();
-        $uri = strtok($request->getUri(), '?');
+        $uri = $request->getPathInfo();
         $requestMethod = $request->getRealMethod();
-        $allowedMethods = isset($exception->getHeaders()['Allow']) ? $exception->getHeaders()['Allow'] : 'Unknown';
+        $headers = $exception->getHeaders();
+        $allowedMethods = $headers['Allow'] ?? 'Unknown';
 
-        // inverted quotes for BC, existing log parsers may rely on this
-        $this->logger->notice(sprintf(
-            "[405]Disallowed request method: '%s'",
-            $requestMethod
-        ));
+        $this->logger->notice('[405]Disallowed request method: "' . $requestMethod . '"');
 
         $response = new Response(
             $this->twig->render(
@@ -80,7 +77,6 @@ final class MethodNotAllowedHttpExceptionListener
         );
 
         $event->setResponse($response);
-        // once we've handled it, we don't want anything else to interfere.
         $event->stopPropagation();
     }
 }

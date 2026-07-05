@@ -30,42 +30,36 @@ class DocumentSigner
 
     public function sign(string $source, X509KeyPair $signingKeyPair) : string
     {
-        // Load the XML to be signed
         $doc = new DOMDocument();
         $doc->loadXML($source);
 
-        // Find root element to sign. The firstChild is the TOS comment,
-        // so need to skip over that.
-        if (!isset($doc->childNodes[1]) || !$doc->childNodes[1] instanceof DOMElement) {
+        // Find root element to sign, skipping the TOS comment (first child)
+        $rootNode = $doc->childNodes[1] ?? null;
+        if (!$rootNode instanceof DOMElement) {
             throw new RuntimeException("Could not locate root element to sign");
         }
-        $rootNode = $doc->childNodes[1];
 
-        // Create sign object
-        $canonicalMethod = XMLSecurityDSig::EXC_C14N;
+        // Configure and execute signing
         $objDSig = new XMLSecurityDSig();
-        $objDSig->setCanonicalMethod($canonicalMethod);
+        $objDSig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N);
+        
         $objDSig->addReference(
             $rootNode,
             self::SIGN_ALGORITHM,
-            ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', $canonicalMethod],
+            ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', XMLSecurityDSig::EXC_C14N],
             ['id_name' => 'ID', 'overwrite' => false]
         );
 
-        // Load private key
-        $objKey = $signingKeyPair->getPrivateKey()->toXmlSecurityKey();
-        $objKey->loadKey($signingKeyPair->getPrivateKey()->getFilePath(), true);
-
-        // Sign with private key
+        // Load private key and sign
+        $privateKey = $signingKeyPair->getPrivateKey();
+        $objKey = $privateKey->toXmlSecurityKey();
+        $objKey->loadKey($privateKey->getFilePath(), true);
         $objDSig->sign($objKey);
 
-        // Add the associated public key to the signature
+        // Add public certificate and insert signature
         $objDSig->add509Cert($signingKeyPair->getCertificate()->toPem());
-
-        // Append the signature to the XML
         $objDSig->insertSignature($doc->documentElement, $doc->documentElement->firstChild);
 
-        // Save the signed XML
         return $doc->saveXML();
     }
 }

@@ -126,19 +126,15 @@ class MetadataController
      */
     public function signingCertificateAction(string $keyId = null): Response
     {
-        if (empty($keyId)) {
-            $keyId = KeyPairFactory::DEFAULT_KEY_PAIR_IDENTIFIER;
-        }
-
+        $keyId = $keyId ?? KeyPairFactory::DEFAULT_KEY_PAIR_IDENTIFIER;
         $cert = $this->metadataService->certificate($keyId);
-        $response = new Response($cert);
-        $response->headers->set('Content-Type', 'application/x-pem-file');
-        $disposition = $response->headers->makeDisposition(
-            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
-            sprintf('%s.%s.pem', $this->engineBlockConfiguration->getHostname(), $keyId)
-        );
-        $response->headers->set('Content-Disposition', $disposition);
 
-        return $response;
+        return (new Response($cert))
+            ->headers->set('Content-Type', 'application/x-pem-file')
+            ->set('Content-Disposition', $this->headers->makeDisposition(
+                ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+                sprintf('%s.%s.pem', $this->engineBlockConfiguration->getHostname(), $keyId)
+            ))
+            ->getResponse();
     }
 }

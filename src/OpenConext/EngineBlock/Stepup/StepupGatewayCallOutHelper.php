@@ -72,15 +72,16 @@ final class StepupGatewayCallOutHelper
         array $authnRequestLoas,
         array $pdpLoas
     ) : ?Loa {
-        $stepupDecision = new StepupDecision(
-            $identityProvider,
-            $serviceProvider,
-            $authnRequestLoas,
-            $pdpLoas,
-            $this->loaRepository,
-            $this->logger
+        return $this->gatewayLoaMapping->transformToGatewayLoa(
+            (new StepupDecision(
+                $identityProvider,
+                $serviceProvider,
+                $authnRequestLoas,
+                $pdpLoas,
+                $this->loaRepository,
+                $this->logger
+            ))->getStepupLoa()
         );
-        return $this->gatewayLoaMapping->transformToGatewayLoa($stepupDecision->getStepupLoa());
     }
 
     public function getStepupLoa1() : Loa

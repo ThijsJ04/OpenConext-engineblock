@@ -93,7 +93,7 @@ class StepupEndpoint
             Assertion::string($this->keyFile, 'stepup.gateway.sfo.key_file should be a string');
             Assertion::file($this->keyFile, 'stepup.gateway.sfo.key_file should be a valid file');
         } catch (AssertionFailedException $e) {
-            throw new InvalidStepupConfigurationException(sprintf('Invalid stepup endpoint configuration: %s', $e->getMessage()));
+            throw new InvalidStepupConfigurationException('Invalid stepup endpoint configuration: ' . $e->getMessage());
         }
 
         $this->isValidated = true;

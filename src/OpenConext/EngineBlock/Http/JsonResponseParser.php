@@ -35,6 +35,22 @@ final class JsonResponseParser
     {
         Assertion::string($json, 'JSON data "%s" expected to be string, type %s given');
 
+        $data = json_decode($json, true);
+
+        if (JSON_ERROR_NONE === json_last_error()) {
+            return $data;
+        }
+
+        $errorMessage = self::getJsonErrorMessage(json_last_error());
+        throw new InvalidJsonException('Unable to parse JSON data: "' . $errorMessage . '"');
+    }
+
+    /**
+     * @param int $errorCode
+     * @return string
+     */
+    private static function getJsonErrorMessage($errorCode)
+    {
         static $jsonErrors = [
             JSON_ERROR_DEPTH          => 'JSON_ERROR_DEPTH - Maximum stack depth exceeded',
             JSON_ERROR_STATE_MISMATCH => 'JSON_ERROR_STATE_MISMATCH - Underflow or the modes mismatch',
@@ -43,19 +59,6 @@ final class JsonResponseParser
             JSON_ERROR_UTF8           => 'JSON_ERROR_UTF8 - Malformed UTF-8 characters, possibly incorrectly encoded',
         ];
 
-        $data = json_decode($json, true);
-
-        if (JSON_ERROR_NONE !== json_last_error()) {
-            $last         = json_last_error();
-            $errorMessage = $jsonErrors[$last];
-
-            if (!isset($errorMessage)) {
-                $errorMessage = 'Unknown error';
-            }
-
-            throw new InvalidJsonException((sprintf('Unable to parse JSON data: "%s"', $errorMessage)));
-        }
-
-        return $data;
+        return $jsonErrors[$errorCode] ?? 'Unknown error';
     }
 }

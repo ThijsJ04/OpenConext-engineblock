@@ -56,7 +56,8 @@ class LogoutController
     {
         $response = new Response($this->twig->render('@theme/Logout/View/Index/index.html.twig'));
 
-        if (empty($request->getSession()->all())) {
+        $session = $request->getSession();
+        if (!$session->isStarted() || empty($session->all())) {
             return $response;
         }
 

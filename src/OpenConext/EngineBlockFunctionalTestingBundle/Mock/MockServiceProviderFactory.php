@@ -55,47 +55,38 @@ class MockServiceProviderFactory extends AbstractMockEntityFactory
 
     protected function generateDefaultEntityMetadata($spName)
     {
+        // Generate common URL parameters once
+        $routeParams = ['spName' => $spName];
+        $urlType = RouterInterface::ABSOLUTE_URL;
+
+        // Create and configure the entity descriptor
         $descriptor = new EntityDescriptor();
         $descriptor->setEntityID(
-            $this->router->generate(
-                'functional_testing_sp_metadata',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            )
+            $this->router->generate('functional_testing_sp_metadata', $routeParams, $urlType)
         );
 
+        // Create and configure ACS service endpoint
         $acsService = new IndexedEndpointType();
         $acsService->setIndex(0);
         $acsService->setBinding(Constants::BINDING_HTTP_POST);
         $acsService->setLocation(
-            $this->router->generate(
-                'functional_testing_sp_acs',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            )
+            $this->router->generate('functional_testing_sp_acs', $routeParams, $urlType)
         );
+
+        // Create and configure SP SSO descriptor
         $spSsoDescriptor = new SPSSODescriptor();
         $spSsoDescriptor->setProtocolSupportEnumeration([Constants::NS_SAMLP]);
         $spSsoDescriptor->setAssertionConsumerService([$acsService]);
-
         $spSsoDescriptor->setKeyDescriptor([$this->generateDefaultSigningKeyPair()]);
 
         $descriptor->setRoleDescriptor([$spSsoDescriptor]);
 
-        $extensions = [
-            'LoginRedirectUrl' => $this->router->generate(
-                'functional_testing_sp_login_redirect',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            ),
-            'LoginPostUrl' => $this->router->generate(
-                'functional_testing_sp_login_post',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            ),
-        ];
+        // Set extensions with generated URLs
+        $descriptor->setExtensions([
+            'LoginRedirectUrl' => $this->router->generate('functional_testing_sp_login_redirect', $routeParams, $urlType),
+            'LoginPostUrl' => $this->router->generate('functional_testing_sp_login_post', $routeParams, $urlType),
+        ]);
 
-        $descriptor->setExtensions($extensions);
         return $descriptor;
     }
 

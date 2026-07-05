@@ -63,24 +63,19 @@ class Mdui
         MultilingualElement $logo,
         MultilingualElement $privacyStatementUrl
     ): Mdui {
-        $values = [
+        return new self([
             'DisplayName' => $displayName,
             'Description' => $description,
             'Keywords' => $keywords,
             'Logo' => $logo,
             'PrivacyStatementURL' => $privacyStatementUrl,
-        ];
-
-        return new self($values);
+        ]);
     }
 
     private function __construct(array $values)
     {
-        /**
-         * @var string $key
-         * @var MultilingualElement $value
-         */
         foreach ($values as $key => $value) {
+            // Validate that the element name is allowed
             if (!in_array($value->getName(), self::ALLOWED_ELEMENT_NAMES)) {
                 throw new MduiNotFoundException(
                     sprintf(
@@ -92,6 +87,7 @@ class Mdui
                 );
             }
 
+            // Only add non-null values with allowed keys
             if (!is_null($value) && in_array($key, self::ALLOWED_ELEMENT_NAMES, true)) {
                 $this->values[$key] = $value;
             }
@@ -121,32 +117,24 @@ class Mdui
     public static function fromJson(string $parsedData): Mdui
     {
         $parsedData = json_decode($parsedData, true);
+        
+        if (!$parsedData) {
+            return self::emptyMdui();
+        }
+
         $output = [];
-
-        if ($parsedData) {
-            foreach ($parsedData as $elementName => $multiLingualElement) {
-                // The logo element differs from the other MduiElements, it is constructed in its own fashion
-                if ($elementName === 'Logo' && array_key_exists('url', $multiLingualElement)) {
-                    $output[$elementName] = Logo::fromJson($multiLingualElement);
-                    continue;
-                }
-
-                // Determine if we are dealing with an empty element, mdui elements are optional.
-                if (!array_key_exists('values', $multiLingualElement)) {
-                    $output[$elementName] = EmptyMduiElement::fromJson($multiLingualElement);
-                    continue;
-                }
-
+        
+        foreach ($parsedData as $elementName => $multiLingualElement) {
+            if ($elementName === 'Logo' && isset($multiLingualElement['url'])) {
+                $output[$elementName] = Logo::fromJson($multiLingualElement);
+            } elseif (!isset($multiLingualElement['values'])) {
+                $output[$elementName] = EmptyMduiElement::fromJson($multiLingualElement);
+            } else {
                 $output[$elementName] = MduiElement::fromJson($multiLingualElement);
             }
-
-            return new self($output);
         }
-        // When the parsed data value is null (originating from the roles sso_provider_roles
-        // table), we return an empty Mdui value object. This should be a non occurring
-        // situation but could potentially happen when the Metadata is not yet pushed from
-        // manage to EngineBlock
-        return self::emptyMdui();
+
+        return new self($output);
     }
 
     /**
@@ -302,17 +290,22 @@ class Mdui
     {
         /** @var MultilingualElement $element */
         $element = $this->values['PrivacyStatementURL'];
-        if (!$element instanceof EmptyMduiElement) {
-            $primaryTranslation = $element->translate(MultilingualElement::PRIMARY_LANGUAGE);
-            $preferredTranslation = $element->translate($language);
-            // Return the requested (preferred) translation if it is available
-            if (!empty($preferredTranslation->getValue())) {
-                return $preferredTranslation->getValue();
-            }
-            // Fallback on the primary (en) language when preferred translation is not set
-            return $primaryTranslation->getValue();
+        
+        if ($element instanceof EmptyMduiElement) {
+            throw new MduiNotFoundException('The PrivacyStatementURL is not set on this entity');
         }
-        throw new MduiNotFoundException('The PrivacyStatementURL is not set on this entity');
+        
+        // Get both translations first
+        $primaryTranslation = $element->translate(MultilingualElement::PRIMARY_LANGUAGE);
+        $preferredTranslation = $element->translate($language);
+        
+        // Return the requested (preferred) translation if it is available and has a value
+        if (!empty($preferredTranslation->getValue())) {
+            return $preferredTranslation->getValue();
+        }
+        
+        // Fallback on the primary (en) language when preferred translation is not set
+        return $primaryTranslation->getValue();
     }
 
     /**

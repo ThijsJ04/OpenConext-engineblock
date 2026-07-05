@@ -50,8 +50,8 @@ abstract class AbstractDataStore
         }
 
         $fileContents = $this->fileSystem->read($this->filePath);
-
-        if (isset($fileContents) && $fileContents === false) {
+        
+        if ($fileContents === false) {
             throw new RuntimeException(sprintf('Unable to load data from: "%s"', $this->filePath));
         }
 

@@ -58,37 +58,48 @@ class MockIdentityProvider extends AbstractMockEntityRole
     public function setStatusCode($topLevelStatusCode, $secondLevelStatusCode = '')
     {
         $role = $this->getSsoRole();
+        $extensions = $role->getExtensions();
 
-        $role->setExtensions(
-            array_merge(
-                $role->getExtensions(),
-                ['StatusCodeTop' => $this->getFullyQualifiedStatusCode($topLevelStatusCode)]
-            )
-        );
+        $newExtensions = ['StatusCodeTop' => $this->getFullyQualifiedStatusCode($topLevelStatusCode)];
+        
         if (!empty($secondLevelStatusCode)) {
-            $role->setExtensions(
-                array_merge(
-                    $role->getExtensions(),
-                    ['StatusCodeSecond' => $this->getFullyQualifiedStatusCode($secondLevelStatusCode)]
-                )
-            );
+            $newExtensions['StatusCodeSecond'] = $this->getFullyQualifiedStatusCode($secondLevelStatusCode);
         }
+        
+        $role->setExtensions(array_merge($extensions, $newExtensions));
     }
 
     private function getFullyQualifiedStatusCode($shortStatusCode)
     {
-        $class = new ReflectionClass(Constants::class);
-        $constants = $class->getConstants();
-        foreach ($constants as $constName => $constValue) {
-            if (strpos($constName, 'STATUS_') !== 0) {
-                continue;
-            }
+        // Direct mapping from short status codes to fully qualified constants
+        $statusCodeMap = [
+            'SUCCESS' => Constants::STATUS_SUCCESS,
+            'REQUESTER' => Constants::STATUS_REQUESTER,
+            'RESPONDER' => Constants::STATUS_RESPONDER,
+            'VERSION_MISMATCH' => Constants::STATUS_VERSION_MISMATCH,
+            'AUTHN_FAILED' => Constants::STATUS_AUTHN_FAILED,
+            'INVALID_ATTR' => Constants::STATUS_INVALID_ATTR,
+            'INVALID_NAMEID_POLICY' => Constants::STATUS_INVALID_NAMEID_POLICY,
+            'NO_AUTHN_CONTEXT' => Constants::STATUS_NO_AUTHN_CONTEXT,
+            'NO_AVAILABLE_IDP' => Constants::STATUS_NO_AVAILABLE_IDP,
+            'NO_PASSIVE' => Constants::STATUS_NO_PASSIVE,
+            'NO_SUPPORTED_IDP' => Constants::STATUS_NO_SUPPORTED_IDP,
+            'PARTIAL_LOGOUT' => Constants::STATUS_PARTIAL_LOGOUT,
+            'PROXY_COUNT_EXCEEDED' => Constants::STATUS_PROXY_COUNT_EXCEEDED,
+            'REQUEST_DENIED' => Constants::STATUS_REQUEST_DENIED,
+            'REQUEST_UNSUPPORTED' => Constants::STATUS_REQUEST_UNSUPPORTED,
+            'REQUEST_VERSION_DEPRECATED' => Constants::STATUS_REQUEST_VERSION_DEPRECATED,
+            'REQUEST_VERSION_TOO_HIGH' => Constants::STATUS_REQUEST_VERSION_TOO_HIGH,
+            'REQUEST_VERSION_TOO_LOW' => Constants::STATUS_REQUEST_VERSION_TOO_LOW,
+            'RESOURCE_NOT_RECOGNIZED' => Constants::STATUS_RESOURCE_NOT_RECOGNIZED,
+            'TOO_MANY_RESPONSES' => Constants::STATUS_TOO_MANY_RESPONSES,
+            'UNKNOWN_ATTR_PROFILE' => Constants::STATUS_UNKNOWN_ATTR_PROFILE,
+            'UNKNOWN_PRINCIPAL' => Constants::STATUS_UNKNOWN_PRINCIPAL,
+            'UNSUPPORTED_BINDING' => Constants::STATUS_UNSUPPORTED_BINDING,
+        ];
 
-            if (strpos($constValue, $shortStatusCode) === false) {
-                continue;
-            }
-
-            return $constValue;
+        if (isset($statusCodeMap[$shortStatusCode])) {
+            return $statusCodeMap[$shortStatusCode];
         }
 
         throw new RuntimeException(sprintf('"%s" is not a valid status code', $shortStatusCode));
@@ -223,23 +234,19 @@ class MockIdentityProvider extends AbstractMockEntityRole
     public function removeAttribute($forbiddenAttributeName)
     {
         $role = $this->getSsoRole();
-
-        /** @var Response $response */
         $response = $role->getExtensions()['SAMLResponse'];
         $assertions = $response->getAssertions();
 
-        $newAttributes = [];
-
         $attributes = $assertions[0]->getAttributes();
-        foreach ($attributes as $attributeName => $attributeValues) {
-            if ($attributeName === $forbiddenAttributeName) {
-                continue;
-            }
+        $filteredAttributes = array_filter(
+            $attributes,
+            function ($attributeName) use ($forbiddenAttributeName) {
+                return $attributeName !== $forbiddenAttributeName;
+            },
+            ARRAY_FILTER_USE_KEY
+        );
 
-            $newAttributes[$attributeName] = $attributeValues;
-        }
-
-        $assertions[0]->setAttributes($newAttributes);
+        $assertions[0]->setAttributes($filteredAttributes);
     }
 
     public function setAttribute($attributeName, array $attributeValues)

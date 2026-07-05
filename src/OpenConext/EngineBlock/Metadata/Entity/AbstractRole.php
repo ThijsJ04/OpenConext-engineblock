@@ -245,19 +245,19 @@ abstract class AbstractRole
         Service $singleLogoutService = null,
         array $certificates = array(),
         array $contactPersons = array(),
-        ?string $descriptionEn = '',
-        ?string $descriptionNl = '',
-        ?string $descriptionPt = '',
-        ?string $displayNameEn = '',
-        ?string $displayNameNl = '',
-        ?string $displayNamePt = '',
-        ?string $keywordsEn = '',
-        ?string $keywordsNl = '',
-        ?string $keywordsPt = '',
+        ?string $descriptionEn = null,
+        ?string $descriptionNl = null,
+        ?string $descriptionPt = null,
+        ?string $displayNameEn = null,
+        ?string $displayNameNl = null,
+        ?string $displayNamePt = null,
+        ?string $keywordsEn = null,
+        ?string $keywordsNl = null,
+        ?string $keywordsPt = null,
         ?Logo $logo = null,
-        ?string $nameEn = '',
-        ?string $nameNl = '',
-        ?string $namePt = '',
+        ?string $nameEn = null,
+        ?string $nameNl = null,
+        ?string $namePt = null,
         ?string $nameIdFormat = null,
         array $supportedNameIdFormats = array(
             Constants::NAMEID_TRANSIENT,
@@ -267,30 +267,43 @@ abstract class AbstractRole
         string $workflowState = self::WORKFLOW_STATE_DEFAULT,
         string $manipulation = ''
     ) {
+        // Set core properties
+        $this->entityId = $entityId;
         $this->mdui = $mdui;
+        
+        // Set organization properties
+        $this->organizationEn = $organizationEn;
+        $this->organizationNl = $organizationNl;
+        $this->organizationPt = $organizationPt;
+        
+        // Set service-related properties
+        $this->singleLogoutService = $singleLogoutService;
         $this->certificates = $certificates;
         $this->contactPersons = $contactPersons;
+        
+        // Set name properties
+        $this->nameEn = $nameEn;
+        $this->nameNl = $nameNl;
+        $this->namePt = $namePt;
+        
+        // Set deprecated MDUI-related properties
         $this->descriptionEn = $descriptionEn;
         $this->descriptionNl = $descriptionNl;
         $this->descriptionPt = $descriptionPt;
         $this->displayNameEn = $displayNameEn;
         $this->displayNameNl = $displayNameNl;
         $this->displayNamePt = $displayNamePt;
-        $this->entityId = $entityId;
         $this->keywordsEn = $keywordsEn;
         $this->keywordsNl = $keywordsNl;
         $this->keywordsPt = $keywordsPt;
         $this->logo = $logo;
-        $this->nameEn = $nameEn;
-        $this->nameNl = $nameNl;
-        $this->namePt = $namePt;
+        
+        // Set security and format properties
         $this->nameIdFormat = $nameIdFormat;
         $this->supportedNameIdFormats = $supportedNameIdFormats;
-        $this->organizationEn = $organizationEn;
-        $this->organizationNl = $organizationNl;
-        $this->organizationPt = $organizationPt;
         $this->requestsMustBeSigned = $requestsMustBeSigned;
-        $this->singleLogoutService = $singleLogoutService;
+        
+        // Set workflow and manipulation properties
         $this->workflowState = $workflowState;
         $this->manipulation = $manipulation;
     }

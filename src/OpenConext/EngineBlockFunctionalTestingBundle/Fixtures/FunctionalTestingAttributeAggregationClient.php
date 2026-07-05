@@ -45,14 +45,26 @@ final class FunctionalTestingAttributeAggregationClient implements AttributeAggr
     {
         $attributes = $this->dataStore->load();
 
-        foreach ($attributes as $attribute) {
-            if (empty($request->rules)) {
-                throw new InvalidArgumentException(
-                    sprintf('Expecting an ARP rule for "%s", but no rules found.', $attribute['name'])
-                );
-            }
+        // Early return if no attributes to process
+        if (empty($attributes)) {
+            return Response::fromData([]);
+        }
 
-            if (!$this->hasRuleForAttribute($request->rules, $attribute['name'], $attribute['source'])) {
+        // Check if there are any rules at all (once, not per attribute)
+        if (empty($request->rules)) {
+            throw new InvalidArgumentException(
+                sprintf('Expecting an ARP rule for "%s", but no rules found.', $attributes[0]['name'])
+            );
+        }
+
+        // Create a lookup map for faster rule checking
+        $ruleLookup = $this->createRuleLookup($request->rules);
+
+        // Validate all attributes have corresponding rules
+        foreach ($attributes as $attribute) {
+            $attributeKey = $this->getAttributeKey($attribute['name'], $attribute['source']);
+            
+            if (!isset($ruleLookup[$attributeKey])) {
                 throw new InvalidArgumentException(
                     sprintf('Expectation failed in AA client mock: expecting ARP rule for "%s"', $attribute['name'])
                 );
@@ -63,32 +75,33 @@ final class FunctionalTestingAttributeAggregationClient implements AttributeAggr
     }
 
     /**
+     * Create a lookup map for faster rule checking.
+     *
      * @param array $rules ARP rules
-     * @param string $name
-     * @param string $source
-     * @return bool
+     * @return array
      */
-    private function hasRuleForAttribute(array $rules, $name, $source)
+    private function createRuleLookup(array $rules)
     {
+        $lookup = [];
+        
         foreach ($rules as $rule) {
-            if ($this->ruleMatchesAttribute($rule, $name, $source)) {
-                return true;
-            }
+            $key = $this->getAttributeKey($rule->name, $rule->source);
+            $lookup[$key] = true;
         }
-
-        return false;
+        
+        return $lookup;
     }
 
     /**
-     * @param AttributeRule $rule
+     * Generate a unique key for attribute lookup.
+     *
      * @param string $name
      * @param string $source
-     * @return bool
+     * @return string
      */
-    private function ruleMatchesAttribute(AttributeRule $rule, $name, $source)
+    private function getAttributeKey($name, $source)
     {
-        return ($rule->name === $name) &&
-               ($rule->source === $source);
+        return $name . '|' . $source;
     }
 
     /**
