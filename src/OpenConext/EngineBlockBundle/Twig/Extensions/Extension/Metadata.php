@@ -49,31 +49,14 @@ class Metadata extends AbstractExtension
 
     public function getFunctions(): array
     {
+        $safeHtmlOptions = ['is_safe' => ['html']];
+        
         return [
-            new TwigFunction(
-                'sortByDisplayOrder',
-                [$this, 'sortByDisplayOrder'],
-                ['is_safe' => ['html']]
-            ),
-            new TwigFunction(
-                'attributeSourceLogoUrl',
-                [$this, 'getAttributeSourceLogoUrl']
-            ),
-            new TwigFunction(
-                'attributeSourceDisplayName',
-                [$this, 'getAttributeSourceDisplayName'],
-                ['is_safe' => ['html']]
-            ),
-            new TwigFunction(
-                'attributeShortName',
-                [$this, 'getAttributeShortName'],
-                ['is_safe' => ['html']]
-            ),
-            new TwigFunction(
-                'attributeName',
-                [$this, 'getAttributeName'],
-                ['is_safe' => ['html']]
-            ),
+            new TwigFunction('sortByDisplayOrder', [$this, 'sortByDisplayOrder'], $safeHtmlOptions),
+            new TwigFunction('attributeSourceLogoUrl', [$this, 'getAttributeSourceLogoUrl']),
+            new TwigFunction('attributeSourceDisplayName', [$this, 'getAttributeSourceDisplayName'], $safeHtmlOptions),
+            new TwigFunction('attributeShortName', [$this, 'getAttributeShortName'], $safeHtmlOptions),
+            new TwigFunction('attributeName', [$this, 'getAttributeName'], $safeHtmlOptions),
         ];
     }
 

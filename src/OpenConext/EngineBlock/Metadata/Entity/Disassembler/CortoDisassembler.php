@@ -45,9 +45,7 @@ class CortoDisassembler
      */
     public function translateServiceProvider(ServiceProvider $entity)
     {
-        $cortoEntity = array();
-
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
+        $cortoEntity = $this->translateCommon($entity, array());
 
         if ($entity->getCoins()->isTransparentIssuer()) {
             $cortoEntity['TransparentIssuer'] = 'yes';
@@ -55,16 +53,17 @@ class CortoDisassembler
         if ($entity->getCoins()->displayUnconnectedIdpsWayf()) {
             $cortoEntity['DisplayUnconnectedIdpsWayf'] = 'yes';
         }
-        foreach ($entity->assertionConsumerServices as $service) {
-            if (!isset($cortoEntity['AssertionConsumerServices'])) {
-                $cortoEntity['AssertionConsumerServices'] = array();
+        
+        if (!empty($entity->assertionConsumerServices)) {
+            $cortoEntity['AssertionConsumerServices'] = array();
+            foreach ($entity->assertionConsumerServices as $service) {
+                $cortoEntity['AssertionConsumerServices'][$service->serviceIndex] = array(
+                    'Binding'  => $service->binding,
+                    'Location' => $service->location,
+                );
             }
-
-            $cortoEntity['AssertionConsumerServices'][$service->serviceIndex] = array(
-                'Binding'  => $service->binding,
-                'Location' => $service->location,
-            );
         }
+        
         if (!$entity->getCoins()->isConsentRequired()) {
             $cortoEntity['NoConsentRequired'] = true;
         }
@@ -94,11 +93,8 @@ class CortoDisassembler
 
         $cortoEntity = $this->translateCommon($entity, $cortoEntity);
 
+        $cortoEntity['SingleSignOnService'] = array();
         foreach ($entity->singleSignOnServices as $service) {
-            if (!isset($cortoEntity['SingleSignOnService'])) {
-                $cortoEntity['SingleSignOnService'] = array();
-            }
-
             $cortoEntity[] = array(
                 'Binding'  => $service->binding,
                 'Location' => $service->location,

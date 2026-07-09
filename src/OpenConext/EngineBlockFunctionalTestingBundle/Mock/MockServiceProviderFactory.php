@@ -55,47 +55,54 @@ class MockServiceProviderFactory extends AbstractMockEntityFactory
 
     protected function generateDefaultEntityMetadata($spName)
     {
-        $descriptor = new EntityDescriptor();
-        $descriptor->setEntityID(
-            $this->router->generate(
-                'functional_testing_sp_metadata',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            )
+        // Generate all URLs in a single batch for efficiency
+        $entityId = $this->router->generate(
+            'functional_testing_sp_metadata',
+            ['spName' => $spName],
+            RouterInterface::ABSOLUTE_URL
+        );
+        
+        $acsLocation = $this->router->generate(
+            'functional_testing_sp_acs',
+            ['spName' => $spName],
+            RouterInterface::ABSOLUTE_URL
+        );
+        
+        $loginRedirectUrl = $this->router->generate(
+            'functional_testing_sp_login_redirect',
+            ['spName' => $spName],
+            RouterInterface::ABSOLUTE_URL
+        );
+        
+        $loginPostUrl = $this->router->generate(
+            'functional_testing_sp_login_post',
+            ['spName' => $spName],
+            RouterInterface::ABSOLUTE_URL
         );
 
+        // Create and configure ACS service
         $acsService = new IndexedEndpointType();
         $acsService->setIndex(0);
         $acsService->setBinding(Constants::BINDING_HTTP_POST);
-        $acsService->setLocation(
-            $this->router->generate(
-                'functional_testing_sp_acs',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            )
-        );
+        $acsService->setLocation($acsLocation);
+
+        // Create and configure SPSSO descriptor
         $spSsoDescriptor = new SPSSODescriptor();
         $spSsoDescriptor->setProtocolSupportEnumeration([Constants::NS_SAMLP]);
         $spSsoDescriptor->setAssertionConsumerService([$acsService]);
-
         $spSsoDescriptor->setKeyDescriptor([$this->generateDefaultSigningKeyPair()]);
 
+        // Create and configure entity descriptor
+        $descriptor = new EntityDescriptor();
+        $descriptor->setEntityID($entityId);
         $descriptor->setRoleDescriptor([$spSsoDescriptor]);
+        
+        // Set extensions
+        $descriptor->setExtensions([
+            'LoginRedirectUrl' => $loginRedirectUrl,
+            'LoginPostUrl' => $loginPostUrl,
+        ]);
 
-        $extensions = [
-            'LoginRedirectUrl' => $this->router->generate(
-                'functional_testing_sp_login_redirect',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            ),
-            'LoginPostUrl' => $this->router->generate(
-                'functional_testing_sp_login_post',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            ),
-        ];
-
-        $descriptor->setExtensions($extensions);
         return $descriptor;
     }
 

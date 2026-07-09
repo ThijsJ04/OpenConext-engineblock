@@ -117,32 +117,31 @@ class SsoNotificationService
      */
     private function parseSsoNotification(string $ssoNotification): array
     {
-        $data = [];
-
-        // Extract cipher and initialization vector
-        $base64Decoded = base64_decode($ssoNotification);
-        $iv = substr($base64Decoded, 0, self::IV_SIZE);
-        $cipherText = substr($base64Decoded, self::IV_SIZE);
-        // Construct encryption key
-        $key = hash_pbkdf2(
-            'sha256',
-            $this->encryptionKey,
-            $this->encryptionSalt,
-            self::ITERATION_COUNT,
-            self::KEY_SIZE,
-            true
-        );
-
-        $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
         try {
-            $data = JsonResponseParser::parse($jsonString);
+            // Extract cipher and initialization vector
+            $base64Decoded = base64_decode($ssoNotification);
+            $iv = substr($base64Decoded, 0, self::IV_SIZE);
+            $cipherText = substr($base64Decoded, self::IV_SIZE);
+            
+            // Construct encryption key and decrypt
+            $key = hash_pbkdf2('sha256', $this->encryptionKey, $this->encryptionSalt, self::ITERATION_COUNT, self::KEY_SIZE, true);
+            $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
+            
+            return JsonResponseParser::parse($jsonString);
+            
         } catch (InvalidJsonException $exception) {
             $this->logger->error(
-                "Failed to parse JSON string '$jsonString' from SSO notification",
-                array('exception' => $exception)
+                "Failed to parse SSO notification",
+                ['exception' => $exception]
             );
+            return [];
+        } catch (Exception $exception) {
+            $this->logger->error(
+                "Failed to process SSO notification",
+                ['exception' => $exception]
+            );
+            return [];
         }
-        return $data;
     }
 
     /**

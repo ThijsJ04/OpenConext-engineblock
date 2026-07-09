@@ -65,25 +65,13 @@ class ConsentController
      */
     public function consentAction(Request $request)
     {
-        $idpName = null;
-        $spName = null;
-        if ($request->query->has('idp-name')) {
-            $idpName = $request->query->get('idp-name');
-        }
-        if ($request->query->has('sp-name')) {
-            $spName = $request->query->get('sp-name');
-        }
-
+        $idpName = $request->query->get('idp-name');
+        $spName = $request->query->get('sp-name');
         $attributeAggregationEnabled = (bool) $request->query->get('aa-enabled', false);
-        $attributeSources = [];
-
-        $processConsentUrl = '#';
-        $fakeResponseId = '918723649';
+        
         $fakeSp = TestEntitySeeder::buildSp($spName);
         $fakeIdP = TestEntitySeeder::buildIdP($idpName);
-        $supportContact = 'Helpdesk';
-
-        $profileUrl = 'profile.openconext.org';
+        
         $attributes = [
             'urn:mace:dir:attribute-def:displayName' => ['John Doe'],
             'urn:mace:dir:attribute-def:uid' => ['joe-f12'],
@@ -95,21 +83,24 @@ class ConsentController
             'urn:mace:terena.org:attribute-def:schacHomeOrganization' => ['example.com'],
             'urn:mace:dir:attribute-def:isMemberOf' => ['urn:collab:org:dev.openconext.local', 'urn:collab:org:example.com'],
         ];
+        
         $attributeMotivations = [
             'urn:mace:dir:attribute-def:eduPersonPrincipalName' => 'Test  tooltip',
             'urn:mace:dir:attribute-def:givenName' => 'Test tooltip',
             'urn:mace:dir:attribute-def:isMemberOf' => 'Test tooltip',
         ];
-
+        
+        $attributeSources = [];
+        
         if ($attributeAggregationEnabled) {
             $attributes['urn:mace:surf.nl:attribute-def:eckid'] = ['joe-f12-eck-id'];
             $attributes['urn:mace:dir:attribute-def:eduPersonOrcid'] = ['https://orcid.org/0000-0002-9079-593X'];
+            
             $nameId = new NameID();
             $nameId->setFormat(Constants::NAMEID_PERSISTENT);
             $nameId->setValue('34872398723498723497293487');
-
             $attributes['urn:mace:dir:attribute-def:eduPersonTargetedID'] = [$nameId];
-
+            
             $attributeSources = [
                 'urn:mace:dir:attribute-def:eduPersonOrcid' => 'orcid',
                 'urn:mace:surf.nl:attribute-def:eckid' => 'sab',
@@ -118,11 +109,11 @@ class ConsentController
         }
 
         return new Response($this->twig->render('@theme/Authentication/View/Proxy/consent.html.twig', [
-            'action' => $processConsentUrl,
-            'responseId' => $fakeResponseId,
+            'action' => '#',
+            'responseId' => '918723649',
             'sp' => $fakeSp,
             'idp' => $fakeIdP,
-            'idpSupport' => $supportContact,
+            'idpSupport' => 'Helpdesk',
             'attributes' => $attributes,
             'attributeSources' => $attributeSources,
             'attributeMotivations' => $attributeMotivations,
@@ -130,7 +121,7 @@ class ConsentController
             'consentCount' => 5,
             'nameId' => $this->getNameId($request),
             'nameIdIsPersistent' => $this->isPersistentNameId($request),
-            'profileUrl' => $profileUrl,
+            'profileUrl' => 'profile.openconext.org',
             'showConsentExplanation' => $fakeIdP->getConsentSettings()->hasConsentExplanation($fakeSp->entityId),
             'consentSettings' => $fakeIdP->getConsentSettings(),
             'spEntityId' => $fakeSp->entityId,

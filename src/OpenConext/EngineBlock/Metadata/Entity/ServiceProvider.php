@@ -297,26 +297,33 @@ class ServiceProvider extends AbstractRole
      */
     public function getDisplayName(string $preferredLocale = 'en'): string
     {
-
-        $preferredName = $this->mdui->getDisplayName($preferredLocale);
-        $fallback = 'name' . ucfirst($preferredLocale);
-
-        if ($preferredName !== '') {
-            $spName = $preferredName;
-        } elseif (isset($this->$fallback)) {
-            $spName = $this->$fallback;
+        // Try display name in preferred locale
+        $displayName = $this->mdui->getDisplayName($preferredLocale);
+        if ($displayName !== '') {
+            return $displayName;
         }
 
-        if ($preferredLocale !== 'en' & empty($spName)) {
+        // Fall back to name in preferred locale
+        $nameProperty = 'name' . ucfirst($preferredLocale);
+        if (isset($this->$nameProperty) && $this->$nameProperty !== '') {
+            return $this->$nameProperty;
+        }
+
+        // If preferred locale is not English, try English display name
+        if ($preferredLocale !== 'en') {
             $englishDisplayName = $this->mdui->getDisplayName('en');
-            $spName = !empty($englishDisplayName) ? $englishDisplayName : $this->nameEn;
+            if ($englishDisplayName !== '') {
+                return $englishDisplayName;
+            }
+
+            // Fall back to English name
+            if ($this->nameEn !== null && $this->nameEn !== '') {
+                return $this->nameEn;
+            }
         }
 
-        if (empty($spName)) {
-            $spName = $this->entityId;
-        }
-
-        return $spName;
+        // Final fallback to entityId (should never happen)
+        return $this->entityId;
     }
 
     /**
@@ -371,42 +378,8 @@ class ServiceProvider extends AbstractRole
      */
     public function __sleep()
     {
-        return [
-            'attributeReleasePolicy',
-            'assertionConsumerServices',
-            'allowedIdpEntityIds',
-            'allowAll',
-            'requestedAttributes',
-            'supportUrlEn',
-            'supportUrlNl',
-            'supportUrlPt',
-            'id',
-            'entityId',
-            'nameNl',
-            'nameEn',
-            'namePt',
-            'descriptionNl',
-            'descriptionEn',
-            'descriptionPt',
-            'displayNameNl',
-            'displayNameEn',
-            'displayNamePt',
-            'logo',
-            'organizationNl',
-            'organizationEn',
-            'organizationPt',
-            'keywordsNl',
-            'keywordsEn',
-            'keywordsPt',
-            'workflowState',
-            'contactPersons',
-            'nameIdFormat',
-            'supportedNameIdFormats',
-            'singleLogoutService',
-            'requestsMustBeSigned',
-            'manipulation',
-            'coins',
-            'mdui',
-        ];
+        $properties = get_object_vars($this);
+        unset($properties['certificates']);
+        return array_keys($properties);
     }
 }

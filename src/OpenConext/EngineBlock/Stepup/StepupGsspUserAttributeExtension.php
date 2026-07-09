@@ -31,12 +31,17 @@ class StepupGsspUserAttributeExtension
     public static function add(Message $message, Assertion $assertion, array $userAttributes)
     {
         $assertionAttributes = $assertion->getAttributes();
-        $stepupUserAttributes = array_filter($assertionAttributes, function ($attributeKey) use ($userAttributes) {
-            return in_array($attributeKey, $userAttributes);
-        }, ARRAY_FILTER_USE_KEY);
-
-
-        if (count($stepupUserAttributes) === 0) {
+        $stepupUserAttributes = [];
+        
+        // Filter attributes more efficiently by iterating once and building the result array
+        foreach ($assertionAttributes as $attributeKey => $attributeValues) {
+            if (in_array($attributeKey, $userAttributes, true)) {
+                $stepupUserAttributes[$attributeKey] = $attributeValues;
+            }
+        }
+        
+        // Early return if no stepup attributes found
+        if (empty($stepupUserAttributes)) {
             return;
         }
 
