@@ -97,23 +97,17 @@ class ServiceProviderController extends AbstractController
             throw new BadRequestHttpException(sprintf('No SP found for "%s"', $spName));
         }
 
-        $factory = new AuthnRequestFactory();
         $sp = $this->mockSpRegistry->get($spName);
-        $authnRequest = $factory->createForRequestFromTo(
-            $sp,
-            $this->engineBlock
-        );
+        $factory = new AuthnRequestFactory();
+        $authnRequest = $factory->createForRequestFromTo($sp, $this->engineBlock);
 
         $redirect = new HTTPPost();
         $redirect->send($authnRequest);
 
-        /** @var Container $container */
-        $container = Utils::getContainer();
-        $response = $container->getPostResponse();
+        $response = Utils::getContainer()->getPostResponse();
 
         if (isset($sp->getEntityDescriptor()->getExtensions()['Malformed'])) {
-            $body = $response->getContent();
-            $response->setContent(str_replace('SAMLRequest', 'AuthNRequest', $body));
+            $response->setContent(str_replace('SAMLRequest', 'AuthNRequest', $response->getContent()));
         }
 
         return $response;

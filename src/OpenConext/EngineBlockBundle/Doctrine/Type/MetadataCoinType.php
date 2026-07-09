@@ -38,21 +38,16 @@ class MetadataCoinType extends Type
 
     public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
     {
-        if (is_null($value)) {
-            return $value;
+        if (is_null($value) || $value instanceof Coins) {
+            return is_null($value) ? $value : $value->toJson();
         }
 
-        if (!$value instanceof Coins) {
-            throw new ConversionException(
-                sprintf(
-                    'Value "%s" must be null or an instance of Coins to be able to ' .
-                    'convert it to a database value',
-                    is_object($value) ? get_class($value) : (string)$value
-                )
-            );
-        }
-
-        return $value->toJson();
+        throw new ConversionException(
+            sprintf(
+                'Value "%s" must be null or an instance of Coins to be able to convert it to a database value',
+                is_object($value) ? get_class($value) : (string)$value
+            )
+        );
     }
 
     public function getMappedDatabaseTypes(AbstractPlatform $platform): array

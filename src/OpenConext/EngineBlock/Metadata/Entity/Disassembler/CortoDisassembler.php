@@ -94,6 +94,7 @@ class CortoDisassembler
 
         $cortoEntity = $this->translateCommon($entity, $cortoEntity);
 
+        // Process SingleSignOnServices
         foreach ($entity->singleSignOnServices as $service) {
             if (!isset($cortoEntity['SingleSignOnService'])) {
                 $cortoEntity['SingleSignOnService'] = array();
@@ -105,15 +106,19 @@ class CortoDisassembler
             );
         }
 
-        $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
+        // Cache coins object to avoid repeated method calls
+        $coins = $entity->getCoins();
+        $cortoEntity['GuestQualifier'] = $coins->guestQualifier();
 
-        if ($entity->getCoins()->schacHomeOrganization()) {
-            $cortoEntity['SchacHomeOrganization'] = $entity->getCoins()->schacHomeOrganization();
+        $schacHomeOrganization = $coins->schacHomeOrganization();
+        if ($schacHomeOrganization) {
+            $cortoEntity['SchacHomeOrganization'] = $schacHomeOrganization;
         }
 
         $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
-        $cortoEntity['isHidden'] = $entity->getCoins()->hidden();
+        $cortoEntity['isHidden'] = $coins->hidden();
 
+        // Process shibmd:scopes
         $cortoEntity['shibmd:scopes'] = array();
         foreach ($entity->shibMdScopes as $scope) {
             $cortoEntity['shibmd:scopes'][] = array(
@@ -122,8 +127,9 @@ class CortoDisassembler
             );
         }
 
-        if ($entity->getCoins()->defaultRAC()) {
-            $cortoEntity['DefaultRAC'] = $entity->getCoins()->defaultRAC();
+        $defaultRAC = $coins->defaultRAC();
+        if ($defaultRAC) {
+            $cortoEntity['DefaultRAC'] = $defaultRAC;
         }
 
         return $cortoEntity;

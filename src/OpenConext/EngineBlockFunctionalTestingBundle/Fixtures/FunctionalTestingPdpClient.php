@@ -55,14 +55,10 @@ final class FunctionalTestingPdpClient implements PdpClientInterface
     {
         $pdpResponse = new Response();
 
-        $isSpecificDenyResponse = is_array($this->policyDecisionFixture)
-            && $this->policyDecisionFixture[0] === PolicyDecision::DECISION_DENY;
-        $isObligationResponse = is_array($this->policyDecisionFixture)
-            && $this->policyDecisionFixture[0] === PolicyDecision::DECISION_PERMIT;
-
         $decision = $this->policyDecisionFixture;
         $additionalData = [];
-        if ($isSpecificDenyResponse || $isObligationResponse) {
+        
+        if (is_array($this->policyDecisionFixture)) {
             $decision = $this->policyDecisionFixture[0];
             $additionalData = $this->policyDecisionFixture;
         }
@@ -71,7 +67,7 @@ final class FunctionalTestingPdpClient implements PdpClientInterface
             case PolicyDecision::DECISION_DENY:
                 $pdpResponse->decision = PolicyDecision::DECISION_DENY;
 
-                $idp = $this->getIdpFromAdditionalData($additionalData);
+                $idp = array_key_exists('idpName', $additionalData) ? $additionalData['idpName'] : '';
 
                 $englishDenyMessage = new AttributeAssignment();
                 $englishDenyMessage->attributeId = 'DenyMessage:en';
@@ -107,7 +103,7 @@ XML_WRAP;
             case PolicyDecision::DECISION_PERMIT:
                 $pdpResponse->decision = PolicyDecision::DECISION_PERMIT;
 
-                $loaId = $this->getLoaIdFromAdditionalData($additionalData);
+                $loaId = array_key_exists('loaId', $additionalData) ? $additionalData['loaId'] : '';
                 if ($loaId) {
                     $obligation = new Obligation;
                     $obligation->id = 'urn:openconext:stepup:loa';
@@ -192,23 +188,4 @@ XML_WRAP;
         $this->dataStore->save(null);
     }
 
-    private function getIdpFromAdditionalData(array $additionalData) : string
-    {
-        $idp = '';
-        if (array_key_exists('idpName', $additionalData)) {
-            $idp = $additionalData['idpName'];
-        }
-
-        return $idp;
-    }
-
-    private function getLoaIdFromAdditionalData(array $additionalData) : string
-    {
-        $loaId = '';
-        if (array_key_exists('loaId', $additionalData)) {
-            $loaId = $additionalData['loaId'];
-        }
-
-        return $loaId;
-    }
 }

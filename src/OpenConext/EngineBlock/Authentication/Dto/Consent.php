@@ -114,28 +114,19 @@ final class Consent
     private function getOrganizationDisplayNameFields(): array
     {
         $fields = [];
-        if (!empty($this->serviceProvider->organizationEn->displayName)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->displayName;
-        } elseif (!empty($this->serviceProvider->organizationEn->name)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->name;
-        } else {
-            $fields['organization_display_name']['en'] = "unknown";
-        }
-
-        if (!empty($this->serviceProvider->organizationNl->displayName)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->displayName;
-        } elseif (!empty($this->serviceProvider->organizationNl->name)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->name;
-        } else {
-            $fields['organization_display_name']['nl'] = $fields['organization_display_name']['en'];
-        }
-
-        if (!empty($this->serviceProvider->organizationPt->displayName)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->displayName;
-        } elseif (!empty($this->serviceProvider->organizationPt->name)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->name;
-        } else {
-            $fields['organization_display_name']['pt'] = $fields['organization_display_name']['en'];
+        $languages = ['en', 'nl', 'pt'];
+        
+        foreach ($languages as $language) {
+            $organizationProperty = 'organization' . ucfirst($language);
+            
+            if (!empty($this->serviceProvider->$organizationProperty->displayName)) {
+                $fields['organization_display_name'][$language] = $this->serviceProvider->$organizationProperty->displayName;
+            } elseif (!empty($this->serviceProvider->$organizationProperty->name)) {
+                $fields['organization_display_name'][$language] = $this->serviceProvider->$organizationProperty->name;
+            } else {
+                // For English, use "unknown" as fallback, for others use English value
+                $fields['organization_display_name'][$language] = $language === 'en' ? 'unknown' : ($fields['organization_display_name']['en'] ?? 'unknown');
+            }
         }
 
         return $fields;

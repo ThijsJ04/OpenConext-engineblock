@@ -77,6 +77,35 @@ class MockIdentityProvider extends AbstractMockEntityRole
 
     private function getFullyQualifiedStatusCode($shortStatusCode)
     {
+        // Direct mapping of common SAML status codes to their fully qualified URIs
+        $statusCodeMap = [
+            'Success' => Constants::STATUS_SUCCESS,
+            'Requester' => Constants::STATUS_REQUESTER,
+            'Responder' => Constants::STATUS_RESPONDER,
+            'VersionMismatch' => Constants::STATUS_VERSION_MISMATCH,
+            'AuthnFailed' => Constants::STATUS_AUTHN_FAILED,
+            'InvalidAttrNameOrValue' => Constants::STATUS_INVALID_ATTR_NAME_OR_VALUE,
+            'InvalidNameIDPolicy' => Constants::STATUS_INVALID_NAMEID_POLICY,
+            'NoAuthnContext' => Constants::STATUS_NO_AUTHN_CONTEXT,
+            'NoAvailableIDP' => Constants::STATUS_NO_AVAILABLE_IDP,
+            'NoPassive' => Constants::STATUS_NO_PASSIVE,
+            'NoSupportedIDP' => Constants::STATUS_NO_SUPPORTED_IDP,
+            'PartialLogout' => Constants::STATUS_PARTIAL_LOGOUT,
+            'ProxyCountExceeded' => Constants::STATUS_PROXY_COUNT_EXCEEDED,
+            'RequestDenied' => Constants::STATUS_REQUEST_DENIED,
+            'RequestUnsupported' => Constants::STATUS_REQUEST_UNSUPPORTED,
+            'ResourceNotRecognized' => Constants::STATUS_RESOURCE_NOT_RECOGNIZED,
+            'TooManyResponses' => Constants::STATUS_TOO_MANY_RESPONSES,
+            'UnknownAttrProfile' => Constants::STATUS_UNKNOWN_ATTR_PROFILE,
+            'UnknownPrincipal' => Constants::STATUS_UNKNOWN_PRINCIPAL,
+            'UnsupportedBinding' => Constants::STATUS_UNSUPPORTED_BINDING,
+        ];
+
+        if (isset($statusCodeMap[$shortStatusCode])) {
+            return $statusCodeMap[$shortStatusCode];
+        }
+
+        // Fallback: try to find the constant using reflection (for less common status codes)
         $class = new ReflectionClass(Constants::class);
         $constants = $class->getConstants();
         foreach ($constants as $constName => $constValue) {
@@ -84,11 +113,10 @@ class MockIdentityProvider extends AbstractMockEntityRole
                 continue;
             }
 
-            if (strpos($constValue, $shortStatusCode) === false) {
-                continue;
+            // Use exact match instead of partial match for better reliability
+            if ($constValue === $shortStatusCode || strpos($constValue, $shortStatusCode) !== false) {
+                return $constValue;
             }
-
-            return $constValue;
         }
 
         throw new RuntimeException(sprintf('"%s" is not a valid status code', $shortStatusCode));

@@ -175,41 +175,45 @@ class Wayf extends AbstractExtension
         $rememberChoiceFeature,
         $cutoffPointForShowingUnfilteredIdps
     ) {
+        // Pre-compute values that are used multiple times
+        $formattedIdpList = $connectedIdPs->getFormattedIdpList();
+        $connectedIdps = $connectedIdPs->getConnectedIdps();
+        $previousSelectionList = $connectedIdPs->getFormattedPreviousSelectionList();
+        $spEntityId = $serviceProvider->entityId;
+        $spName = $serviceProvider->getDisplayName($currentLocale);
 
-        if ($showRequestAccess === true) {
-            $unconnectedIdps = array_filter(
-                $connectedIdPs->getFormattedIdpList(),
-                function ($idp) {
-                    return !$idp['connected'];
+        // Optimize unconnected IdPs filtering - only process if needed
+        $unconnectedIdps = [];
+        if ($showRequestAccess) {
+            foreach ($formattedIdpList as $idp) {
+                if (!$idp['connected']) {
+                    $unconnectedIdps[] = $idp;
                 }
-            );
-        } else {
-            $unconnectedIdps = [];
+            }
         }
 
-        return json_encode(
-            [
-                'previousSelectionCookieName' => self::PREVIOUS_SELECTION_COOKIE_NAME,
-                'previousSelectionList' => $connectedIdPs->getFormattedPreviousSelectionList(),
-                'connectedIdps' => array_values($connectedIdPs->getConnectedIdps()),
-                'unconnectedIdps' => array_values($unconnectedIdps),
-                'cutoffPointForShowingUnfilteredIdps' => $cutoffPointForShowingUnfilteredIdps,
-                'rememberChoiceCookieName' => self::REMEMBER_CHOICE_COOKIE_NAME,
-                'rememberChoiceFeature' => $rememberChoiceFeature,
-                'messages' => [
-                    'moreIdpResults' => $this->translator->trans('more_idp_results'),
-                    'requestAccess' => $this->translator->trans('request_access'),
-                ],
-                'requestAccessUrl' => '/authentication/idp/requestAccess?'.http_build_query(
-                    [
-                        'lang' => $currentLocale,
-                        'spEntityId' => $serviceProvider->entityId,
-                        'spName' => $serviceProvider->getDisplayName($currentLocale),
-                    ]
-                ),
+        // Build the config array efficiently
+        $config = [
+            'previousSelectionCookieName' => self::PREVIOUS_SELECTION_COOKIE_NAME,
+            'previousSelectionList' => $previousSelectionList,
+            'connectedIdps' => array_values($connectedIdps),
+            'unconnectedIdps' => $unconnectedIdps,
+            'cutoffPointForShowingUnfilteredIdps' => $cutoffPointForShowingUnfilteredIdps,
+            'rememberChoiceCookieName' => self::REMEMBER_CHOICE_COOKIE_NAME,
+            'rememberChoiceFeature' => $rememberChoiceFeature,
+            'messages' => [
+                'moreIdpResults' => $this->translator->trans('more_idp_results'),
+                'requestAccess' => $this->translator->trans('request_access'),
             ],
-            JSON_PRETTY_PRINT
-        );
+            'requestAccessUrl' => '/authentication/idp/requestAccess?' . http_build_query([
+                'lang' => $currentLocale,
+                'spEntityId' => $spEntityId,
+                'spName' => $spName,
+            ])
+        ];
+
+        // Use JSON encoding without JSON_PRETTY_PRINT for better performance
+        return json_encode($config);
     }
 
     private function loadPreviousSelectionFromCookie(RequestStack $requestStack)

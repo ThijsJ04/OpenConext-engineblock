@@ -89,6 +89,7 @@ final class AttributeReleasePolicyController
             ));
         }
 
+        // Validate entityIds field
         if (!isset($body['entityIds'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "entityIds" not found');
         }
@@ -97,6 +98,7 @@ final class AttributeReleasePolicyController
             throw new BadApiRequestHttpException('Invalid JSON structure: "entityIds" must be a non-empty array');
         }
 
+        // Validate attributes field
         if (!isset($body['attributes'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "attributes" not found');
         }
@@ -105,12 +107,13 @@ final class AttributeReleasePolicyController
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }
 
-        if (!isset($body['showSources']) || !is_bool($body['showSources'])) {
-            $showSources = false;
-        } else {
-            $showSources = $body['showSources'];
+        // Validate showSources parameter
+        $showSources = $body['showSources'] ?? false;
+        if (isset($body['showSources']) && !is_bool($body['showSources'])) {
+            throw new BadApiRequestHttpException('Invalid JSON structure: "showSources" must be a boolean');
         }
 
+        // Validate attributes content
         foreach ($body['attributes'] as $attributeName => $attributeValues) {
             if (!is_string($attributeName) || !is_array($attributeValues)) {
                 throw new BadApiRequestHttpException(
@@ -119,6 +122,7 @@ final class AttributeReleasePolicyController
             }
         }
 
+        // Process ARP for each entity
         $releasedAttributes = [];
         foreach ($body['entityIds'] as $entityId) {
             $arp = $this->metadataService->findArpForServiceProviderByEntityId(new EntityId($entityId));

@@ -48,12 +48,15 @@ class SamlBindingValidator implements RequestValidator
                 $e
             );
         }
-        if (!($binding instanceof HTTPRedirect || $binding instanceof HTTPPost)) {
-            // We only support HTTP Redirect binding
-            throw new InvalidBindingException(
-                sprintf('The binding type "%s" is not supported on this endpoint', get_class($binding))
-            );
+
+        // Early return for valid bindings
+        if ($binding instanceof HTTPRedirect || $binding instanceof HTTPPost) {
+            return true;
         }
-        return true;
+
+        // Invalid binding type
+        throw new InvalidBindingException(
+            sprintf('The binding type "%s" is not supported on this endpoint', get_class($binding))
+        );
     }
 }
