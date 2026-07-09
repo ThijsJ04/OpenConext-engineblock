@@ -285,41 +285,87 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
 
     private function assembleCommon(stdClass $connection)
     {
+        // Initialize properties array with all possible keys
         $properties = array();
 
-        $properties += $this->setPathFromObjectString(array($connection, 'name'), 'entityId');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:nl'), 'nameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:en'), 'nameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:pt'), 'namePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:nl'), 'displayNameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:en'), 'displayNameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:pt'), 'displayNamePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:nl'), 'descriptionNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:en'), 'descriptionEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:pt'), 'descriptionPt', true);
-        $properties += $this->assembleLogo($connection);
-        $properties += $this->assembleOrganization($connection, 'nl');
-        $properties += $this->assembleOrganization($connection, 'en');
-        $properties += $this->assembleOrganization($connection, 'pt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:en'), 'keywordsEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:nl'), 'keywordsNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:pt'), 'keywordsPt', true);
-
-        $properties += $this->assembleCertificates($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'state'), 'workflowState');
-        $properties += $this->assembleContactPersons($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:NameIDFormat'), 'nameIdFormat');
-        $properties += $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats');
-        $properties += $this->assembleSingleLogoutServices($connection);
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping');
-
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:additional_logging'), 'additionalLogging');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:signature_method'), 'signatureMethod');
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:redirect:sign'), 'requestsMustBeSigned');
-        $properties += $this->setPathFromObjectString(array($connection, 'manipulation_code'), 'manipulation');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:en'), 'supportUrlEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:nl'), 'supportUrlNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:pt'), 'supportUrlPt');
+        // Use direct assignment instead of repeated array merging for better performance
+        $properties['entityId'] = $this->getValueFromPath(array($connection, 'name'));
+        
+        // Process name fields
+        $properties['nameNl'] = $this->getValueFromPath(array($connection, 'metadata:name:nl'));
+        $properties['nameEn'] = $this->getValueFromPath(array($connection, 'metadata:name:en'));
+        $properties['namePt'] = $this->getValueFromPath(array($connection, 'metadata:name:pt'));
+        
+        // Process display name fields
+        $properties['displayNameNl'] = $this->getValueFromPath(array($connection, 'metadata:displayName:nl'));
+        $properties['displayNameEn'] = $this->getValueFromPath(array($connection, 'metadata:displayName:en'));
+        $properties['displayNamePt'] = $this->getValueFromPath(array($connection, 'metadata:displayName:pt'));
+        
+        // Process description fields with length limiting
+        $properties['descriptionNl'] = $this->processStringWithLengthLimit(array($connection, 'metadata:description:nl'));
+        $properties['descriptionEn'] = $this->processStringWithLengthLimit(array($connection, 'metadata:description:en'));
+        $properties['descriptionPt'] = $this->processStringWithLengthLimit(array($connection, 'metadata:description:pt'));
+        
+        // Process logo
+        $logo = $this->assembleLogo($connection);
+        if (!empty($logo)) {
+            $properties = array_merge($properties, $logo);
+        }
+        
+        // Process organizations
+        $orgNl = $this->assembleOrganization($connection, 'nl');
+        $orgEn = $this->assembleOrganization($connection, 'en');
+        $orgPt = $this->assembleOrganization($connection, 'pt');
+        if (!empty($orgNl)) {
+            $properties = array_merge($properties, $orgNl);
+        }
+        if (!empty($orgEn)) {
+            $properties = array_merge($properties, $orgEn);
+        }
+        if (!empty($orgPt)) {
+            $properties = array_merge($properties, $orgPt);
+        }
+        
+        // Process keywords with length limiting
+        $properties['keywordsEn'] = $this->processStringWithLengthLimit(array($connection, 'metadata:keywords:en'));
+        $properties['keywordsNl'] = $this->processStringWithLengthLimit(array($connection, 'metadata:keywords:nl'));
+        $properties['keywordsPt'] = $this->processStringWithLengthLimit(array($connection, 'metadata:keywords:pt'));
+        
+        // Process certificates
+        $certificates = $this->assembleCertificates($connection);
+        if (!empty($certificates)) {
+            $properties = array_merge($properties, $certificates);
+        }
+        
+        // Process remaining fields
+        $properties['workflowState'] = $this->getValueFromPath(array($connection, 'state'));
+        
+        $contactPersons = $this->assembleContactPersons($connection);
+        if (!empty($contactPersons)) {
+            $properties = array_merge($properties, $contactPersons);
+        }
+        
+        $properties['nameIdFormat'] = $this->getValueFromPath(array($connection, 'metadata:NameIDFormat'));
+        
+        $nameIdFormats = $this->getValueFromPath(array($connection, 'metadata:NameIDFormats'));
+        if (!empty($nameIdFormats)) {
+            $properties['supportedNameIdFormats'] = $nameIdFormats;
+        }
+        
+        $singleLogoutService = $this->assembleSingleLogoutServices($connection);
+        if (!empty($singleLogoutService)) {
+            $properties = array_merge($properties, $singleLogoutService);
+        }
+        
+        $properties['disableScoping'] = $this->getBooleanValueFromPath(array($connection, 'metadata:coin:disable_scoping'));
+        $properties['additionalLogging'] = $this->getBooleanValueFromPath(array($connection, 'metadata:coin:additional_logging'));
+        $properties['signatureMethod'] = $this->getValueFromPath(array($connection, 'metadata:coin:signature_method'));
+        $properties['requestsMustBeSigned'] = $this->getBooleanValueFromPath(array($connection, 'metadata:redirect:sign'));
+        $properties['manipulation'] = $this->getValueFromPath(array($connection, 'manipulation_code'));
+        
+        $properties['supportUrlEn'] = $this->getValueFromPath(array($connection, 'metadata:url:en'));
+        $properties['supportUrlNl'] = $this->getValueFromPath(array($connection, 'metadata:url:nl'));
+        $properties['supportUrlPt'] = $this->getValueFromPath(array($connection, 'metadata:url:pt'));
 
         $properties['mdui'] = MduiPushAssemblerFactory::buildFrom($properties, $connection);
 
@@ -471,6 +517,24 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
         }
 
         return $reference;
+    }
+
+    private function processStringWithLengthLimit(array $from)
+    {
+        $value = $this->getValueFromPath($from);
+        if (is_null($value)) {
+            return null;
+        }
+        return $this->limitValueLength((string)$value);
+    }
+
+    private function getBooleanValueFromPath(array $from)
+    {
+        $value = $this->getValueFromPath($from);
+        if (is_null($value)) {
+            return null;
+        }
+        return (bool)$value;
     }
 
     private function assembleSingleSignOnServices($connection)

@@ -297,26 +297,33 @@ class ServiceProvider extends AbstractRole
      */
     public function getDisplayName(string $preferredLocale = 'en'): string
     {
-
-        $preferredName = $this->mdui->getDisplayName($preferredLocale);
-        $fallback = 'name' . ucfirst($preferredLocale);
-
-        if ($preferredName !== '') {
-            $spName = $preferredName;
-        } elseif (isset($this->$fallback)) {
-            $spName = $this->$fallback;
+        // Try preferred locale display name first
+        $displayName = $this->mdui->getDisplayName($preferredLocale);
+        if (!empty($displayName)) {
+            return $displayName;
         }
 
-        if ($preferredLocale !== 'en' & empty($spName)) {
+        // Fall back to preferred locale name
+        $nameProperty = 'name' . ucfirst($preferredLocale);
+        if (isset($this->$nameProperty) && !empty($this->$nameProperty)) {
+            return $this->$nameProperty;
+        }
+
+        // If preferred locale is not English, try English display name
+        if ($preferredLocale !== 'en') {
             $englishDisplayName = $this->mdui->getDisplayName('en');
-            $spName = !empty($englishDisplayName) ? $englishDisplayName : $this->nameEn;
+            if (!empty($englishDisplayName)) {
+                return $englishDisplayName;
+            }
         }
 
-        if (empty($spName)) {
-            $spName = $this->entityId;
+        // Fall back to English name
+        if (!empty($this->nameEn)) {
+            return $this->nameEn;
         }
 
-        return $spName;
+        // Final fallback to entity ID (should never happen)
+        return $this->entityId;
     }
 
     /**

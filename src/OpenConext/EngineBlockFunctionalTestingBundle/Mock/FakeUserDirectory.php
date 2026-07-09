@@ -94,18 +94,15 @@ class FakeUserDirectory extends UserDirectoryAdapter
             ));
         }
 
-        $uid                   = $attributes[Uid::URN_MACE][0];
-        $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
-
-        $collabPersonUuid = CollabPersonUuid::generate();
-        $collabPersonId   = CollabPersonId::generateWithReplacedAtSignFrom(
-            new Uid($uid),
-            new SchacHomeOrganization($schacHomeOrganization)
+        $user = new User(
+            CollabPersonId::generateWithReplacedAtSignFrom(
+                new Uid($attributes[Uid::URN_MACE][0]),
+                new SchacHomeOrganization($attributes[SchacHomeOrganization::URN_MACE][0])
+            ),
+            CollabPersonUuid::generate()
         );
-
-        $user = new User($collabPersonId, $collabPersonUuid);
-        $this->users[$collabPersonId->getCollabPersonId()] = $user;
-
+        
+        $this->users[$user->getCollabPersonId()->getCollabPersonId()] = $user;
         $this->saveToDisk();
 
         return $user;

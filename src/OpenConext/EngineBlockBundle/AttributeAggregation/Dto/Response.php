@@ -55,15 +55,14 @@ final class Response
      */
     private static function parseAggregatedAttribute(array $attributeData)
     {
-        if (!isset($attributeData['name'])) {
-            throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute name');
-        }
-
-        if (!isset($attributeData['values'])) {
-            throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute value');
-        }
-
-        if (!isset($attributeData['source'])) {
+        // Validate all required fields exist in a single check
+        if (!isset($attributeData['name'], $attributeData['values'], $attributeData['source'])) {
+            if (!isset($attributeData['name'])) {
+                throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute name');
+            }
+            if (!isset($attributeData['values'])) {
+                throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute value');
+            }
             throw new InvalidAttributeAggregationResponseException('Missing aggregated attribute source');
         }
 

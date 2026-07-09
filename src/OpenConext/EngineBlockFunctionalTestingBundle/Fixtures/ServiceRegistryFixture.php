@@ -440,30 +440,24 @@ QUERY;
 
     public function substituteNameIdWithAttributeValue(string $entityId, $attributeName)
     {
-        /** @var AttributeReleasePolicy $arp */
-        $arp = $this->getServiceProvider($entityId)->attributeReleasePolicy;
+        $serviceProvider = $this->getServiceProvider($entityId);
+        $arp = $serviceProvider->attributeReleasePolicy;
 
-        $rules = [];
+        $rules = !empty($arp) ? $arp->getAttributeRules() : [];
 
-        if (!empty($arp)) {
-            $rules = $arp->getAttributeRules();
-        }
-
-        $arpRule = [
-            'value' => "*",
-            'source' => 'idp',
-            'use_as_nameid' => true,
-        ];
-        // It could be the rule was already added (for example to set the release_as directive)
-        // in that case, load the existing rule and add the 'use_as_nameid'
         if (array_key_exists($attributeName, $rules)) {
-            $arpRule = $rules[$attributeName][0];
-            $arpRule['use_as_nameid'] = true;
+            // Rule already exists, just add the use_as_nameid flag
+            $rules[$attributeName][0]['use_as_nameid'] = true;
+        } else {
+            // Create new rule with use_as_nameid flag
+            $rules[$attributeName] = [[
+                'value' => "*",
+                'source' => 'idp',
+                'use_as_nameid' => true,
+            ]];
         }
 
-        $rules[$attributeName] = [$arpRule];
-
-        $this->getServiceProvider($entityId)->attributeReleasePolicy = new AttributeReleasePolicy($rules);
+        $serviceProvider->attributeReleasePolicy = new AttributeReleasePolicy($rules);
 
         return $this;
     }

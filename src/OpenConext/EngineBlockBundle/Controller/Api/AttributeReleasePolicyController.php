@@ -68,18 +68,28 @@ final class AttributeReleasePolicyController
 
     /**
      * @Route("/arp", name="api_apply_attribute_release_policy", defaults={"_format"="json"})
-     *
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Extensive request validation
-     * @SuppressWarnings(PHPMD.NPathComplexity) Extensive request validation
      */
     public function applyArpAction(Request $request)
+    {
+        $this->validateRequestMethod($request);
+        $this->assertAuthorized();
+
+        $body = $this->validateAndGetRequestBody($request);
+        $showSources = $this->validateAndGetShowSources($body);
+        $this->validateAttributesStructure($body['attributes']);
+
+        return $this->processArpForEntityIds($body['entityIds'], $body['attributes'], $showSources);
+    }
+
+    private function validateRequestMethod(Request $request): void
     {
         if (!$request->isMethod(Request::METHOD_POST)) {
             throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_POST]);
         }
+    }
 
-        $this->assertAuthorized();
-
+    private function validateAndGetRequestBody(Request $request): array
+    {
         $body = JsonRequestHelper::decodeContentAsArrayOf($request);
 
         if (!is_array($body)) {
@@ -89,6 +99,14 @@ final class AttributeReleasePolicyController
             ));
         }
 
+        $this->validateEntityIdsField($body);
+        $this->validateAttributesField($body);
+
+        return $body;
+    }
+
+    private function validateEntityIdsField(array $body): void
+    {
         if (!isset($body['entityIds'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "entityIds" not found');
         }
@@ -96,7 +114,10 @@ final class AttributeReleasePolicyController
         if (!is_array($body['entityIds']) || empty($body['entityIds'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: "entityIds" must be a non-empty array');
         }
+    }
 
+    private function validateAttributesField(array $body): void
+    {
         if (!isset($body['attributes'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "attributes" not found');
         }
@@ -104,25 +125,32 @@ final class AttributeReleasePolicyController
         if (!is_array($body['attributes'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }
+    }
 
-        if (!isset($body['showSources']) || !is_bool($body['showSources'])) {
-            $showSources = false;
-        } else {
-            $showSources = $body['showSources'];
-        }
+    private function validateAndGetShowSources(array $body): bool
+    {
+        return isset($body['showSources']) && is_bool($body['showSources']) 
+            ? $body['showSources'] 
+            : false;
+    }
 
-        foreach ($body['attributes'] as $attributeName => $attributeValues) {
+    private function validateAttributesStructure(array $attributes): void
+    {
+        foreach ($attributes as $attributeName => $attributeValues) {
             if (!is_string($attributeName) || !is_array($attributeValues)) {
                 throw new BadApiRequestHttpException(
                     'Invalid JSON structure: attributes should have strings as keys and an array of values'
                 );
             }
         }
+    }
 
+    private function processArpForEntityIds(array $entityIds, array $attributes, bool $showSources): JsonResponse
+    {
         $releasedAttributes = [];
-        foreach ($body['entityIds'] as $entityId) {
+        foreach ($entityIds as $entityId) {
             $arp = $this->metadataService->findArpForServiceProviderByEntityId(new EntityId($entityId));
-            $releasedAttributes[$entityId] = $this->arpEnforcer->enforceArp($body['attributes'], $arp, $showSources);
+            $releasedAttributes[$entityId] = $this->arpEnforcer->enforceArp($attributes, $arp, $showSources);
         }
 
         return new JsonResponse(json_encode($releasedAttributes));

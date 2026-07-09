@@ -87,13 +87,9 @@ final class FunctionalTestingAuthenticationLoopGuard implements AuthenticationLo
 
         if ($this->activeAuthenticationLoopGuard->detectsAuthenticationLoop($serviceProvider, $pastAuthenticationProcedures)) {
             throw new StuckInAuthenticationLoopException(
-                sprintf(
-                    'More than the configured maximum authentication procedures for the current user from SP "%s"'
-                    . ' occurred within the configured amount of seconds,'
-                    . ' the user seems to be stuck in an authentication loop. '
-                    . ' Aborting the current authentication procedure.',
-                    $serviceProvider->getEntityId()
-                )
+                'More than the configured maximum authentication procedures for the current user from SP "'
+                . $serviceProvider->getEntityId() . '" occurred within the configured time frame. '
+                . 'User seems to be stuck in an authentication loop. Aborting authentication procedure.'
             );
         }
 

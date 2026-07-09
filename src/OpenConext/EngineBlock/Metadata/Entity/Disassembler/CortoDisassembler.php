@@ -99,7 +99,7 @@ class CortoDisassembler
                 $cortoEntity['SingleSignOnService'] = array();
             }
 
-            $cortoEntity[] = array(
+            $cortoEntity['SingleSignOnService'][] = array(
                 'Binding'  => $service->binding,
                 'Location' => $service->location,
             );

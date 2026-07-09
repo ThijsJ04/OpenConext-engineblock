@@ -91,10 +91,7 @@ class Mdui
                     )
                 );
             }
-
-            if (!is_null($value) && in_array($key, self::ALLOWED_ELEMENT_NAMES, true)) {
-                $this->values[$key] = $value;
-            }
+            $this->values[$key] = $value;
         }
     }
 
@@ -125,6 +122,11 @@ class Mdui
 
         if ($parsedData) {
             foreach ($parsedData as $elementName => $multiLingualElement) {
+                // Skip invalid element names to handle malformed JSON gracefully
+                if (!in_array($elementName, self::ALLOWED_ELEMENT_NAMES, true)) {
+                    continue;
+                }
+
                 // The logo element differs from the other MduiElements, it is constructed in its own fashion
                 if ($elementName === 'Logo' && array_key_exists('url', $multiLingualElement)) {
                     $output[$elementName] = Logo::fromJson($multiLingualElement);
@@ -138,6 +140,11 @@ class Mdui
                 }
 
                 $output[$elementName] = MduiElement::fromJson($multiLingualElement);
+            }
+
+            // If no valid elements were found, return empty Mdui
+            if (empty($output)) {
+                return self::emptyMdui();
             }
 
             return new self($output);

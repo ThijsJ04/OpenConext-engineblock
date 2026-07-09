@@ -51,19 +51,9 @@ class Wayf extends AbstractExtension
     public function getFunctions(): array
     {
         return [
-            new TwigFunction(
-                'wayfConfig',
-                [$this, 'getWayfJsonConfig']
-            ),
-            new TwigFunction(
-                'connectedIdps',
-                [$this, 'getConnectedIdps']
-            ),
-            new TwigFunction(
-                'idpDiscoveryHash',
-                [$this, 'idpDiscoveryHash']
-            ),
-
+            new TwigFunction('wayfConfig', [$this, 'getWayfJsonConfig']),
+            new TwigFunction('connectedIdps', [$this, 'getConnectedIdps']),
+            new TwigFunction('idpDiscoveryHash', [$this, 'idpDiscoveryHash']),
         ];
     }
 
@@ -174,42 +164,44 @@ class Wayf extends AbstractExtension
         $showRequestAccess,
         $rememberChoiceFeature,
         $cutoffPointForShowingUnfilteredIdps
-    ) {
+    )
+    {
+        // Build the config array directly without intermediate variables
+        $config = [
+            'previousSelectionCookieName' => self::PREVIOUS_SELECTION_COOKIE_NAME,
+            'previousSelectionList' => $connectedIdPs->getFormattedPreviousSelectionList(),
+            'connectedIdps' => array_values($connectedIdPs->getConnectedIdps()),
+            'cutoffPointForShowingUnfilteredIdps' => $cutoffPointForShowingUnfilteredIdps,
+            'rememberChoiceCookieName' => self::REMEMBER_CHOICE_COOKIE_NAME,
+            'rememberChoiceFeature' => $rememberChoiceFeature,
+            'messages' => [
+                'moreIdpResults' => $this->translator->trans('more_idp_results'),
+                'requestAccess' => $this->translator->trans('request_access'),
+            ],
+            'requestAccessUrl' => '/authentication/idp/requestAccess?'.http_build_query(
+                [
+                    'lang' => $currentLocale,
+                    'spEntityId' => $serviceProvider->entityId,
+                    'spName' => $serviceProvider->getDisplayName($currentLocale),
+                ]
+            ),
+        ];
 
+        // Only add unconnected IDPs if the feature is enabled
         if ($showRequestAccess === true) {
-            $unconnectedIdps = array_filter(
-                $connectedIdPs->getFormattedIdpList(),
-                function ($idp) {
-                    return !$idp['connected'];
-                }
+            $config['unconnectedIdps'] = array_values(
+                array_filter(
+                    $connectedIdPs->getFormattedIdpList(),
+                    function ($idp) {
+                        return !$idp['connected'];
+                    }
+                )
             );
         } else {
-            $unconnectedIdps = [];
+            $config['unconnectedIdps'] = [];
         }
 
-        return json_encode(
-            [
-                'previousSelectionCookieName' => self::PREVIOUS_SELECTION_COOKIE_NAME,
-                'previousSelectionList' => $connectedIdPs->getFormattedPreviousSelectionList(),
-                'connectedIdps' => array_values($connectedIdPs->getConnectedIdps()),
-                'unconnectedIdps' => array_values($unconnectedIdps),
-                'cutoffPointForShowingUnfilteredIdps' => $cutoffPointForShowingUnfilteredIdps,
-                'rememberChoiceCookieName' => self::REMEMBER_CHOICE_COOKIE_NAME,
-                'rememberChoiceFeature' => $rememberChoiceFeature,
-                'messages' => [
-                    'moreIdpResults' => $this->translator->trans('more_idp_results'),
-                    'requestAccess' => $this->translator->trans('request_access'),
-                ],
-                'requestAccessUrl' => '/authentication/idp/requestAccess?'.http_build_query(
-                    [
-                        'lang' => $currentLocale,
-                        'spEntityId' => $serviceProvider->entityId,
-                        'spName' => $serviceProvider->getDisplayName($currentLocale),
-                    ]
-                ),
-            ],
-            JSON_PRETTY_PRINT
-        );
+        return json_encode($config, JSON_PRETTY_PRINT);
     }
 
     private function loadPreviousSelectionFromCookie(RequestStack $requestStack)
