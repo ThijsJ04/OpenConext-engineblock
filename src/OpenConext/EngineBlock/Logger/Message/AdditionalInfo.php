@@ -59,49 +59,37 @@ final class AdditionalInfo
 
     public static function createFromException(EngineBlock_Exception $exception)
     {
-        $info         = new self();
+        $info = new self();
         $info->userId = $exception->userId;
-        $info->idp    = $exception->idpEntityId;
-        $info->sp     = $exception->spEntityId;
+        $info->idp = $exception->idpEntityId;
+        $info->sp = $exception->spEntityId;
 
+        $details = '';
         if (!empty($exception->description)) {
-            $info->details = $exception->description . PHP_EOL;
+            $details = $exception->description . PHP_EOL;
         }
 
-        $traces = [
-            get_class($exception) . ': ' . $exception->getMessage() . PHP_EOL . $exception->getTraceAsString()
-        ];
+        $traces = [];
+        $current = $exception;
+        do {
+            $traces[] = get_class($current) . ': ' . $current->getMessage() . PHP_EOL . $current->getTraceAsString();
+        } while ($current = $current->getPrevious());
 
-        $previous = $exception;
-        while ($previous = $previous->getPrevious()) {
-            $traces[] = get_class($previous) . ': ' . $previous->getMessage() . PHP_EOL . $previous->getTraceAsString();
-        }
-
-        $info->details .= implode(PHP_EOL . PHP_EOL, $traces);
+        $details .= implode(PHP_EOL . PHP_EOL, $traces);
+        $info->details = $details;
 
         $info->location = $exception->getFile() . ':' . $exception->getLine();
-        switch ($exception->getSeverity()) {
-            case EngineBlock_Exception::CODE_EMERGENCY:
-                $info->severity = 'EMERG';
-                break;
-            case EngineBlock_Exception::CODE_ALERT:
-                $info->severity = 'ALERT';
-                break;
-            case EngineBlock_Exception::CODE_CRITICAL:
-                $info->severity = 'CRITICAL';
-                break;
-            case EngineBlock_Exception::CODE_ERROR:
-                $info->severity = 'ERROR';
-                break;
-            case EngineBlock_Exception::CODE_WARNING:
-                $info->severity = 'WARNING';
-                break;
-            case EngineBlock_Exception::CODE_NOTICE:
-                $info->severity = 'NOTICE';
-                break;
-            default:
-                $info->severity = 'ERROR';
-        }
+        
+        $severityMap = [
+            EngineBlock_Exception::CODE_EMERGENCY => 'EMERG',
+            EngineBlock_Exception::CODE_ALERT => 'ALERT',
+            EngineBlock_Exception::CODE_CRITICAL => 'CRITICAL',
+            EngineBlock_Exception::CODE_ERROR => 'ERROR',
+            EngineBlock_Exception::CODE_WARNING => 'WARNING',
+            EngineBlock_Exception::CODE_NOTICE => 'NOTICE'
+        ];
+        
+        $info->severity = $severityMap[$exception->getSeverity()] ?? 'ERROR';
 
         return $info;
     }

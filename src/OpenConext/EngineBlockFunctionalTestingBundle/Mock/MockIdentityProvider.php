@@ -58,21 +58,15 @@ class MockIdentityProvider extends AbstractMockEntityRole
     public function setStatusCode($topLevelStatusCode, $secondLevelStatusCode = '')
     {
         $role = $this->getSsoRole();
+        $extensions = $role->getExtensions();
 
-        $role->setExtensions(
-            array_merge(
-                $role->getExtensions(),
-                ['StatusCodeTop' => $this->getFullyQualifiedStatusCode($topLevelStatusCode)]
-            )
-        );
+        $extensions['StatusCodeTop'] = $this->getFullyQualifiedStatusCode($topLevelStatusCode);
+        
         if (!empty($secondLevelStatusCode)) {
-            $role->setExtensions(
-                array_merge(
-                    $role->getExtensions(),
-                    ['StatusCodeSecond' => $this->getFullyQualifiedStatusCode($secondLevelStatusCode)]
-                )
-            );
+            $extensions['StatusCodeSecond'] = $this->getFullyQualifiedStatusCode($secondLevelStatusCode);
         }
+        
+        $role->setExtensions($extensions);
     }
 
     private function getFullyQualifiedStatusCode($shortStatusCode)

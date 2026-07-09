@@ -114,28 +114,20 @@ final class Consent
     private function getOrganizationDisplayNameFields(): array
     {
         $fields = [];
-        if (!empty($this->serviceProvider->organizationEn->displayName)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->displayName;
-        } elseif (!empty($this->serviceProvider->organizationEn->name)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->name;
-        } else {
-            $fields['organization_display_name']['en'] = "unknown";
-        }
-
-        if (!empty($this->serviceProvider->organizationNl->displayName)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->displayName;
-        } elseif (!empty($this->serviceProvider->organizationNl->name)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->name;
-        } else {
-            $fields['organization_display_name']['nl'] = $fields['organization_display_name']['en'];
-        }
-
-        if (!empty($this->serviceProvider->organizationPt->displayName)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->displayName;
-        } elseif (!empty($this->serviceProvider->organizationPt->name)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->name;
-        } else {
-            $fields['organization_display_name']['pt'] = $fields['organization_display_name']['en'];
+        $languages = ['en', 'nl', 'pt'];
+        
+        foreach ($languages as $lang) {
+            $orgProperty = 'organization' . ucfirst($lang);
+            $displayName = $this->serviceProvider->$orgProperty->displayName ?? null;
+            $name = $this->serviceProvider->$orgProperty->name ?? null;
+            
+            if (!empty($displayName)) {
+                $fields['organization_display_name'][$lang] = $displayName;
+            } elseif (!empty($name)) {
+                $fields['organization_display_name'][$lang] = $name;
+            } else {
+                $fields['organization_display_name'][$lang] = $lang === 'en' ? 'unknown' : ($fields['organization_display_name']['en'] ?? 'unknown');
+            }
         }
 
         return $fields;

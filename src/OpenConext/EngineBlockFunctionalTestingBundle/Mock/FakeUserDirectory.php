@@ -58,25 +58,29 @@ class FakeUserDirectory extends UserDirectoryAdapter
     public function __construct(Filesystem $filesystem)
     {
         $this->filesystem = $filesystem;
-
         $filePath = self::$directory . self::$fileName;
+
+        // Early return if file doesn't exist or isn't readable
         if (!$this->filesystem->exists($filePath) || !is_readable($filePath)) {
             return;
         }
 
+        // Read and decode user data
         $content = file_get_contents($filePath);
         if ($content === false) {
             throw new RuntimeException(sprintf('Cannot read UserDirectory dump from "%s"', $filePath));
         }
 
         $users = json_decode($content, true);
-        array_walk($users, function (&$user): void {
-            $user = new User(
-                new CollabPersonId($user['collab_person_id']),
-                new CollabPersonUuid($user['collab_person_uuid'])
-            );
-        });
-        $this->users = $users;
+        if (is_array($users)) {
+            foreach ($users as &$user) {
+                $user = new User(
+                    new CollabPersonId($user['collab_person_id']),
+                    new CollabPersonUuid($user['collab_person_uuid'])
+                );
+            }
+            $this->users = $users;
+        }
     }
 
     public function identifyUser(array $attributes)

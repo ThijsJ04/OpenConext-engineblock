@@ -94,12 +94,9 @@ class CortoDisassembler
 
         $cortoEntity = $this->translateCommon($entity, $cortoEntity);
 
+        $cortoEntity['SingleSignOnService'] = array();
         foreach ($entity->singleSignOnServices as $service) {
-            if (!isset($cortoEntity['SingleSignOnService'])) {
-                $cortoEntity['SingleSignOnService'] = array();
-            }
-
-            $cortoEntity[] = array(
+            $cortoEntity['SingleSignOnService'][] = array(
                 'Binding'  => $service->binding,
                 'Location' => $service->location,
             );

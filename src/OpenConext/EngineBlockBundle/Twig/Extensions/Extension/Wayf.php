@@ -42,6 +42,11 @@ class Wayf extends AbstractExtension
      */
     private $previousSelection;
 
+    /**
+     * @var array|null
+     */
+    private $functionsCache;
+
     public function __construct(RequestStack $requestStack, \Symfony\Contracts\Translation\TranslatorInterface $translator)
     {
         $this->previousSelection = $this->loadPreviousSelectionFromCookie($requestStack);
@@ -50,21 +55,15 @@ class Wayf extends AbstractExtension
 
     public function getFunctions(): array
     {
-        return [
-            new TwigFunction(
-                'wayfConfig',
-                [$this, 'getWayfJsonConfig']
-            ),
-            new TwigFunction(
-                'connectedIdps',
-                [$this, 'getConnectedIdps']
-            ),
-            new TwigFunction(
-                'idpDiscoveryHash',
-                [$this, 'idpDiscoveryHash']
-            ),
+        if ($this->functionsCache === null) {
+            $this->functionsCache = [
+                new TwigFunction('wayfConfig', [$this, 'getWayfJsonConfig']),
+                new TwigFunction('connectedIdps', [$this, 'getConnectedIdps']),
+                new TwigFunction('idpDiscoveryHash', [$this, 'idpDiscoveryHash']),
+            ];
+        }
 
-        ];
+        return $this->functionsCache;
     }
 
     /**
@@ -176,23 +175,21 @@ class Wayf extends AbstractExtension
         $cutoffPointForShowingUnfilteredIdps
     ) {
 
-        if ($showRequestAccess === true) {
-            $unconnectedIdps = array_filter(
+        $unconnectedIdps = $showRequestAccess
+            ? array_values(array_filter(
                 $connectedIdPs->getFormattedIdpList(),
                 function ($idp) {
                     return !$idp['connected'];
                 }
-            );
-        } else {
-            $unconnectedIdps = [];
-        }
+            ))
+            : [];
 
         return json_encode(
             [
                 'previousSelectionCookieName' => self::PREVIOUS_SELECTION_COOKIE_NAME,
                 'previousSelectionList' => $connectedIdPs->getFormattedPreviousSelectionList(),
                 'connectedIdps' => array_values($connectedIdPs->getConnectedIdps()),
-                'unconnectedIdps' => array_values($unconnectedIdps),
+                'unconnectedIdps' => $unconnectedIdps,
                 'cutoffPointForShowingUnfilteredIdps' => $cutoffPointForShowingUnfilteredIdps,
                 'rememberChoiceCookieName' => self::REMEMBER_CHOICE_COOKIE_NAME,
                 'rememberChoiceFeature' => $rememberChoiceFeature,

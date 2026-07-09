@@ -285,41 +285,116 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
 
     private function assembleCommon(stdClass $connection)
     {
+        // Early return for empty connection
+        if (empty($connection)) {
+            return array();
+        }
+
+        // Define language codes to avoid repetition
+        $languageCodes = array('nl', 'en', 'pt');
+        
+        // Initialize properties array with direct assignments for better performance
         $properties = array();
 
-        $properties += $this->setPathFromObjectString(array($connection, 'name'), 'entityId');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:nl'), 'nameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:en'), 'nameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:pt'), 'namePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:nl'), 'displayNameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:en'), 'displayNameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:pt'), 'displayNamePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:nl'), 'descriptionNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:en'), 'descriptionEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:pt'), 'descriptionPt', true);
-        $properties += $this->assembleLogo($connection);
-        $properties += $this->assembleOrganization($connection, 'nl');
-        $properties += $this->assembleOrganization($connection, 'en');
-        $properties += $this->assembleOrganization($connection, 'pt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:en'), 'keywordsEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:nl'), 'keywordsNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:pt'), 'keywordsPt', true);
+        // Set entityId
+        $properties['entityId'] = $this->getValueFromPath(array($connection, 'name'));
 
-        $properties += $this->assembleCertificates($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'state'), 'workflowState');
-        $properties += $this->assembleContactPersons($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:NameIDFormat'), 'nameIdFormat');
-        $properties += $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats');
-        $properties += $this->assembleSingleLogoutServices($connection);
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping');
+        // Process language-specific fields using loops to reduce code duplication
+        foreach ($languageCodes as $lang) {
+            $name = $this->getValueFromPath(array($connection, 'metadata:name:' . $lang));
+            if ($name !== null) {
+                $properties['name' . ucfirst($lang)] = $name;
+            }
 
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:additional_logging'), 'additionalLogging');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:signature_method'), 'signatureMethod');
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:redirect:sign'), 'requestsMustBeSigned');
-        $properties += $this->setPathFromObjectString(array($connection, 'manipulation_code'), 'manipulation');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:en'), 'supportUrlEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:nl'), 'supportUrlNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:pt'), 'supportUrlPt');
+            $displayName = $this->getValueFromPath(array($connection, 'metadata:displayName:' . $lang));
+            if ($displayName !== null) {
+                $properties['displayName' . ucfirst($lang)] = $displayName;
+            }
+
+            $description = $this->getValueFromPath(array($connection, 'metadata:description:' . $lang));
+            if ($description !== null) {
+                $properties['description' . ucfirst($lang)] = $this->limitValueLength($description);
+            }
+
+            $keywords = $this->getValueFromPath(array($connection, 'metadata:keywords:' . $lang));
+            if ($keywords !== null) {
+                $properties['keywords' . ucfirst($lang)] = $this->limitValueLength($keywords);
+            }
+
+            $url = $this->getValueFromPath(array($connection, 'metadata:url:' . $lang));
+            if ($url !== null) {
+                $properties['supportUrl' . ucfirst($lang)] = $url;
+            }
+
+            // Process organizations
+            $organization = $this->assembleOrganization($connection, $lang);
+            if (!empty($organization)) {
+                $properties = array_merge($properties, $organization);
+            }
+        }
+
+        // Process logo
+        $logo = $this->assembleLogo($connection);
+        if (!empty($logo)) {
+            $properties = array_merge($properties, $logo);
+        }
+
+        // Process certificates
+        $certificates = $this->assembleCertificates($connection);
+        if (!empty($certificates)) {
+            $properties = array_merge($properties, $certificates);
+        }
+
+        // Process remaining fields
+        $workflowState = $this->getValueFromPath(array($connection, 'state'));
+        if ($workflowState !== null) {
+            $properties['workflowState'] = $workflowState;
+        }
+
+        $contactPersons = $this->assembleContactPersons($connection);
+        if (!empty($contactPersons)) {
+            $properties = array_merge($properties, $contactPersons);
+        }
+
+        $nameIdFormat = $this->getValueFromPath(array($connection, 'metadata:NameIDFormat'));
+        if ($nameIdFormat !== null) {
+            $properties['nameIdFormat'] = $nameIdFormat;
+        }
+
+        $supportedNameIdFormats = $this->getValueFromPath(array($connection, 'metadata:NameIDFormats'));
+        if ($supportedNameIdFormats !== null) {
+            $properties['supportedNameIdFormats'] = $supportedNameIdFormats;
+        }
+
+        $singleLogoutServices = $this->assembleSingleLogoutServices($connection);
+        if (!empty($singleLogoutServices)) {
+            $properties = array_merge($properties, $singleLogoutServices);
+        }
+
+        $disableScoping = $this->getValueFromPath(array($connection, 'metadata:coin:disable_scoping'));
+        if ($disableScoping !== null) {
+            $properties['disableScoping'] = (bool)$disableScoping;
+        }
+
+        $additionalLogging = $this->getValueFromPath(array($connection, 'metadata:coin:additional_logging'));
+        if ($additionalLogging !== null) {
+            $properties['additionalLogging'] = (bool)$additionalLogging;
+        }
+
+        $signatureMethod = $this->getValueFromPath(array($connection, 'metadata:coin:signature_method'));
+        if ($signatureMethod !== null) {
+            $properties['signatureMethod'] = $signatureMethod;
+        }
+
+        $requestsMustBeSigned = $this->getValueFromPath(array($connection, 'metadata:redirect:sign'));
+        if ($requestsMustBeSigned !== null) {
+            $properties['requestsMustBeSigned'] = (bool)$requestsMustBeSigned;
+        }
+
+        $manipulation = $this->getValueFromPath(array($connection, 'manipulation_code'));
+        if ($manipulation !== null) {
+            $properties['manipulation'] = $manipulation;
+        }
 
         $properties['mdui'] = MduiPushAssemblerFactory::buildFrom($properties, $connection);
 

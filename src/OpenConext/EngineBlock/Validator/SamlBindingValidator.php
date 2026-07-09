@@ -39,21 +39,26 @@ class SamlBindingValidator implements RequestValidator
 {
     public function isValid(Request $request)
     {
+        $requestMethod = $request->getMethod();
+        
         try {
             $binding = Binding::getCurrentBinding();
         } catch (Exception $e) {
             throw new InvalidBindingException(
-                sprintf('No SAMLRequest or SAMLResponse parameter was found in the HTTP "%s" request parameters', $request->getMethod()),
+                sprintf('No SAMLRequest or SAMLResponse parameter was found in the HTTP "%s" request', $requestMethod),
                 0,
                 $e
             );
         }
-        if (!($binding instanceof HTTPRedirect || $binding instanceof HTTPPost)) {
-            // We only support HTTP Redirect binding
+        
+        $isValidBinding = $binding instanceof HTTPRedirect || $binding instanceof HTTPPost;
+        
+        if (!$isValidBinding) {
             throw new InvalidBindingException(
                 sprintf('The binding type "%s" is not supported on this endpoint', get_class($binding))
             );
         }
+        
         return true;
     }
 }

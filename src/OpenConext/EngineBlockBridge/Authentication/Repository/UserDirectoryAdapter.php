@@ -56,32 +56,40 @@ class UserDirectoryAdapter
      */
     public function identifyUser(array $attributes)
     {
-        if (!isset($attributes[Uid::URN_MACE][0])) {
+        // Check for required fields in a single validation
+        if (!isset($attributes[Uid::URN_MACE][0]) || !isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
+            $missingFields = [];
+            if (!isset($attributes[Uid::URN_MACE][0])) {
+                $missingFields[] = Uid::URN_MACE;
+            }
+            if (!isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
+                $missingFields[] = SchacHomeOrganization::URN_MACE;
+            }
+            
             throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                Uid::URN_MACE
-            ));
-        }
-        if (!isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                SchacHomeOrganization::URN_MACE
+                'Missing required SAML2 field(s) "%s" in attributes',
+                implode('", "', $missingFields)
             ));
         }
 
-        $uid                   = $attributes[Uid::URN_MACE][0];
+        $uid = $attributes[Uid::URN_MACE][0];
         $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
 
-        $collabPersonUuid      = CollabPersonUuid::generate();
-        $collabPersonId        = CollabPersonId::generateWithReplacedAtSignFrom(
-            new Uid($uid),
-            new SchacHomeOrganization($schacHomeOrganization)
-        );
-
+        // Generate identifiers once and reuse
+        $uidObject = new Uid($uid);
+        $schacHomeOrgObject = new SchacHomeOrganization($schacHomeOrganization);
+        $collabPersonId = CollabPersonId::generateWithReplacedAtSignFrom($uidObject, $schacHomeOrgObject);
+        
+        // Try to find existing user
         $user = $this->userDirectory->findUserBy($collabPersonId);
+        
         if ($user === null) {
-            $this->logger->debug('User not found in database UserDirectory, registering User in database');
-
+            $this->logger->debug(sprintf(
+                'User with collabPersonId "%s" not found in database UserDirectory, registering new user',
+                $collabPersonId->getCollabPersonId()
+            ));
+            
+            $collabPersonUuid = CollabPersonUuid::generate();
             $user = new User($collabPersonId, $collabPersonUuid);
             $this->userDirectory->register($user);
         }
