@@ -114,29 +114,33 @@ final class Consent
     private function getOrganizationDisplayNameFields(): array
     {
         $fields = [];
-        if (!empty($this->serviceProvider->organizationEn->displayName)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->displayName;
-        } elseif (!empty($this->serviceProvider->organizationEn->name)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->name;
+        
+        // Set English value first
+        $orgEn = $this->serviceProvider->organizationEn;
+        if (!empty($orgEn->displayName)) {
+            $fields['organization_display_name']['en'] = $orgEn->displayName;
+        } elseif (!empty($orgEn->name)) {
+            $fields['organization_display_name']['en'] = $orgEn->name;
         } else {
             $fields['organization_display_name']['en'] = "unknown";
         }
-
-        if (!empty($this->serviceProvider->organizationNl->displayName)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->displayName;
-        } elseif (!empty($this->serviceProvider->organizationNl->name)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->name;
-        } else {
-            $fields['organization_display_name']['nl'] = $fields['organization_display_name']['en'];
-        }
-
-        if (!empty($this->serviceProvider->organizationPt->displayName)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->displayName;
-        } elseif (!empty($this->serviceProvider->organizationPt->name)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->name;
-        } else {
-            $fields['organization_display_name']['pt'] = $fields['organization_display_name']['en'];
-        }
+        
+        // Helper function for other languages that can fall back to English
+        $getOrgName = function ($lang) use ($fields) {
+            $org = $this->serviceProvider->{"organization$lang"};
+            
+            if (!empty($org->displayName)) {
+                return $org->displayName;
+            } elseif (!empty($org->name)) {
+                return $org->name;
+            } else {
+                return $fields['organization_display_name']['en'];
+            }
+        };
+        
+        // Process other languages
+        $fields['organization_display_name']['nl'] = $getOrgName('Nl');
+        $fields['organization_display_name']['pt'] = $getOrgName('Pt');
 
         return $fields;
     }

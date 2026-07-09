@@ -117,14 +117,42 @@ class SsoNotificationService
      */
     private function parseSsoNotification(string $ssoNotification): array
     {
-        $data = [];
-
-        // Extract cipher and initialization vector
         $base64Decoded = base64_decode($ssoNotification);
+        if ($base64Decoded === false) {
+            $this->logger->error("Failed to base64 decode SSO notification");
+            return [];
+        }
+
         $iv = substr($base64Decoded, 0, self::IV_SIZE);
         $cipherText = substr($base64Decoded, self::IV_SIZE);
-        // Construct encryption key
-        $key = hash_pbkdf2(
+        
+        if (strlen($iv) !== self::IV_SIZE) {
+            $this->logger->error("Invalid IV size in SSO notification");
+            return [];
+        }
+
+        $key = $this->generateEncryptionKey();
+        $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
+
+        try {
+            return JsonResponseParser::parse($jsonString);
+        } catch (InvalidJsonException $exception) {
+            $this->logger->error(
+                "Failed to parse JSON string from SSO notification",
+                ['exception' => $exception]
+            );
+            return [];
+        }
+    }
+
+    /**
+     * Generates the encryption key using PBKDF2 key derivation.
+     *
+     * @return string the derived encryption key
+     */
+    private function generateEncryptionKey(): string
+    {
+        return hash_pbkdf2(
             'sha256',
             $this->encryptionKey,
             $this->encryptionSalt,
@@ -132,17 +160,6 @@ class SsoNotificationService
             self::KEY_SIZE,
             true
         );
-
-        $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
-        try {
-            $data = JsonResponseParser::parse($jsonString);
-        } catch (InvalidJsonException $exception) {
-            $this->logger->error(
-                "Failed to parse JSON string '$jsonString' from SSO notification",
-                array('exception' => $exception)
-            );
-        }
-        return $data;
     }
 
     /**
@@ -164,10 +181,7 @@ class SsoNotificationService
     
         $data = openssl_decrypt($ssoNotification, $encryptionAlgorithm, $encryptionKey, OPENSSL_RAW_DATA, $iv);
         if (!$data) {
-            $this->logger->error(
-                "Failed to decrypt SSO notification '$ssoNotification' using algorithm " .
-                "'$encryptionAlgorithm', returning empty string"
-            );
+            $this->logger->error("Failed to decrypt SSO notification using algorithm '$encryptionAlgorithm'");
 
             return '';
         }

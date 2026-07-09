@@ -215,21 +215,22 @@ class Wayf extends AbstractExtension
     private function loadPreviousSelectionFromCookie(RequestStack $requestStack)
     {
         $request = $requestStack->getCurrentRequest();
-        $previousSelection = null;
-        $previousSelectionIndexed = [];
-        if ($request) {
-            $previousSelection = json_decode(
-                $request->cookies->get(self::PREVIOUS_SELECTION_COOKIE_NAME, ''),
-                true
-            );
-            if ($previousSelection) {
-                // And index the previous selection on IdP entity ID
-                foreach ($previousSelection as $item) {
-                    $previousSelectionIndexed[$item['idp']] = $item;
-                }
-            }
+        if (!$request) {
+            return [];
         }
-        return $previousSelectionIndexed;
+
+        $cookieValue = $request->cookies->get(self::PREVIOUS_SELECTION_COOKIE_NAME, '');
+        if (empty($cookieValue)) {
+            return [];
+        }
+
+        $previousSelection = json_decode($cookieValue, true);
+        if (!is_array($previousSelection)) {
+            return [];
+        }
+
+        // Index the previous selection on IdP entity ID
+        return array_column($previousSelection, null, 'idp');
     }
 
     public function idpDiscoveryHash(string $entityId, ?string $discoveryHash = null): string

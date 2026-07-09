@@ -90,16 +90,14 @@ class CortoDisassembler
      */
     public function translateIdentityProvider(IdentityProvider $entity)
     {
-        $cortoEntity = array();
-
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
+        $cortoEntity = $this->translateCommon($entity, array());
 
         foreach ($entity->singleSignOnServices as $service) {
             if (!isset($cortoEntity['SingleSignOnService'])) {
                 $cortoEntity['SingleSignOnService'] = array();
             }
 
-            $cortoEntity[] = array(
+            $cortoEntity['SingleSignOnService'][] = array(
                 'Binding'  => $service->binding,
                 'Location' => $service->location,
             );

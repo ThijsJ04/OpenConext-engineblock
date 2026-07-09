@@ -18,10 +18,10 @@
 
 namespace OpenConext\EngineBlock\Metadata;
 
-use Assert\AssertionFailedException;
 use Countable;
 use JsonSerializable;
 use OpenConext\EngineBlock\Assert\Assertion;
+use OpenConext\EngineBlock\Exception\InvalidArgumentException;
 
 class MfaEntityCollection implements JsonSerializable, Countable
 {
@@ -38,17 +38,24 @@ class MfaEntityCollection implements JsonSerializable, Countable
      */
     public static function fromMetadataPush(array $data): MfaEntityCollection
     {
+        // Extract all entity IDs first to check for duplicates more efficiently
+        $entityIds = array_column($data, 'name');
+        $uniqueEntityIds = array_unique($entityIds);
+        
+        if (count($entityIds) !== count($uniqueEntityIds)) {
+            $duplicateEntityIds = array_diff_assoc($entityIds, $uniqueEntityIds);
+            $duplicateId = reset($duplicateEntityIds);
+            throw new InvalidArgumentException(sprintf('Duplicate SP entity ids are not allowed in MFA list: %s', $duplicateId), 0);
+        }
+        
+        // Build entities array in a single pass
         $entities = [];
         foreach ($data as $mfaEntityData) {
             $entityId = (string) $mfaEntityData['name'];
             $level = (string) $mfaEntityData['level'];
-            Assertion::keyNotExists(
-                $entities,
-                $entityId,
-                sprintf('Duplicate SP entity ids are not allowed in MFA list: %s', $entityId)
-            );
             $entities[$entityId] = MfaEntityFactory::from($entityId, $level);
         }
+        
         return new self($entities);
     }
 

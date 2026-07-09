@@ -25,6 +25,17 @@ use Psr\Log\LogLevel;
 
 final class ManualOrErrorLevelActivationStrategyFactory implements ActivationStrategyFactory
 {
+    private const ALLOWED_LOG_LEVELS = [
+        LogLevel::EMERGENCY,
+        LogLevel::ALERT,
+        LogLevel::CRITICAL,
+        LogLevel::ERROR,
+        LogLevel::WARNING,
+        LogLevel::NOTICE,
+        LogLevel::INFO,
+        LogLevel::DEBUG,
+    ];
+
     /**
      * @param array $config
      * @return ManualOrDecoratedActivationStrategy
@@ -32,10 +43,10 @@ final class ManualOrErrorLevelActivationStrategyFactory implements ActivationStr
      */
     public static function createActivationStrategy(array $config)
     {
-        $config = self::validateAndNormalizeConfig($config);
+        $normalizedConfig = self::validateAndNormalizeConfig($config);
 
         return new ManualOrDecoratedActivationStrategy(
-            new ErrorLevelActivationStrategy($config['action_level'])
+            new ErrorLevelActivationStrategy($normalizedConfig['action_level'])
         );
     }
 
@@ -47,25 +58,19 @@ final class ManualOrErrorLevelActivationStrategyFactory implements ActivationStr
     private static function validateAndNormalizeConfig(array $config)
     {
         Assertion::keyIsset($config, 'action_level', 'Missing configuration value, configuration key "%s" not found');
-        Assertion::string($config['action_level']);
-
-        $config['action_level'] = strtolower($config['action_level']);
-
+        
+        $actionLevel = $config['action_level'];
+        Assertion::string($actionLevel);
+        
+        $normalizedActionLevel = strtolower($actionLevel);
         Assertion::choice(
-            $config['action_level'],
-            [
-                LogLevel::EMERGENCY,
-                LogLevel::ALERT,
-                LogLevel::CRITICAL,
-                LogLevel::ERROR,
-                LogLevel::WARNING,
-                LogLevel::NOTICE,
-                LogLevel::INFO,
-                LogLevel::DEBUG,
-            ],
+            $normalizedActionLevel,
+            self::ALLOWED_LOG_LEVELS,
             'Configured action level must be a valid PSR-compliant log level: "%s"'
         );
 
-        return $config;
+        return [
+            'action_level' => $normalizedActionLevel,
+        ];
     }
 }

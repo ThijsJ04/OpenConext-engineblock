@@ -41,22 +41,19 @@ class DocumentSigner
         }
         $rootNode = $doc->childNodes[1];
 
-        // Create sign object
-        $canonicalMethod = XMLSecurityDSig::EXC_C14N;
+        // Create sign object with optimized configuration
         $objDSig = new XMLSecurityDSig();
-        $objDSig->setCanonicalMethod($canonicalMethod);
+        $objDSig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N);
         $objDSig->addReference(
             $rootNode,
             self::SIGN_ALGORITHM,
-            ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', $canonicalMethod],
+            ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', XMLSecurityDSig::EXC_C14N],
             ['id_name' => 'ID', 'overwrite' => false]
         );
 
-        // Load private key
+        // Load private key and sign
         $objKey = $signingKeyPair->getPrivateKey()->toXmlSecurityKey();
         $objKey->loadKey($signingKeyPair->getPrivateKey()->getFilePath(), true);
-
-        // Sign with private key
         $objDSig->sign($objKey);
 
         // Add the associated public key to the signature

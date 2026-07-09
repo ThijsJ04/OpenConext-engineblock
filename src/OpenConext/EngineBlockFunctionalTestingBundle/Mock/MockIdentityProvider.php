@@ -228,18 +228,9 @@ class MockIdentityProvider extends AbstractMockEntityRole
         $response = $role->getExtensions()['SAMLResponse'];
         $assertions = $response->getAssertions();
 
-        $newAttributes = [];
-
         $attributes = $assertions[0]->getAttributes();
-        foreach ($attributes as $attributeName => $attributeValues) {
-            if ($attributeName === $forbiddenAttributeName) {
-                continue;
-            }
-
-            $newAttributes[$attributeName] = $attributeValues;
-        }
-
-        $assertions[0]->setAttributes($newAttributes);
+        unset($attributes[$forbiddenAttributeName]);
+        $assertions[0]->setAttributes($attributes);
     }
 
     public function setAttribute($attributeName, array $attributeValues)

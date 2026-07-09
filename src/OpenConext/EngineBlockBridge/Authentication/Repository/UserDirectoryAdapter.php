@@ -56,36 +56,72 @@ class UserDirectoryAdapter
      */
     public function identifyUser(array $attributes)
     {
-        if (!isset($attributes[Uid::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                Uid::URN_MACE
-            ));
-        }
-        if (!isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                SchacHomeOrganization::URN_MACE
-            ));
-        }
+        $this->validateRequiredAttributes($attributes);
 
         $uid                   = $attributes[Uid::URN_MACE][0];
         $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
-
-        $collabPersonUuid      = CollabPersonUuid::generate();
-        $collabPersonId        = CollabPersonId::generateWithReplacedAtSignFrom(
-            new Uid($uid),
-            new SchacHomeOrganization($schacHomeOrganization)
-        );
+        $collabPersonId        = $this->createCollabPersonId($uid, $schacHomeOrganization);
 
         $user = $this->userDirectory->findUserBy($collabPersonId);
         if ($user === null) {
-            $this->logger->debug('User not found in database UserDirectory, registering User in database');
-
-            $user = new User($collabPersonId, $collabPersonUuid);
-            $this->userDirectory->register($user);
+            $this->logger->debug(sprintf(
+                'User with collabPersonId "%s" not found in database UserDirectory, registering new user',
+                $collabPersonId
+            ));
+            $user = $this->createAndRegisterUser($collabPersonId);
         }
 
+        return $user;
+    }
+
+    /**
+     * Validates that required attributes are present in the attributes array.
+     *
+     * @param array $attributes
+     * @throws EngineBlock_Exception_MissingRequiredFields
+     */
+    private function validateRequiredAttributes(array $attributes)
+    {
+        $requiredFields = [
+            Uid::URN_MACE => 'UID',
+            SchacHomeOrganization::URN_MACE => 'schacHomeOrganization'
+        ];
+
+        foreach ($requiredFields as $field => $fieldName) {
+            if (!isset($attributes[$field][0])) {
+                throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
+                    'Missing required SAML2 field "%s" in attributes',
+                    $field
+                ));
+            }
+        }
+    }
+
+    /**
+     * Creates a CollabPersonId from UID and schacHomeOrganization.
+     *
+     * @param string $uid
+     * @param string $schacHomeOrganization
+     * @return CollabPersonId
+     */
+    private function createCollabPersonId($uid, $schacHomeOrganization)
+    {
+        return CollabPersonId::generateWithReplacedAtSignFrom(
+            new Uid($uid),
+            new SchacHomeOrganization($schacHomeOrganization)
+        );
+    }
+
+    /**
+     * Creates and registers a new user with the given CollabPersonId.
+     *
+     * @param CollabPersonId $collabPersonId
+     * @return User
+     */
+    private function createAndRegisterUser(CollabPersonId $collabPersonId)
+    {
+        $user = new User($collabPersonId, CollabPersonUuid::generate());
+        $this->userDirectory->register($user);
         return $user;
     }
 
