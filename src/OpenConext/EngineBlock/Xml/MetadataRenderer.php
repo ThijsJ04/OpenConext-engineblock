@@ -131,30 +131,25 @@ class MetadataRenderer
     private function renderMetadataXmlServiceProvider(ServiceProviderEntityInterface $sp, string $template) : string
     {
         $metadata = new ServiceProviderMetadataHelper($sp, $this->languageSupportProvider);
-
-        switch ($this->addRequestedAttributes) {
-            case "all":
-                $requestedAttributes = $metadata->getRequestedAttributes();
-                break;
-            case "required":
-                $requestedAttributes = array_filter($metadata->getRequestedAttributes(), function ($value) {
-                    return $value->required;
-                });
-                break;
-            case "none":
-            default:
-                $requestedAttributes = [];
+        
+        // Determine requested attributes based on configuration
+        if ($this->addRequestedAttributes === "all") {
+            $requestedAttributes = $metadata->getRequestedAttributes();
+        } elseif ($this->addRequestedAttributes === "required") {
+            $requestedAttributes = array_filter($metadata->getRequestedAttributes(), function ($value) {
+                return $value->required;
+            });
+        } else {
+            $requestedAttributes = [];
         }
 
-        $params = [
+        return $this->twig->render($template, [
             'id' => $this->samlIdGenerator->generate(self::ID_PREFIX, EngineBlock_Saml2_IdGenerator::ID_USAGE_SAML2_METADATA),
             'validUntil' => $this->getValidUntil(),
             'metadata' => $metadata,
             'locales' => $this->languageSupportProvider->getSupportedLanguages(),
             'requestedAttributes' => $requestedAttributes
-        ];
-
-        return $this->twig->render($template, $params);
+        ]);
     }
 
     private function renderMetadataXmlIdentityProvider(IdentityProviderEntityInterface $idp, string $template) : string

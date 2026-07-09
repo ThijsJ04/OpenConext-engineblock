@@ -117,12 +117,21 @@ class SsoNotificationService
      */
     private function parseSsoNotification(string $ssoNotification): array
     {
-        $data = [];
-
         // Extract cipher and initialization vector
         $base64Decoded = base64_decode($ssoNotification);
+        if ($base64Decoded === false) {
+            $this->logger->error("Failed to base64 decode SSO notification");
+            return [];
+        }
+
         $iv = substr($base64Decoded, 0, self::IV_SIZE);
         $cipherText = substr($base64Decoded, self::IV_SIZE);
+        
+        if (strlen($iv) !== self::IV_SIZE || empty($cipherText)) {
+            $this->logger->error("Invalid SSO notification format: IV or cipher text missing");
+            return [];
+        }
+
         // Construct encryption key
         $key = hash_pbkdf2(
             'sha256',
@@ -135,14 +144,14 @@ class SsoNotificationService
 
         $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
         try {
-            $data = JsonResponseParser::parse($jsonString);
+            return JsonResponseParser::parse($jsonString);
         } catch (InvalidJsonException $exception) {
             $this->logger->error(
                 "Failed to parse JSON string '$jsonString' from SSO notification",
                 array('exception' => $exception)
             );
+            return [];
         }
-        return $data;
     }
 
     /**

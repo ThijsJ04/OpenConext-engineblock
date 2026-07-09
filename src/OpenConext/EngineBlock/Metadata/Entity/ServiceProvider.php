@@ -100,13 +100,13 @@ class ServiceProvider extends AbstractRole
     public function __construct(
         $entityId,
         ?Mdui $mdui = null,
-        Organization $organizationEn = null,
-        Organization $organizationNl = null,
-        Organization $organizationPt = null,
-        Service $singleLogoutService = null,
+        ?Organization $organizationEn = null,
+        ?Organization $organizationNl = null,
+        ?Organization $organizationPt = null,
+        ?Service $singleLogoutService = null,
         bool $additionalLogging = false,
-        array $certificates = array(),
-        array $contactPersons = array(),
+        array $certificates = [],
+        array $contactPersons = [],
         ?string $descriptionEn = '',
         ?string $descriptionNl = '',
         ?string $descriptionPt = '',
@@ -122,16 +122,16 @@ class ServiceProvider extends AbstractRole
         ?string $nameNl = '',
         ?string $namePt = '',
         ?string $nameIdFormat = null,
-        array $supportedNameIdFormats = array(
+        array $supportedNameIdFormats = [
             Constants::NAMEID_TRANSIENT,
             Constants::NAMEID_PERSISTENT,
-        ),
+        ],
         bool $requestsMustBeSigned = false,
         string $signatureMethod = XMLSecurityKey::RSA_SHA256,
         string $workflowState = self::WORKFLOW_STATE_DEFAULT,
-        array $allowedIdpEntityIds = array(),
+        array $allowedIdpEntityIds = [],
         bool $allowAll = false,
-        array $assertionConsumerServices = array(),
+        array $assertionConsumerServices = [],
         bool $displayUnconnectedIdpsWayf = false,
         ?string $termsOfServiceUrl = null,
         bool $isConsentRequired = true,
@@ -152,9 +152,8 @@ class ServiceProvider extends AbstractRole
         bool $stepupForceAuthn = false,
         bool $collabEnabled = false
     ) {
-        if (is_null($mdui)) {
-            $mdui = Mdui::emptyMdui();
-        }
+        $mdui = $mdui ?? Mdui::emptyMdui();
+        
         parent::__construct(
             $entityId,
             $mdui,
@@ -297,26 +296,33 @@ class ServiceProvider extends AbstractRole
      */
     public function getDisplayName(string $preferredLocale = 'en'): string
     {
-
-        $preferredName = $this->mdui->getDisplayName($preferredLocale);
-        $fallback = 'name' . ucfirst($preferredLocale);
-
-        if ($preferredName !== '') {
-            $spName = $preferredName;
-        } elseif (isset($this->$fallback)) {
-            $spName = $this->$fallback;
+        // Try preferred locale display name first
+        $preferredDisplayName = $this->mdui->getDisplayName($preferredLocale);
+        if ($preferredDisplayName !== '') {
+            return $preferredDisplayName;
         }
 
-        if ($preferredLocale !== 'en' & empty($spName)) {
+        // Fall back to preferred locale name
+        $fallbackName = 'name' . ucfirst($preferredLocale);
+        if (isset($this->$fallbackName) && !empty($this->$fallbackName)) {
+            return $this->$fallbackName;
+        }
+
+        // For non-English locales, try English display name
+        if ($preferredLocale !== 'en') {
             $englishDisplayName = $this->mdui->getDisplayName('en');
-            $spName = !empty($englishDisplayName) ? $englishDisplayName : $this->nameEn;
+            if ($englishDisplayName !== '') {
+                return $englishDisplayName;
+            }
+
+            // Fall back to English name if it exists and is not empty
+            if (!empty($this->nameEn)) {
+                return $this->nameEn;
+            }
         }
 
-        if (empty($spName)) {
-            $spName = $this->entityId;
-        }
-
-        return $spName;
+        // Final fallback to entity ID (should never happen)
+        return $this->entityId;
     }
 
     /**
@@ -410,3 +416,4 @@ class ServiceProvider extends AbstractRole
         ];
     }
 }
+

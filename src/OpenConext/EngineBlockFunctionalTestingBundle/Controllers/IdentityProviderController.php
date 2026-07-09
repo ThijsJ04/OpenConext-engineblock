@@ -69,59 +69,45 @@ class IdentityProviderController extends AbstractController
 
     /**
      * @param Request $request
-     * @param $idpName
+     * @param string $idpName
      * @return Response
      * @throws RuntimeException
      */
     public function singleSignOnAction(Request $request, $idpName)
     {
-        if ($request->isMethod('GET')) {
-            $redirectBinding = new HTTPRedirect();
-            $message = $redirectBinding->receive();
-        } elseif ($request->isMethod('POST')) {
-            $postBinding = new HTTPPost();
-            $message = $postBinding->receive();
-        } else {
+        // Determine the binding based on HTTP method
+        $binding = $request->isMethod('GET') ? new HTTPRedirect() : new HTTPPost();
+        if (!$request->isMethod('GET') && !$request->isMethod('POST')) {
             throw new RuntimeException('Unsupported HTTP method');
         }
 
+        $message = $binding->receive();
+        
         if (!$message instanceof AuthnRequest) {
             throw new RuntimeException(sprintf('Unknown message type: "%s"', get_class($message)));
         }
-        $authnRequest = $message;
 
-        /** @var MockIdentityProvider $mockIdp */
         $mockIdp = $this->mockIdpRegistry->get($idpName);
+        $response = $this->responseFactory->createForEntityWithRequest($mockIdp, $message);
 
-        /** @var ResponseFactory $responseFactory */
-        $response = $this->responseFactory->createForEntityWithRequest($mockIdp, $authnRequest);
-
-        $destination = ($authnRequest->getAssertionConsumerServiceURL() ?
-                $authnRequest->getAssertionConsumerServiceURL() :
-                $response->getDestination());
-
-        /* set the destination element of the response to the ACS URL */
+        // Set destination using null coalescing operator for cleaner code
+        $destination = $message->getAssertionConsumerServiceURL() ?? $response->getDestination();
         $response->setDestination($destination);
 
         if ($mockIdp->mustUseHttpRedirect()) {
             $redirect = new HTTPRedirect();
             $redirect->setDestination($destination);
-            $url = $redirect->getRedirectURL($response);
-            return new RedirectResponse($url);
+            return new RedirectResponse($redirect->getRedirectURL($response));
         }
 
-        /** @var Container $container */
         $container = Utils::getContainer();
         $authnRequestXml = $container->getLastDebugMessageOfType(Container::DEBUG_TYPE_IN);
-        $responseXml = $response->toXml();
-
-        $container->postRedirect(
-            $destination,
-            [
-                'authnRequestXml'=> htmlentities($authnRequestXml),
-                'SAMLResponse' => base64_encode($responseXml),
-            ]
-        );
+        
+        $container->postRedirect($destination, [
+            'authnRequestXml' => htmlentities($authnRequestXml),
+            'SAMLResponse' => base64_encode($response->toXml()),
+        ]);
+        
         return $container->getPostResponse();
     }
 }

@@ -65,17 +65,16 @@ TPL;
     /**
      * Request access for a specific (known to OpenConext) IDP.
      *
-     * @param $spName
-     * @param $spEntityId
-     * @param $institution
-     * @param $idpEntityId
-     * @param $name
-     * @param $email
-     * @param $comment
+     * @param string $spName
+     * @param string $spEntityId
+     * @param string $institution
+     * @param string $idpEntityId
+     * @param string $name
+     * @param string $email
+     * @param string $comment
      */
     public function sendRequestAccessEmailForIdp($spName, $spEntityId, $institution, $idpEntityId, $name, $email, $comment)
     {
-        $subject = self::REQUEST_IDP_ACCESS_SUBJECT;
         $body = sprintf(
             self::REQUEST_IDP_ACCESS_TEMPLATE,
             $institution,
@@ -87,16 +86,13 @@ TPL;
             $comment
         );
 
-        // We use the destination email address also as a From since we do
-        // not have a better generic sender address available currently.
-        $message = new Email();
-        $message
-            ->subject($subject)
-            ->from($this->requestAccessEmailAddress)
-            ->to($this->requestAccessEmailAddress)
-            ->text($body);
-
-        $this->mailer->send($message);
+        $this->mailer->send(
+            (new Email())
+                ->subject(self::REQUEST_IDP_ACCESS_SUBJECT)
+                ->from($this->requestAccessEmailAddress)
+                ->to($this->requestAccessEmailAddress)
+                ->text($body)
+        );
     }
 
     /**

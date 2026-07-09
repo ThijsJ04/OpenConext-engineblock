@@ -39,16 +39,26 @@ class MfaEntityCollection implements JsonSerializable, Countable
     public static function fromMetadataPush(array $data): MfaEntityCollection
     {
         $entities = [];
+        $entityIds = [];
+        
+        // First pass: validate all entity IDs for duplicates
         foreach ($data as $mfaEntityData) {
             $entityId = (string) $mfaEntityData['name'];
-            $level = (string) $mfaEntityData['level'];
             Assertion::keyNotExists(
-                $entities,
+                $entityIds,
                 $entityId,
                 sprintf('Duplicate SP entity ids are not allowed in MFA list: %s', $entityId)
             );
+            $entityIds[$entityId] = true;
+        }
+        
+        // Second pass: create all MfaEntity objects
+        foreach ($data as $mfaEntityData) {
+            $entityId = (string) $mfaEntityData['name'];
+            $level = (string) $mfaEntityData['level'];
             $entities[$entityId] = MfaEntityFactory::from($entityId, $level);
         }
+
         return new self($entities);
     }
 

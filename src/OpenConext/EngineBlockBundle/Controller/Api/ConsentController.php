@@ -85,12 +85,9 @@ final class ConsentController
             throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_GET]);
         }
 
-        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent')) {
-            throw new ApiNotFoundHttpException('Consent feature is disabled');
-        }
-
-        if (!$this->featureConfiguration->isEnabled('api.consent_listing')) {
-            throw new ApiNotFoundHttpException('Consent listing API is disabled');
+        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent') || 
+            !$this->featureConfiguration->isEnabled('api.consent_listing')) {
+            throw new ApiNotFoundHttpException('Consent feature or API is disabled');
         }
 
         $this->assertAuthorized();
@@ -99,11 +96,7 @@ final class ConsentController
             $consentList = $this->consentService->findAllFor($userId)->jsonSerialize();
         } catch (RuntimeException $e) {
             throw new ApiInternalServerErrorHttpException(
-                sprintf(
-                    'An unknown error occurred while fetching a list of services the user has given consent for to ' .
-                    'release attributes to ("%s")',
-                    $e->getMessage()
-                ),
+                'An unknown error occurred while fetching consent list: ' . $e->getMessage(),
                 $e
             );
         }
