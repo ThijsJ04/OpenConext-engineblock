@@ -287,40 +287,49 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     {
         $properties = array();
 
+        // Entity ID
         $properties += $this->setPathFromObjectString(array($connection, 'name'), 'entityId');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:nl'), 'nameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:en'), 'nameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:pt'), 'namePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:nl'), 'displayNameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:en'), 'displayNameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:pt'), 'displayNamePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:nl'), 'descriptionNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:en'), 'descriptionEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:pt'), 'descriptionPt', true);
-        $properties += $this->assembleLogo($connection);
-        $properties += $this->assembleOrganization($connection, 'nl');
-        $properties += $this->assembleOrganization($connection, 'en');
-        $properties += $this->assembleOrganization($connection, 'pt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:en'), 'keywordsEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:nl'), 'keywordsNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:pt'), 'keywordsPt', true);
 
+        // Language-specific fields (name, displayName, description, keywords)
+        $languages = array('nl', 'en', 'pt');
+        foreach ($languages as $lang) {
+            $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:' . $lang), 'name' . ucfirst($lang));
+            $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:' . $lang), 'displayName' . ucfirst($lang));
+            $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:' . $lang), 'description' . ucfirst($lang), true);
+            $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:' . $lang), 'keywords' . ucfirst($lang), true);
+        }
+
+        // Logo and Organization
+        $properties += $this->assembleLogo($connection);
+        foreach ($languages as $lang) {
+            $properties += $this->assembleOrganization($connection, $lang);
+        }
+
+        // Certificates and state
         $properties += $this->assembleCertificates($connection);
         $properties += $this->setPathFromObjectString(array($connection, 'state'), 'workflowState');
+
+        // Contact persons and NameID formats
         $properties += $this->assembleContactPersons($connection);
         $properties += $this->setPathFromObjectString(array($connection, 'metadata:NameIDFormat'), 'nameIdFormat');
         $properties += $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats');
-        $properties += $this->assembleSingleLogoutServices($connection);
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping');
 
+        // Single Logout Services
+        $properties += $this->assembleSingleLogoutServices($connection);
+
+        // Boolean and string properties
+        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping');
         $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:additional_logging'), 'additionalLogging');
         $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:signature_method'), 'signatureMethod');
         $properties += $this->setPathFromObjectBool(array($connection, 'metadata:redirect:sign'), 'requestsMustBeSigned');
         $properties += $this->setPathFromObjectString(array($connection, 'manipulation_code'), 'manipulation');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:en'), 'supportUrlEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:nl'), 'supportUrlNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:pt'), 'supportUrlPt');
 
+        // Support URLs
+        foreach ($languages as $lang) {
+            $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:' . $lang), 'supportUrl' . ucfirst($lang));
+        }
+
+        // MDUI
         $properties['mdui'] = MduiPushAssemblerFactory::buildFrom($properties, $connection);
 
         return $properties;

@@ -74,26 +74,34 @@ class SsoNotificationService
      */
     public function handleSsoNotification(ParameterBag $cookies, EngineBlock_Corto_ProxyServer $server): string
     {
-        if (!is_null($this->getSsoCookie($cookies))) {
-            $parsedSsoNotification = $this->parseSsoNotification($this->getSsoCookie($cookies));
-
-            if (array_key_exists(self::FIELD_ENTITY_ID, $parsedSsoNotification)) {
-                $idpEntityId = $parsedSsoNotification[self::FIELD_ENTITY_ID];
-                if (!is_null($idpEntityId) &&
-                    !is_null($server->getRepository()->findIdentityProviderByEntityId($idpEntityId))) {
-                    return $idpEntityId;
-                } else {
-                    $this->logger->warning("SSO notification found for unknown IdP: '$idpEntityId'");
-                }
-            } else {
-                $this->logger->warning(
-                    "Field '" . self::FIELD_ENTITY_ID . "' not found in parsed SSO " .
-                    "notification: " . json_encode($parsedSsoNotification)
-                );
-            }
+        $ssoCookie = $this->getSsoCookie($cookies);
+        if ($ssoCookie === null) {
+            return '';
         }
 
-        return '';
+        $parsedSsoNotification = $this->parseSsoNotification($ssoCookie);
+        
+        if (!array_key_exists(self::FIELD_ENTITY_ID, $parsedSsoNotification)) {
+            $this->logger->warning(
+                "Field '" . self::FIELD_ENTITY_ID . "' not found in parsed SSO " .
+                "notification: " . json_encode($parsedSsoNotification)
+            );
+            return '';
+        }
+
+        $idpEntityId = $parsedSsoNotification[self::FIELD_ENTITY_ID];
+        if ($idpEntityId === null) {
+            $this->logger->warning("SSO notification found for unknown IdP: '$idpEntityId'");
+            return '';
+        }
+
+        $identityProvider = $server->getRepository()->findIdentityProviderByEntityId($idpEntityId);
+        if ($identityProvider === null) {
+            $this->logger->warning("SSO notification found for unknown IdP: '$idpEntityId'");
+            return '';
+        }
+
+        return $idpEntityId;
     }
 
     /**
@@ -117,32 +125,37 @@ class SsoNotificationService
      */
     private function parseSsoNotification(string $ssoNotification): array
     {
-        $data = [];
-
-        // Extract cipher and initialization vector
-        $base64Decoded = base64_decode($ssoNotification);
-        $iv = substr($base64Decoded, 0, self::IV_SIZE);
-        $cipherText = substr($base64Decoded, self::IV_SIZE);
-        // Construct encryption key
-        $key = hash_pbkdf2(
-            'sha256',
-            $this->encryptionKey,
-            $this->encryptionSalt,
-            self::ITERATION_COUNT,
-            self::KEY_SIZE,
-            true
-        );
-
-        $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
         try {
-            $data = JsonResponseParser::parse($jsonString);
+            // Extract cipher and initialization vector
+            $base64Decoded = base64_decode($ssoNotification);
+            if ($base64Decoded === false) {
+                $this->logger->error("Failed to base64 decode SSO notification");
+                return [];
+            }
+
+            $iv = substr($base64Decoded, 0, self::IV_SIZE);
+            $cipherText = substr($base64Decoded, self::IV_SIZE);
+            
+            // Construct encryption key using PBKDF2
+            $encryptionKey = hash_pbkdf2(
+                'sha256',
+                $this->encryptionKey,
+                $this->encryptionSalt,
+                self::ITERATION_COUNT,
+                self::KEY_SIZE,
+                true
+            );
+
+            $jsonString = $this->decryptSsoNotification($cipherText, $encryptionKey, $this->encryptionAlgorithm, $iv);
+            
+            return JsonResponseParser::parse($jsonString);
         } catch (InvalidJsonException $exception) {
             $this->logger->error(
-                "Failed to parse JSON string '$jsonString' from SSO notification",
-                array('exception' => $exception)
+                "Failed to parse SSO notification JSON",
+                ['exception' => $exception]
             );
+            return [];
         }
-        return $data;
     }
 
     /**

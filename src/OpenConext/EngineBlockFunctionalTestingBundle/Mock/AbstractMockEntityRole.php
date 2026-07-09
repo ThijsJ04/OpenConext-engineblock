@@ -62,20 +62,23 @@ abstract class AbstractMockEntityRole
     public function publicKeyCertData()
     {
         $role = $this->getSsoRole();
-
-        foreach ($role->getKeyDescriptor()[0]->getKeyInfo()->getInfo() as $info) {
-            if (!$info instanceof X509Data) {
-                continue;
-            }
-
-            foreach ($info->getData() as $data) {
-                if (!$data instanceof X509Certificate) {
-                    continue;
+        $keyInfo = $role->getKeyDescriptor()[0]->getKeyInfo();
+        
+        // Find the first X509Data element
+        foreach ($keyInfo->getInfo() as $info) {
+            if ($info instanceof X509Data) {
+                // Find the first X509Certificate in this X509Data
+                foreach ($info->getData() as $data) {
+                    if ($data instanceof X509Certificate) {
+                        return $data->getCertificate();
+                    }
                 }
-
-                return $data->getCertificate();
+                // No need to continue searching other X509Data elements
+                // since we typically expect only one X509Data with certificates
+                break;
             }
         }
+        
         throw new RuntimeException("MockIdp does not have KeyInfo with an X509Certificate");
     }
 

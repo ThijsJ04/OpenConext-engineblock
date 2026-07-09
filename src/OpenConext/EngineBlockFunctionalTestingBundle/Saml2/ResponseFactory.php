@@ -34,28 +34,34 @@ class ResponseFactory
         // Note that we expect the Mock IdP to always have a 'template' Response.
         $response = $mockIdp->getResponse();
 
+        // Set basic response properties
         $this->setResponseReferencesToRequest($request, $response);
-
         $this->setResponseStatus($mockIdp, $response);
-
         $this->setResponseSignatureKey($mockIdp, $response);
-
         $this->setResponseIssuer($mockIdp, $response);
+
+        // Handle assertions based on MockIdP configuration
+        if ($mockIdp->shouldNotSendAssertions()) {
+            $response->setAssertions([]);
+            return $response;
+        }
 
         $this->encryptAssertions($mockIdp, $response);
 
-        if ($mockIdp->shouldNotSendAssertions()) {
-            $response->setAssertions([]);
-        }
+        // Apply time manipulations only if assertions exist
+        $assertions = $response->getAssertions();
+        if (!empty($assertions)) {
+            $assertion = $assertions[0];
+            
+            if ($mockIdp->shouldTurnBackTheTime()) {
+                // Set the timestamp to Unix Epoch
+                $assertion->setNotOnOrAfter(0);
+            }
 
-        if ($mockIdp->shouldTurnBackTheTime()) {
-            // Set the timestamp to Unix Epoch
-            $response->getAssertions()[0]->setNotOnOrAfter(0);
-        }
-
-        if ($mockIdp->isFromTheFuture()) {
-            // Set the timestamp to current time + i year
-            $response->getAssertions()[0]->setNotBefore(strtotime(date('Y-m-d H:i:s', strtotime('+1 year'))));
+            if ($mockIdp->isFromTheFuture()) {
+                // Set the timestamp to current time + 1 year (more efficient calculation)
+                $assertion->setNotBefore(strtotime('+1 year'));
+            }
         }
 
         return $response;

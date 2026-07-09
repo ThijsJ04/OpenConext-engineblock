@@ -91,51 +91,41 @@ final class Request implements JsonSerializable
 
     public function jsonSerialize(): mixed
     {
-        return [
-            'userAttributes' => array_merge(
-                [
-                    [
-                        'name' => 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified',
-                        'values' => [$this->subjectId],
-                    ],
-                    [
-                        'name' => 'SPentityID',
-                        'values' => [$this->spEntityId],
-                    ],
-                    [
-                        'name' => 'IDPentityID',
-                        'values' => [$this->idpEntityId],
-                    ]
-                ],
-                array_map(
-                    function ($values, $name) {
-                        return [
-                            'name' => $name,
-                            'values' => $values,
-                        ];
-                    },
-                    $this->attributes,
-                    array_keys($this->attributes)
-                )
-            ),
-            'arpAttributes' => $this->getAttributeRulesByName(),
+        $userAttributes = [
+            [
+                'name' => 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified',
+                'values' => [$this->subjectId],
+            ],
+            [
+                'name' => 'SPentityID',
+                'values' => [$this->spEntityId],
+            ],
+            [
+                'name' => 'IDPentityID',
+                'values' => [$this->idpEntityId],
+            ]
         ];
-    }
 
-    /**
-     * Create a list of values and sources grouped by attribute name.
-     *
-     * @return array
-     */
-    private function getAttributeRulesByName()
-    {
-        $attributes = [];
+        foreach ($this->attributes as $name => $values) {
+            $userAttributes[] = [
+                'name' => $name,
+                'values' => $values,
+            ];
+        }
+
+        $arpAttributes = [];
         foreach ($this->rules as $rule) {
-            $attributes[$rule->name][] = [
+            $arpAttributes[$rule->name][] = [
                 'value' => $rule->value,
                 'source' => $rule->source,
             ];
         }
-        return $attributes;
+
+        return [
+            'userAttributes' => $userAttributes,
+            'arpAttributes' => $arpAttributes,
+        ];
     }
+
+
 }

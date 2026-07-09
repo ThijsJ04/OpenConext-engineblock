@@ -46,26 +46,39 @@ final class ManualOrErrorLevelActivationStrategyFactory implements ActivationStr
      */
     private static function validateAndNormalizeConfig(array $config)
     {
+        // Validate that the action_level key exists
         Assertion::keyIsset($config, 'action_level', 'Missing configuration value, configuration key "%s" not found');
-        Assertion::string($config['action_level']);
-
-        $config['action_level'] = strtolower($config['action_level']);
-
+        
+        // Extract and validate the action level value
+        $actionLevel = $config['action_level'];
+        Assertion::string($actionLevel);
+        
+        // Normalize to lowercase for case-insensitive comparison
+        $normalizedActionLevel = strtolower($actionLevel);
+        
+        // Define valid log levels as constants for better maintainability
+        $validLogLevels = [
+            LogLevel::EMERGENCY,
+            LogLevel::ALERT,
+            LogLevel::CRITICAL,
+            LogLevel::ERROR,
+            LogLevel::WARNING,
+            LogLevel::NOTICE,
+            LogLevel::INFO,
+            LogLevel::DEBUG,
+        ];
+        
+        // Validate that the normalized action level is one of the valid log levels
         Assertion::choice(
-            $config['action_level'],
-            [
-                LogLevel::EMERGENCY,
-                LogLevel::ALERT,
-                LogLevel::CRITICAL,
-                LogLevel::ERROR,
-                LogLevel::WARNING,
-                LogLevel::NOTICE,
-                LogLevel::INFO,
-                LogLevel::DEBUG,
-            ],
+            $normalizedActionLevel,
+            $validLogLevels,
             'Configured action level must be a valid PSR-compliant log level: "%s"'
         );
 
-        return $config;
+        // Only create the modified config if all validations pass
+        $normalizedConfig = $config;
+        $normalizedConfig['action_level'] = $normalizedActionLevel;
+        
+        return $normalizedConfig;
     }
 }
