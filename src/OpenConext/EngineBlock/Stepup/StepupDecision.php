@@ -61,29 +61,24 @@ class StepupDecision
         LoaRepository $loaRepository,
         LoggerInterface $logger
     ) {
-
         $this->logger = $logger;
-
-        $idpLoa = $idp->getCoins()->stepupConnections()->getLoa($sp->entityId);
-        // Only load the IdP LoA if configured in the stepup connection coin data
-        if ($idpLoa) {
-            $this->idpLoa = $loaRepository->getByIdentifier($idpLoa);
-        }
-
-        $spLoa = $sp->getCoins()->stepupRequireLoa();
-        // Only load the SP LoA if configured in Manage
-        if ($spLoa) {
-            $this->spLoa = $loaRepository->getByIdentifier($spLoa);
-        }
-
         $this->spNoToken = $sp->getCoins()->stepupAllowNoToken();
 
-        foreach ($pdpLoas as $loaId) {
-            $this->pdpLoas[] = $loaRepository->getByIdentifier($loaId);
-        }
-        foreach ($authnRequestLoas as $loa) {
-            $this->authnRequestLoas[] = $loa;
-        }
+        // Process IdP LoA if configured
+        $idpLoa = $idp->getCoins()->stepupConnections()->getLoa($sp->entityId);
+        $this->idpLoa = $idpLoa ? $loaRepository->getByIdentifier($idpLoa) : null;
+
+        // Process SP LoA if configured
+        $spLoa = $sp->getCoins()->stepupRequireLoa();
+        $this->spLoa = $spLoa ? $loaRepository->getByIdentifier($spLoa) : null;
+
+        // Process PDP LoAs using array_map for efficiency
+        $this->pdpLoas = array_map(function ($loaId) use ($loaRepository) {
+            return $loaRepository->getByIdentifier($loaId);
+        }, $pdpLoas);
+
+        // AuthnRequest LoAs are already Loa objects, no transformation needed
+        $this->authnRequestLoas = $authnRequestLoas;
     }
 
     public function shouldUseStepup(): bool

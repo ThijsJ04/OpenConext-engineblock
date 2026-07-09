@@ -229,9 +229,8 @@ class XmlToArray
         }
 
         xml_parser_free($parser);
-        self::$_singulars = array_fill_keys(self::$_singulars, 1);
-        $return = self::xml2arrayRecursive($values);
-        self::$_singulars = array_keys(self::$_singulars);
+        $singularsLookup = array_fill_keys(self::$_singulars, true);
+        $return = self::xml2arrayRecursive($values, 1, [], $singularsLookup);
         return $return[0];
     }
 
@@ -245,15 +244,13 @@ class XmlToArray
      * @return array
      */
 
-    protected static $counter = 0;
-
-    protected static function xml2arrayRecursive(&$elements, $level = 1, $namespaceMapping = [])
+    protected static function xml2arrayRecursive(&$elements, $level = 1, $namespaceMapping = [], $singularsLookup = [])
     {
         $newElement = [];
 
-        while(isset($elements[self::$counter])) {
-            $value = $elements[self::$counter];
-            self::$counter++;
+        while(isset($elements[$index])) {
+            $value = $elements[$index];
+            $index++;
 
             if ($value['type'] == 'close') {
                 return $newElement;
@@ -263,31 +260,30 @@ class XmlToArray
 
             $hashedAttributes = [];
             $tagName = $value['tag'];
-            if (isset($value['attributes']) && $attributes = $value['attributes']) {
-                foreach($attributes as $attributeKey => $attributeValue) {
-                    unset($attributes[$attributeKey]);
+            if (isset($value['attributes'])) {
+                foreach($value['attributes'] as $attributeKey => $attributeValue) {
                     $hashedAttributes[self::ATTRIBUTE_PFX . $attributeKey] = $attributeValue;
                 }
             }
 
-            $complete = [];
-
             $tagName = self::mapNamespacesToSaml($tagName);
 
-            $complete[self::TAG_NAME_PFX] = $tagName;
+            $complete = [self::TAG_NAME_PFX => $tagName];
             if ($hashedAttributes) {
-                $complete = array_merge($complete, $hashedAttributes);
+                foreach ($hashedAttributes as $key => $value) {
+                    $complete[$key] = $value;
+                }
             }
             if (isset($value['value']) && $attributeValue = trim($value['value'])) {
                 $complete[self::VALUE_PFX] = $attributeValue;
             }
             if ($value['type'] == 'open') {
-                $cs = self::xml2arrayRecursive($elements, $level + 1, $namespaceMapping);
+                $cs = self::xml2arrayRecursive($elements, $level + 1, $namespaceMapping, $singularsLookup, $index);
                 foreach($cs as $c) {
                     $tagName = $c[self::TAG_NAME_PFX];
                     unset($c[self::TAG_NAME_PFX]);
 
-                    if (!isset(self::$_singulars[$tagName])) {
+                    if (!isset($singularsLookup[$tagName])) {
                         $complete[$tagName][] = $c;
                     } else {
                         $complete[$tagName] = $c;
@@ -297,7 +293,7 @@ class XmlToArray
             }
             $newElement[] = $complete;
         }
-        self::$counter = 0;
+
         return $newElement;
     }
 

@@ -80,7 +80,13 @@ final class StepupGatewayCallOutHelper
             $this->loaRepository,
             $this->logger
         );
-        return $this->gatewayLoaMapping->transformToGatewayLoa($stepupDecision->getStepupLoa());
+        
+        $stepupLoa = $stepupDecision->getStepupLoa();
+        if ($stepupLoa === null) {
+            return null;
+        }
+        
+        return $this->gatewayLoaMapping->transformToGatewayLoa($stepupLoa);
     }
 
     public function getStepupLoa1() : Loa

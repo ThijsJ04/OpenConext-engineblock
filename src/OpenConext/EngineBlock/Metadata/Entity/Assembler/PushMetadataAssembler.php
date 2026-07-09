@@ -287,43 +287,97 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     {
         $properties = array();
 
-        $properties += $this->setPathFromObjectString(array($connection, 'name'), 'entityId');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:nl'), 'nameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:en'), 'nameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:pt'), 'namePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:nl'), 'displayNameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:en'), 'displayNameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:pt'), 'displayNamePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:nl'), 'descriptionNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:en'), 'descriptionEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:pt'), 'descriptionPt', true);
-        $properties += $this->assembleLogo($connection);
-        $properties += $this->assembleOrganization($connection, 'nl');
-        $properties += $this->assembleOrganization($connection, 'en');
-        $properties += $this->assembleOrganization($connection, 'pt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:en'), 'keywordsEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:nl'), 'keywordsNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:pt'), 'keywordsPt', true);
+        // Basic entity information
+        $properties['entityId'] = $this->getValueFromPath(array($connection, 'name'));
+        $properties['workflowState'] = $this->getValueFromPath(array($connection, 'state'));
+        $properties['nameIdFormat'] = $this->getValueFromPath(array($connection, 'metadata:NameIDFormat'));
+        $properties['manipulation'] = $this->getValueFromPath(array($connection, 'manipulation_code'));
 
-        $properties += $this->assembleCertificates($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'state'), 'workflowState');
-        $properties += $this->assembleContactPersons($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:NameIDFormat'), 'nameIdFormat');
-        $properties += $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats');
-        $properties += $this->assembleSingleLogoutServices($connection);
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping');
+        // Process language-specific fields using loops for efficiency
+        $languageCodes = array('nl', 'en', 'pt');
+        
+        foreach ($languageCodes as $lang) {
+            $properties['name' . ucfirst($lang)] = $this->getValueFromPath(array($connection, 'metadata:name:' . $lang));
+            $properties['displayName' . ucfirst($lang)] = $this->getValueFromPath(array($connection, 'metadata:displayName:' . $lang));
+            $properties['description' . ucfirst($lang)] = $this->limitValueLengthIfNeeded(
+                $this->getValueFromPath(array($connection, 'metadata:description:' . $lang))
+            );
+            $properties['keywords' . ucfirst($lang)] = $this->limitValueLengthIfNeeded(
+                $this->getValueFromPath(array($connection, 'metadata:keywords:' . $lang))
+            );
+            $properties['supportUrl' . ucfirst($lang)] = $this->getValueFromPath(array($connection, 'metadata:url:' . $lang));
+            
+            $orgProperties = $this->assembleOrganization($connection, $lang);
+            foreach ($orgProperties as $key => $value) {
+                $properties[$key] = $value;
+            }
+        }
 
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:additional_logging'), 'additionalLogging');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:signature_method'), 'signatureMethod');
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:redirect:sign'), 'requestsMustBeSigned');
-        $properties += $this->setPathFromObjectString(array($connection, 'manipulation_code'), 'manipulation');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:en'), 'supportUrlEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:nl'), 'supportUrlNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:pt'), 'supportUrlPt');
+        // Supported NameID formats
+        $nameIdFormats = $this->getValueFromPath(array($connection, 'metadata:NameIDFormats'));
+        if (!empty($nameIdFormats)) {
+            $properties['supportedNameIdFormats'] = $nameIdFormats;
+        }
 
+        // Logo information
+        $logo = $this->assembleLogo($connection);
+        if (!empty($logo)) {
+            $properties['logo'] = $logo['logo'];
+        }
+
+        // Certificates
+        $certificates = $this->assembleCertificates($connection);
+        foreach ($certificates as $key => $value) {
+            $properties[$key] = $value;
+        }
+
+        // Contact persons
+        $contactPersons = $this->assembleContactPersons($connection);
+        if (!empty($contactPersons)) {
+            $properties['contactPersons'] = $contactPersons['contactPersons'];
+        }
+
+        // Single logout services
+        $singleLogoutService = $this->assembleSingleLogoutServices($connection);
+        if (!empty($singleLogoutService)) {
+            $properties['singleLogoutService'] = $singleLogoutService['singleLogoutService'];
+        }
+
+        // Boolean flags
+        $properties['disableScoping'] = $this->getBooleanValueFromPath(array($connection, 'metadata:coin:disable_scoping'));
+        $properties['additionalLogging'] = $this->getBooleanValueFromPath(array($connection, 'metadata:coin:additional_logging'));
+        $properties['requestsMustBeSigned'] = $this->getBooleanValueFromPath(array($connection, 'metadata:redirect:sign'));
+        
+        // Signature method
+        $properties['signatureMethod'] = $this->getValueFromPath(array($connection, 'metadata:coin:signature_method'));
+
+        // MDUI information
         $properties['mdui'] = MduiPushAssemblerFactory::buildFrom($properties, $connection);
 
         return $properties;
+    }
+
+    private function limitValueLengthIfNeeded($value)
+    {
+        if (is_null($value)) {
+            return null;
+        }
+        
+        if (strlen($value) < self::FIELDS_MAX_LENGTH) {
+            return $value;
+        }
+        
+        $this->logger->info(sprintf("Push Metadata Assembler: truncating too long value: '%s'", $value));
+        return mb_strcut($value, 0, self::FIELDS_MAX_LENGTH);
+    }
+
+    private function getBooleanValueFromPath(array $from)
+    {
+        $reference = $this->getValueFromPath($from);
+        if (is_null($reference)) {
+            return null;
+        }
+        return (bool)$reference;
     }
 
     private function assembleLogo(stdClass $connection)

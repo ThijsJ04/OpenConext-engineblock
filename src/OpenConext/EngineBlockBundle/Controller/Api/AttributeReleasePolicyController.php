@@ -105,10 +105,9 @@ final class AttributeReleasePolicyController
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }
 
-        if (!isset($body['showSources']) || !is_bool($body['showSources'])) {
+        $showSources = $body['showSources'] ?? false;
+        if ($showSources !== false && !is_bool($showSources)) {
             $showSources = false;
-        } else {
-            $showSources = $body['showSources'];
         }
 
         foreach ($body['attributes'] as $attributeName => $attributeValues) {
@@ -119,6 +118,7 @@ final class AttributeReleasePolicyController
             }
         }
 
+        // Process ARP for each entity
         $releasedAttributes = [];
         foreach ($body['entityIds'] as $entityId) {
             $arp = $this->metadataService->findArpForServiceProviderByEntityId(new EntityId($entityId));

@@ -53,20 +53,41 @@ class Utils
     public static function instantiate($className, array $namedArguments)
     {
         $reflectionClass = new ReflectionClass($className);
-        $parameters = $reflectionClass->getConstructor()->getParameters();
-
-        $positionalDefaultFilledArguments = array();
-        foreach ($parameters as $parameter) {
-            // Do we have an argument set? If so use that.
-            if (isset($namedArguments[$parameter->name])) {
-                $positionalDefaultFilledArguments[] = $namedArguments[$parameter->name];
-                continue;
-            }
-
-            // Otherwise use the default.
-            $positionalDefaultFilledArguments[] = $parameter->getDefaultValue();
+        
+        // Check if the class has a constructor
+        $constructor = $reflectionClass->getConstructor();
+        if ($constructor === null) {
+            // No constructor - create instance directly
+            return $reflectionClass->newInstanceWithoutConstructor();
         }
-
-        return $reflectionClass->newInstanceArgs($positionalDefaultFilledArguments);
+        
+        $parameters = $constructor->getParameters();
+        
+        // Early return if no parameters and no named arguments
+        if (empty($parameters) && empty($namedArguments)) {
+            return $reflectionClass->newInstanceWithoutConstructor();
+        }
+        
+        // Build positional arguments array more efficiently
+        $positionalArguments = [];
+        $hasMissingRequiredParams = false;
+        
+        foreach ($parameters as $parameter) {
+            if (isset($namedArguments[$parameter->name])) {
+                $positionalArguments[] = $namedArguments[$parameter->name];
+            } elseif ($parameter->isDefaultValueAvailable()) {
+                $positionalArguments[] = $parameter->getDefaultValue();
+            } else {
+                $hasMissingRequiredParams = true;
+                break;
+            }
+        }
+        
+        // If we have missing required parameters, let PHP handle the error
+        if ($hasMissingRequiredParams) {
+            return $reflectionClass->newInstanceArgs($positionalArguments);
+        }
+        
+        return $reflectionClass->newInstanceArgs($positionalArguments);
     }
 }

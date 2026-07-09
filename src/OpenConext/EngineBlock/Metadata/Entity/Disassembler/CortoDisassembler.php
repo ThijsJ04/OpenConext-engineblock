@@ -90,9 +90,7 @@ class CortoDisassembler
      */
     public function translateIdentityProvider(IdentityProvider $entity)
     {
-        $cortoEntity = array();
-
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
+        $cortoEntity = $this->translateCommon($entity, array());
 
         foreach ($entity->singleSignOnServices as $service) {
             if (!isset($cortoEntity['SingleSignOnService'])) {
@@ -107,8 +105,9 @@ class CortoDisassembler
 
         $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
 
-        if ($entity->getCoins()->schacHomeOrganization()) {
-            $cortoEntity['SchacHomeOrganization'] = $entity->getCoins()->schacHomeOrganization();
+        $schacHomeOrganization = $entity->getCoins()->schacHomeOrganization();
+        if ($schacHomeOrganization) {
+            $cortoEntity['SchacHomeOrganization'] = $schacHomeOrganization;
         }
 
         $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
@@ -122,8 +121,9 @@ class CortoDisassembler
             );
         }
 
-        if ($entity->getCoins()->defaultRAC()) {
-            $cortoEntity['DefaultRAC'] = $entity->getCoins()->defaultRAC();
+        $defaultRAC = $entity->getCoins()->defaultRAC();
+        if ($defaultRAC) {
+            $cortoEntity['DefaultRAC'] = $defaultRAC;
         }
 
         return $cortoEntity;

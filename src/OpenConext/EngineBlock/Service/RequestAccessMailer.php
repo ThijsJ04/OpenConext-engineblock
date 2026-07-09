@@ -75,26 +75,20 @@ TPL;
      */
     public function sendRequestAccessEmailForIdp($spName, $spEntityId, $institution, $idpEntityId, $name, $email, $comment)
     {
-        $subject = self::REQUEST_IDP_ACCESS_SUBJECT;
-        $body = sprintf(
-            self::REQUEST_IDP_ACCESS_TEMPLATE,
-            $institution,
-            $idpEntityId,
-            $spName,
-            $spEntityId,
-            $name,
-            $email,
-            $comment
-        );
-
-        // We use the destination email address also as a From since we do
-        // not have a better generic sender address available currently.
-        $message = new Email();
-        $message
-            ->subject($subject)
+        $message = (new Email())
+            ->subject(self::REQUEST_IDP_ACCESS_SUBJECT)
             ->from($this->requestAccessEmailAddress)
             ->to($this->requestAccessEmailAddress)
-            ->text($body);
+            ->text(sprintf(
+                self::REQUEST_IDP_ACCESS_TEMPLATE,
+                $institution,
+                $idpEntityId,
+                $spName,
+                $spEntityId,
+                $name,
+                $email,
+                $comment
+            ));
 
         $this->mailer->send($message);
     }
