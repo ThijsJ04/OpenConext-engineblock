@@ -114,26 +114,33 @@ final class Consent
     private function getOrganizationDisplayNameFields(): array
     {
         $fields = [];
-        if (!empty($this->serviceProvider->organizationEn->displayName)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->displayName;
-        } elseif (!empty($this->serviceProvider->organizationEn->name)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->name;
+        
+        // Process English first since other languages may fall back to it
+        $organizationEn = $this->serviceProvider->organizationEn;
+        if (!empty($organizationEn->displayName)) {
+            $fields['organization_display_name']['en'] = $organizationEn->displayName;
+        } elseif (!empty($organizationEn->name)) {
+            $fields['organization_display_name']['en'] = $organizationEn->name;
         } else {
-            $fields['organization_display_name']['en'] = "unknown";
+            $fields['organization_display_name']['en'] = 'unknown';
         }
 
-        if (!empty($this->serviceProvider->organizationNl->displayName)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->displayName;
-        } elseif (!empty($this->serviceProvider->organizationNl->name)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->name;
+        // Process Dutch
+        $organizationNl = $this->serviceProvider->organizationNl;
+        if (!empty($organizationNl->displayName)) {
+            $fields['organization_display_name']['nl'] = $organizationNl->displayName;
+        } elseif (!empty($organizationNl->name)) {
+            $fields['organization_display_name']['nl'] = $organizationNl->name;
         } else {
             $fields['organization_display_name']['nl'] = $fields['organization_display_name']['en'];
         }
 
-        if (!empty($this->serviceProvider->organizationPt->displayName)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->displayName;
-        } elseif (!empty($this->serviceProvider->organizationPt->name)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->name;
+        // Process Portuguese
+        $organizationPt = $this->serviceProvider->organizationPt;
+        if (!empty($organizationPt->displayName)) {
+            $fields['organization_display_name']['pt'] = $organizationPt->displayName;
+        } elseif (!empty($organizationPt->name)) {
+            $fields['organization_display_name']['pt'] = $organizationPt->name;
         } else {
             $fields['organization_display_name']['pt'] = $fields['organization_display_name']['en'];
         }

@@ -117,12 +117,11 @@ class SsoNotificationService
      */
     private function parseSsoNotification(string $ssoNotification): array
     {
-        $data = [];
-
         // Extract cipher and initialization vector
         $base64Decoded = base64_decode($ssoNotification);
         $iv = substr($base64Decoded, 0, self::IV_SIZE);
         $cipherText = substr($base64Decoded, self::IV_SIZE);
+        
         // Construct encryption key
         $key = hash_pbkdf2(
             'sha256',
@@ -134,15 +133,16 @@ class SsoNotificationService
         );
 
         $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
+        
         try {
-            $data = JsonResponseParser::parse($jsonString);
+            return JsonResponseParser::parse($jsonString);
         } catch (InvalidJsonException $exception) {
             $this->logger->error(
-                "Failed to parse JSON string '$jsonString' from SSO notification",
-                array('exception' => $exception)
+                "Failed to parse JSON string from SSO notification",
+                ['exception' => $exception]
             );
+            return [];
         }
-        return $data;
     }
 
     /**

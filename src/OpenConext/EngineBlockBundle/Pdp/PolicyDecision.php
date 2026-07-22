@@ -141,18 +141,18 @@ final class PolicyDecision
 
     public function getLocalizedDenyMessage(string $locale, string $defaultLocale = 'en') : string
     {
-        if (!$this->hasLocalizedDenyMessage()) {
+        if (empty($this->localizedDenyMessages)) {
             throw new RuntimeException(sprintf(
                 'No localized deny messages present for decision "%s"',
                 $this->decision
             ));
         }
 
-        if (isset($this->localizedDenyMessages[$locale])) {
+        if (array_key_exists($locale, $this->localizedDenyMessages)) {
             return $this->localizedDenyMessages[$locale];
         }
 
-        if (!isset($this->localizedDenyMessages[$defaultLocale])) {
+        if (!array_key_exists($defaultLocale, $this->localizedDenyMessages)) {
             throw new RuntimeException(sprintf(
                 'No localized deny message for locale "%s" or default locale "%s" found',
                 $locale,

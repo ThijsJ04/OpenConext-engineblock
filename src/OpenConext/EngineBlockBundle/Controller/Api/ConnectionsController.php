@@ -125,15 +125,12 @@ class ConnectionsController
 
         try {
             $roles = $this->pushMetadataAssembler->assemble($body->connections);
-        } catch (Exception $exception) {
-            throw new BadApiRequestHttpException(sprintf('Unable to assemble the pushed metadata: %s', $exception->getMessage()), $exception);
-        }
-
-        unset($body);
-
-        try {
             $result = $this->repository->synchronize($roles);
         } catch (Exception $exception) {
+            // Differentiate between assembly and synchronization errors
+            if (strpos($exception->getMessage(), 'assemble') !== false) {
+                throw new BadApiRequestHttpException(sprintf('Unable to assemble the pushed metadata: %s', $exception->getMessage()), $exception);
+            }
             throw new ApiInternalServerErrorHttpException('Unable to synchronize the assembled roles to the repository', $exception);
         }
 

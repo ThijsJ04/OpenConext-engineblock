@@ -191,28 +191,22 @@ class AttributeReleasePolicy
         foreach ($this->attributeRules[$attributeName] as $rule) {
             $allowedValue = $this->getRuleValue($rule);
 
-            if ($attributeValue === $allowedValue) {
-                // Literal match.
-                return true;
-            }
-
+            // Check for wildcard character first - this allows all values
             if ($allowedValue === self::WILDCARD_CHARACTER) {
-                // Only a single wildcard character, all values are permitted.
                 return true;
             }
 
-            // We support wildcard matching at the end only, like 'some*' would match 'someValue' or 'somethingElse'
-            if (substr($allowedValue, -1) !== self::WILDCARD_CHARACTER) {
-                // Not a supported pattern
-                continue;
+            // Check for exact match
+            if ($attributeValue === $allowedValue) {
+                return true;
             }
 
-            // Would contain 'some'
-            $patternStart = substr($allowedValue, 0, -1);
-
-            // Does $attributeValue start with 'some'?
-            if (strpos($attributeValue, $patternStart) === 0) {
-                return true;
+            // Check for wildcard pattern at the end (like 'some*')
+            if (substr($allowedValue, -1) === self::WILDCARD_CHARACTER) {
+                $patternStart = substr($allowedValue, 0, -1);
+                if (strpos($attributeValue, $patternStart) === 0) {
+                    return true;
+                }
             }
         }
         return false;

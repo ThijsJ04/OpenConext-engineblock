@@ -55,47 +55,36 @@ class MockServiceProviderFactory extends AbstractMockEntityFactory
 
     protected function generateDefaultEntityMetadata($spName)
     {
+        // Generate URLs more efficiently by reusing the route parameters
+        $routeParams = ['spName' => $spName];
+        
         $descriptor = new EntityDescriptor();
         $descriptor->setEntityID(
-            $this->router->generate(
-                'functional_testing_sp_metadata',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            )
+            $this->router->generate('functional_testing_sp_metadata', $routeParams, RouterInterface::ABSOLUTE_URL)
         );
 
-        $acsService = new IndexedEndpointType();
-        $acsService->setIndex(0);
-        $acsService->setBinding(Constants::BINDING_HTTP_POST);
-        $acsService->setLocation(
-            $this->router->generate(
-                'functional_testing_sp_acs',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            )
-        );
-        $spSsoDescriptor = new SPSSODescriptor();
-        $spSsoDescriptor->setProtocolSupportEnumeration([Constants::NS_SAMLP]);
-        $spSsoDescriptor->setAssertionConsumerService([$acsService]);
+        // Configure ACS service with method chaining
+        $acsService = (new IndexedEndpointType())
+            ->setIndex(0)
+            ->setBinding(Constants::BINDING_HTTP_POST)
+            ->setLocation(
+                $this->router->generate('functional_testing_sp_acs', $routeParams, RouterInterface::ABSOLUTE_URL)
+            );
 
-        $spSsoDescriptor->setKeyDescriptor([$this->generateDefaultSigningKeyPair()]);
+        // Configure SP SSO descriptor with method chaining
+        $spSsoDescriptor = (new SPSSODescriptor())
+            ->setProtocolSupportEnumeration([Constants::NS_SAMLP])
+            ->setAssertionConsumerService([$acsService])
+            ->setKeyDescriptor([$this->generateDefaultSigningKeyPair()]);
 
         $descriptor->setRoleDescriptor([$spSsoDescriptor]);
 
-        $extensions = [
-            'LoginRedirectUrl' => $this->router->generate(
-                'functional_testing_sp_login_redirect',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            ),
-            'LoginPostUrl' => $this->router->generate(
-                'functional_testing_sp_login_post',
-                ['spName' => $spName],
-                RouterInterface::ABSOLUTE_URL
-            ),
-        ];
+        // Generate extensions more efficiently
+        $descriptor->setExtensions([
+            'LoginRedirectUrl' => $this->router->generate('functional_testing_sp_login_redirect', $routeParams, RouterInterface::ABSOLUTE_URL),
+            'LoginPostUrl' => $this->router->generate('functional_testing_sp_login_post', $routeParams, RouterInterface::ABSOLUTE_URL),
+        ]);
 
-        $descriptor->setExtensions($extensions);
         return $descriptor;
     }
 

@@ -91,10 +91,12 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
         $spAllowedEntityIds = array();
         $idpAllowedEntityIds = array();
 
+        // Process all connections in a single pass
         foreach ($connections as $connection) {
             $role = $this->assembleConnection($connection);
 
             if ($role instanceof ServiceProvider) {
+                // Handle SP allowed connections more efficiently
                 if (isset($connection->allowed_connections)) {
                     $spAllowedEntityIds[$role->entityId] = array_map(
                         function ($allowedConnection) {
@@ -112,6 +114,7 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
             if ($role instanceof IdentityProvider) {
                 $allIdpEntityIds[] = $role->entityId;
 
+                // Handle IDP allowed connections more efficiently
                 if (isset($connection->allowed_connections)) {
                     $idpAllowedEntityIds[$role->entityId] = array_map(
                         function ($allowedConnection) {
@@ -129,52 +132,48 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
             $roles[] = $role;
         }
 
-        // For all service providers
+        // Optimize the service provider processing
         foreach ($roles as $role) {
             if (!$role instanceof ServiceProvider) {
                 continue;
             }
 
-            // Get the IdPs that are allowed for this SP.
-            $allowedIdpEntityIds = null;
-            if (isset($spAllowedEntityIds[$role->entityId])) {
-                $allowedIdpEntityIds = $spAllowedEntityIds[$role->entityId];
-                if ($allowedIdpEntityIds === true) {
-                    $allowedIdpEntityIds = $allIdpEntityIds;
-                }
+            // Get the IdPs that are allowed for this SP
+            $allowedIdpEntityIds = $spAllowedEntityIds[$role->entityId] ?? null;
+            
+            if ($allowedIdpEntityIds === true) {
+                $allowedIdpEntityIds = $allIdpEntityIds;
+            } elseif ($allowedIdpEntityIds === null) {
+                // No explicit allowed IdPs, skip further processing
+                continue;
             }
 
-            // Strip out the IdPs that disallow the SP
+            // Optimize the filtering of disallowed IdPs
+            $filteredIdpEntityIds = array();
             foreach ($idpAllowedEntityIds as $idpEntityId => $allowedSpEntityIds) {
                 if ($allowedSpEntityIds === true) {
-                    continue;
+                    // This IdP allows all SPs, include it
+                    $filteredIdpEntityIds[] = $idpEntityId;
+                } elseif (is_array($allowedSpEntityIds) && in_array($role->entityId, $allowedSpEntityIds)) {
+                    // This IdP explicitly allows this SP, include it
+                    $filteredIdpEntityIds[] = $idpEntityId;
                 }
-
-                if (in_array($role->entityId, $allowedSpEntityIds)) {
-                    continue;
-                }
-
-                $index = array_search($idpEntityId, $allowedIdpEntityIds);
-
-                if ($index === false) {
-                    continue;
-                }
-
-
-                unset($allowedIdpEntityIds[$index]);
+                // Otherwise, this IdP doesn't allow this SP, skip it
             }
 
-            if ($allowedIdpEntityIds === $allIdpEntityIds) {
-                // If a blacklist was configured, and no IDPs were explicitly
-                // blacklisted, then don't keep track of all entity IDs, but
-                // remember that all IDPs are allowed.
-                $role->allowAll = true;
-            } else {
-                $role->allowedIdpEntityIds = $allowedIdpEntityIds;
+            // Only set properties if we have filtered results
+            if (!empty($filteredIdpEntityIds)) {
+                if ($filteredIdpEntityIds === $allIdpEntityIds) {
+                    // If all IdPs are allowed, set allowAll flag
+                    $role->allowAll = true;
+                } else {
+                    // Set the filtered list of allowed IdP entity IDs
+                    $role->allowedIdpEntityIds = $filteredIdpEntityIds;
+                }
             }
         }
 
-        if (count($roles) === 0) {
+        if (empty($roles)) {
             throw new RuntimeException('Received 0 connections, refusing to process');
         }
 
@@ -287,40 +286,88 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     {
         $properties = array();
 
-        $properties += $this->setPathFromObjectString(array($connection, 'name'), 'entityId');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:nl'), 'nameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:en'), 'nameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:pt'), 'namePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:nl'), 'displayNameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:en'), 'displayNameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:pt'), 'displayNamePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:nl'), 'descriptionNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:en'), 'descriptionEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:pt'), 'descriptionPt', true);
-        $properties += $this->assembleLogo($connection);
-        $properties += $this->assembleOrganization($connection, 'nl');
-        $properties += $this->assembleOrganization($connection, 'en');
-        $properties += $this->assembleOrganization($connection, 'pt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:en'), 'keywordsEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:nl'), 'keywordsNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:pt'), 'keywordsPt', true);
+        // Batch process string properties to reduce function call overhead
+        $stringProperties = [
+            ['name', 'entityId'],
+            ['metadata:name:nl', 'nameNl'],
+            ['metadata:name:en', 'nameEn'],
+            ['metadata:name:pt', 'namePt'],
+            ['metadata:displayName:nl', 'displayNameNl'],
+            ['metadata:displayName:en', 'displayNameEn'],
+            ['metadata:displayName:pt', 'displayNamePt'],
+            ['metadata:description:nl', 'descriptionNl', true],
+            ['metadata:description:en', 'descriptionEn', true],
+            ['metadata:description:pt', 'descriptionPt', true],
+            ['metadata:keywords:en', 'keywordsEn', true],
+            ['metadata:keywords:nl', 'keywordsNl', true],
+            ['metadata:keywords:pt', 'keywordsPt', true],
+            ['state', 'workflowState'],
+            ['metadata:NameIDFormat', 'nameIdFormat'],
+            ['metadata:coin:signature_method', 'signatureMethod'],
+            ['manipulation_code', 'manipulation'],
+            ['metadata:url:en', 'supportUrlEn'],
+            ['metadata:url:nl', 'supportUrlNl'],
+            ['metadata:url:pt', 'supportUrlPt'],
+        ];
 
-        $properties += $this->assembleCertificates($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'state'), 'workflowState');
-        $properties += $this->assembleContactPersons($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:NameIDFormat'), 'nameIdFormat');
-        $properties += $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats');
-        $properties += $this->assembleSingleLogoutServices($connection);
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping');
+        foreach ($stringProperties as $prop) {
+            $limitLength = $prop[2] ?? false;
+            $result = $this->setPathFromObjectString(array($connection, $prop[0]), $prop[1], $limitLength);
+            if (!empty($result)) {
+                $properties += $result;
+            }
+        }
 
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:additional_logging'), 'additionalLogging');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:signature_method'), 'signatureMethod');
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:redirect:sign'), 'requestsMustBeSigned');
-        $properties += $this->setPathFromObjectString(array($connection, 'manipulation_code'), 'manipulation');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:en'), 'supportUrlEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:nl'), 'supportUrlNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:pt'), 'supportUrlPt');
+        // Process logo, organization, and certificates
+        $logo = $this->assembleLogo($connection);
+        if (!empty($logo)) {
+            $properties += $logo;
+        }
 
+        foreach (['nl', 'en', 'pt'] as $langCode) {
+            $org = $this->assembleOrganization($connection, $langCode);
+            if (!empty($org)) {
+                $properties += $org;
+            }
+        }
+
+        $certs = $this->assembleCertificates($connection);
+        if (!empty($certs)) {
+            $properties += $certs;
+        }
+
+        // Process contact persons and single logout services
+        $contactPersons = $this->assembleContactPersons($connection);
+        if (!empty($contactPersons)) {
+            $properties += $contactPersons;
+        }
+
+        $singleLogout = $this->assembleSingleLogoutServices($connection);
+        if (!empty($singleLogout)) {
+            $properties += $singleLogout;
+        }
+
+        // Process boolean properties
+        $boolProperties = [
+            ['metadata:coin:disable_scoping', 'disableScoping'],
+            ['metadata:coin:additional_logging', 'additionalLogging'],
+            ['metadata:redirect:sign', 'requestsMustBeSigned'],
+        ];
+
+        foreach ($boolProperties as $prop) {
+            $result = $this->setPathFromObjectBool(array($connection, $prop[0]), $prop[1]);
+            if (!empty($result)) {
+                $properties += $result;
+            }
+        }
+
+        // Process NameIDFormats array
+        $nameIdFormats = $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats');
+        if (!empty($nameIdFormats)) {
+            $properties += $nameIdFormats;
+        }
+
+        // Build MDUI at the end when all properties are set
         $properties['mdui'] = MduiPushAssemblerFactory::buildFrom($properties, $connection);
 
         return $properties;
@@ -557,32 +604,30 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
         }
 
         $services = array();
-        $index = 0;
-        foreach ($connection->metadata->AssertionConsumerService as $assertionConsumerServiceMetadata) {
-            if (empty($assertionConsumerServiceMetadata->Location)) {
+        foreach ($connection->metadata->AssertionConsumerService as $serviceMetadata) {
+            // Skip if required fields are missing
+            if (empty($serviceMetadata->Location) || empty($serviceMetadata->Binding)) {
                 continue;
             }
 
-            // Only allow ACS locations with a verified URI scheme
-            if (!$this->allowedAcsLocationsValidator->validate($assertionConsumerServiceMetadata->Location)) {
-                throw new RuntimeException('The acs metadata contained an invalid location uri scheme');
+            // Validate URI scheme early
+            if (!$this->allowedAcsLocationsValidator->validate($serviceMetadata->Location)) {
+                throw new RuntimeException(sprintf(
+                    'Invalid ACS location URI scheme: %s',
+                    $serviceMetadata->Location
+                ));
             }
 
-            if (empty($assertionConsumerServiceMetadata->Binding)) {
-                continue;
-            }
-
-            if (!empty($assertionConsumerServiceMetadata->Index)) {
-                $index = (int) $assertionConsumerServiceMetadata->Index;
-            }
+            // Determine index - use explicit Index if provided, otherwise use array position
+            $index = isset($serviceMetadata->Index) 
+                ? (int) $serviceMetadata->Index
+                : count($services);
 
             $services[] = new IndexedService(
-                $assertionConsumerServiceMetadata->Location,
-                $assertionConsumerServiceMetadata->Binding,
+                $serviceMetadata->Location,
+                $serviceMetadata->Binding,
                 $index
             );
-
-            $index += 1;
         }
         return array('assertionConsumerServices' => $services);
     }

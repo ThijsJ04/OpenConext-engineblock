@@ -104,8 +104,8 @@ class IdentityProvider extends AbstractRole
         Organization $organizationPt = null,
         Service $singleLogoutService = null,
         bool $additionalLogging = false,
-        array $certificates = array(),
-        array $contactPersons = array(),
+        array $certificates = [],
+        array $contactPersons = [],
         string $descriptionEn = '',
         string $descriptionNl = '',
         string $descriptionPt = '',
@@ -121,10 +121,10 @@ class IdentityProvider extends AbstractRole
         string $nameNl = '',
         string $namePt = '',
         ?string $nameIdFormat = null,
-        array $supportedNameIdFormats = array(
+        array $supportedNameIdFormats = [
             Constants::NAMEID_TRANSIENT,
             Constants::NAMEID_PERSISTENT,
-        ),
+        ],
         bool $requestsMustBeSigned = false,
         string $signatureMethod = XMLSecurityKey::RSA_SHA256,
         string $workflowState = self::WORKFLOW_STATE_DEFAULT,
@@ -133,8 +133,8 @@ class IdentityProvider extends AbstractRole
         string $guestQualifier = self::GUEST_QUALIFIER_ALL,
         bool $hidden = false,
         ?string $schacHomeOrganization = null,
-        array $shibMdScopes = array(),
-        array $singleSignOnServices = array(),
+        array $shibMdScopes = [],
+        array $singleSignOnServices = [],
         ConsentSettings $consentSettings = null,
         StepupConnections $stepupConnections = null,
         MfaEntityCollection $mfaEntities = null,
@@ -142,9 +142,7 @@ class IdentityProvider extends AbstractRole
         ?string $defaultRAC = null,
         bool $policyEnforcementDecisionRequired = false
     ) {
-        if (is_null($mdui)) {
-            $mdui = Mdui::emptyMdui();
-        }
+        $mdui = $mdui ?? Mdui::emptyMdui();
         parent::__construct(
             $entityId,
             $mdui,
