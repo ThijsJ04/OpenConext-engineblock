@@ -81,7 +81,7 @@ final class AttributeReleasePolicyController
         $this->assertAuthorized();
 
         $body = JsonRequestHelper::decodeContentAsArrayOf($request);
-
+        
         if (!is_array($body)) {
             throw new BadApiRequestHttpException(sprintf(
                 'Unrecognized structure for JSON: expected decoded root value to be an array, got "%s"',
@@ -105,10 +105,9 @@ final class AttributeReleasePolicyController
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }
 
-        if (!isset($body['showSources']) || !is_bool($body['showSources'])) {
+        $showSources = $body['showSources'] ?? false;
+        if (isset($body['showSources']) && !is_bool($body['showSources'])) {
             $showSources = false;
-        } else {
-            $showSources = $body['showSources'];
         }
 
         foreach ($body['attributes'] as $attributeName => $attributeValues) {

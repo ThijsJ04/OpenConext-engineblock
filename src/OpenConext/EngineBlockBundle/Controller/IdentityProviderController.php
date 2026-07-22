@@ -237,43 +237,45 @@ class IdentityProviderController implements AuthenticationLoopThrottlingControll
      */
     public function performRequestAccessAction(Request $request)
     {
+        $postedVariables = $request->request;
         $invalid = $this->validateRequest($request);
 
         if (count($invalid)) {
-            $viewData = [];
-            foreach ($invalid as $name) {
-                $viewData[$name . 'Error'] = true;
-            }
+            $viewData = array_fill_keys(array_map(function($name) { return $name . 'Error'; }, $invalid), true);
+            $viewData['queryParameters'] = $postedVariables->all();
 
-            $viewData['queryParameters'] = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-
-            $body = $this->twig->render(
-                '@theme/Authentication/View/IdentityProvider/request-access.html.twig',
-                $viewData
+            return new Response(
+                $this->twig->render('@theme/Authentication/View/IdentityProvider/request-access.html.twig', $viewData),
+                400
             );
-
-            return new Response($body, 400);
         }
 
-        $postedVariables = $request->request;
-        if ($postedVariables->get('idpEntityId', false) !== false) {
+        $spName = $postedVariables->get('spName');
+        $spEntityId = $postedVariables->get('spEntityId');
+        $institution = $postedVariables->get('institution');
+        $name = $postedVariables->get('name');
+        $email = $postedVariables->get('email');
+        $comment = $postedVariables->get('comment');
+        $idpEntityId = $postedVariables->get('idpEntityId');
+
+        if ($idpEntityId !== null) {
             $this->requestAccessMailer->sendRequestAccessEmailForIdp(
-                $postedVariables->get('spName'),
-                $postedVariables->get('spEntityId'),
-                $postedVariables->get('institution'),
-                $postedVariables->get('idpEntityId'),
-                $postedVariables->get('name'),
-                $postedVariables->get('email'),
-                $postedVariables->get('comment')
+                $spName,
+                $spEntityId,
+                $institution,
+                $idpEntityId,
+                $name,
+                $email,
+                $comment
             );
         } else {
             $this->requestAccessMailer->sendRequestAccessEmailForInstitution(
-                $postedVariables->get('spName'),
-                $postedVariables->get('spEntityId'),
-                $postedVariables->get('institution'),
-                $postedVariables->get('name'),
-                $postedVariables->get('email'),
-                $postedVariables->get('comment')
+                $spName,
+                $spEntityId,
+                $institution,
+                $name,
+                $email,
+                $comment
             );
         }
 

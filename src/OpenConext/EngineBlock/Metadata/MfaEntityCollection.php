@@ -41,13 +41,12 @@ class MfaEntityCollection implements JsonSerializable, Countable
         $entities = [];
         foreach ($data as $mfaEntityData) {
             $entityId = (string) $mfaEntityData['name'];
-            $level = (string) $mfaEntityData['level'];
             Assertion::keyNotExists(
                 $entities,
                 $entityId,
                 sprintf('Duplicate SP entity ids are not allowed in MFA list: %s', $entityId)
             );
-            $entities[$entityId] = MfaEntityFactory::from($entityId, $level);
+            $entities[$entityId] = MfaEntityFactory::from($entityId, (string) $mfaEntityData['level']);
         }
         return new self($entities);
     }

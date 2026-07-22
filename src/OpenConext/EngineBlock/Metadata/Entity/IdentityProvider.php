@@ -314,39 +314,16 @@ class IdentityProvider extends AbstractRole
      */
     public function __sleep()
     {
-        return [
-            'enabledInWayf',
-            'singleSignOnServices',
-            'consentSettings',
-            'shibMdScopes',
-            'discoveries',
-            'id',
-            'entityId',
-            'nameNl',
-            'nameEn',
-            'namePt',
-            'descriptionNl',
-            'descriptionEn',
-            'descriptionPt',
-            'displayNameNl',
-            'displayNameEn',
-            'displayNamePt',
-            'logo',
-            'organizationNl',
-            'organizationEn',
-            'organizationPt',
-            'keywordsNl',
-            'keywordsEn',
-            'keywordsPt',
-            'workflowState',
-            'contactPersons',
-            'nameIdFormat',
-            'supportedNameIdFormats',
-            'singleLogoutService',
-            'requestsMustBeSigned',
-            'manipulation',
-            'coins',
-            'mdui',
-        ];
+        // Get all properties from this class and parent class
+        $reflection = new \ReflectionClass($this);
+        $properties = array_keys($reflection->getDefaultProperties());
+        
+        // Filter out properties that should not be serialized
+        $propertiesToSerialize = array_filter($properties, function($property) {
+            // Exclude certificates as they are not available after deserialization
+            return $property !== 'certificates';
+        });
+        
+        return array_values($propertiesToSerialize);
     }
 }

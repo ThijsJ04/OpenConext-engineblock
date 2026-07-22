@@ -48,6 +48,11 @@ class SsoNotificationService
     private $encryptionAlgorithm;
 
     /**
+     * @var string
+     */
+    private $derivedEncryptionKey;
+
+    /**
      * @var LoggerInterface
      */
     private $logger;
@@ -63,6 +68,16 @@ class SsoNotificationService
         $this->encryptionSalt = $encryptionSalt;
         $this->encryptionAlgorithm = $encryptionAlgorithm;
         $this->logger = $logger;
+        
+        // Pre-compute the derived encryption key to avoid recomputing it on every call
+        $this->derivedEncryptionKey = hash_pbkdf2(
+            'sha256',
+            $this->encryptionKey,
+            $this->encryptionSalt,
+            self::ITERATION_COUNT,
+            self::KEY_SIZE,
+            true
+        );
     }
 
     /**
@@ -121,19 +136,16 @@ class SsoNotificationService
 
         // Extract cipher and initialization vector
         $base64Decoded = base64_decode($ssoNotification);
+        if ($base64Decoded === false) {
+            $this->logger->error("Failed to base64 decode SSO notification");
+            return $data;
+        }
+
         $iv = substr($base64Decoded, 0, self::IV_SIZE);
         $cipherText = substr($base64Decoded, self::IV_SIZE);
-        // Construct encryption key
-        $key = hash_pbkdf2(
-            'sha256',
-            $this->encryptionKey,
-            $this->encryptionSalt,
-            self::ITERATION_COUNT,
-            self::KEY_SIZE,
-            true
-        );
 
-        $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
+        // Use pre-computed derived encryption key
+        $jsonString = $this->decryptSsoNotification($cipherText, $this->derivedEncryptionKey, $this->encryptionAlgorithm, $iv);
         try {
             $data = JsonResponseParser::parse($jsonString);
         } catch (InvalidJsonException $exception) {

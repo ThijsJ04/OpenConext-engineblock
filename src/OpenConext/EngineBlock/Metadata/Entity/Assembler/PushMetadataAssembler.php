@@ -362,30 +362,18 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     private function assembleCertificates(stdClass $connection)
     {
         $certificateFactory = new X509CertificateFactory();
-
-        // Try the primary certificate.
-        if (empty($connection->metadata->certData)) {
-            return array();
-        }
-
         $certificates = array();
-        $certificates[] = new X509CertificateLazyProxy($certificateFactory, $connection->metadata->certData);
 
-        // If we have a primary we may have a secondary.
-        if (empty($connection->metadata->certData2)) {
-            return array('certificates' => $certificates);
+        // Collect all available certificates in a single pass
+        $certificateFields = ['certData', 'certData2', 'certData3'];
+        
+        foreach ($certificateFields as $field) {
+            if (!empty($connection->metadata->$field)) {
+                $certificates[] = new X509CertificateLazyProxy($certificateFactory, $connection->metadata->$field);
+            }
         }
 
-        $certificates[] = new X509CertificateLazyProxy($certificateFactory, $connection->metadata->certData2);
-
-        // If we have a secondary we may have a tertiary.
-        if (empty($connection->metadata->certData3)) {
-            return array('certificates' => $certificates);
-        }
-
-        $certificates[] = new X509CertificateLazyProxy($certificateFactory, $connection->metadata->certData3);
-
-        return array('certificates' => $certificates);
+        return empty($certificates) ? array() : array('certificates' => $certificates);
     }
 
     private function assembleContactPersons($connection)

@@ -50,14 +50,27 @@ class UrlProvider
             throw new UnableToCreateUrlException($e->getMessage());
         }
 
-        // Append the key identifier
-        if (!$processingMode && $keyId && $name === 'authentication_idp_sso') {
-            $url .= '/key:' . $keyId;
+        // Early return if processing mode is enabled
+        if ($processingMode) {
+            return $url;
         }
 
-        // Append the Transparent identifier
-        if ($remoteEntityId && !$processingMode && $name !== 'metadata_idp' && $name !== 'authentication_logout') {
-            $url .= '/' . md5($remoteEntityId);
+        // Build URL parts in a single operation
+        $urlParts = [];
+        
+        // Append the key identifier for specific route
+        if ($keyId && $name === 'authentication_idp_sso') {
+            $urlParts[] = 'key:' . $keyId;
+        }
+
+        // Append the Transparent identifier for allowed routes
+        if ($remoteEntityId && $name !== 'metadata_idp' && $name !== 'authentication_logout') {
+            $urlParts[] = md5($remoteEntityId);
+        }
+
+        // Append all parts at once if any exist
+        if (!empty($urlParts)) {
+            $url .= '/' . implode('/', $urlParts);
         }
 
         return $url;

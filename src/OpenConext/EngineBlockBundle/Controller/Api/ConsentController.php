@@ -116,44 +116,34 @@ final class ConsentController
      */
     public function removeAction(Request $request): JsonResponse
     {
+        // Validate request method and feature flags early
         if (!$request->isMethod(Request::METHOD_POST)) {
             throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_POST]);
         }
 
-        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent')) {
-            throw new ApiNotFoundHttpException('Consent feature is disabled');
-        }
-
-        if (!$this->featureConfiguration->isEnabled('api.consent_remove')) {
-            throw new ApiNotFoundHttpException('Consent remove API is disabled');
+        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent') ||
+            !$this->featureConfiguration->isEnabled('api.consent_remove')) {
+            throw new ApiNotFoundHttpException('Consent feature or remove API is disabled');
         }
 
         $this->assertAuthorized();
 
-        // The data is posted json encoded from EngineBlock
+        // Parse and validate request data
         $data = json_decode($request->getContent(), true);
-        if (!$data || !array_key_exists('collabPersonId', $data) || !array_key_exists('serviceProviderEntityId', $data)) {
-            return new JsonResponse('The required data for removing the consent is not present in the request parameters json', Response::HTTP_FOUND);
+        if (!is_array($data) || empty($data['collabPersonId']) || empty($data['serviceProviderEntityId'])) {
+            return new JsonResponse('Missing required parameters: collabPersonId and serviceProviderEntityId', Response::HTTP_FOUND);
         }
 
-        $userId = $data['collabPersonId'];
-        $serviceProviderEntityId = $data['serviceProviderEntityId'];
-
         try {
-            $user = CollabPersonIdFactory::create($userId);
-            $removed = $this->consentService->deleteOneConsentFor($user, $serviceProviderEntityId);
+            $user = CollabPersonIdFactory::create($data['collabPersonId']);
+            $removed = $this->consentService->deleteOneConsentFor($user, $data['serviceProviderEntityId']);
+            return new JsonResponse($removed, Response::HTTP_OK);
         } catch (RuntimeException $e) {
             throw new ApiInternalServerErrorHttpException(
-                sprintf(
-                    'An unknown error occurred while removing a service the user has given consent for to ' .
-                    'release attributes to ("%s")',
-                    $e->getMessage()
-                ),
+                sprintf('Failed to remove consent: %s', $e->getMessage()),
                 $e
             );
         }
-
-        return new JsonResponse($removed, Response::HTTP_OK);
     }
 
     private function assertAuthorized(): void

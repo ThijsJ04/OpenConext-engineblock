@@ -60,22 +60,20 @@ class StepupMockController extends AbstractController
                 ));
             }
 
-            // Parse available responses
-            $responses = $this->getAvailableResponses($request);
-
             $redirectBinding = new HTTPRedirect();
             $message = $redirectBinding->receive();
 
+            // Parse available responses
+            $responses = $this->getAvailableResponses($request);
+
             // Present response
-            $body = $this->twig->render(
+            return new Response($this->twig->render(
                 '@OpenConextEngineBlockFunctionalTesting/Sso/consumeAssertion.html.twig',
                 [
                     'receivedAuthnRequest' => $message->toUnsignedXML()->ownerDocument->saveXml(),
                     'responses' => $responses,
                 ]
-            );
-
-            return new Response($body);
+            ));
         } catch (BadRequestHttpException $e) {
             return new Response($e->getMessage(), $e->getStatusCode());
         } catch (Exception $e) {
@@ -91,46 +89,59 @@ class StepupMockController extends AbstractController
     private function getAvailableResponses(Request $request)
     {
         $results = [];
+        $fullRequestUri = $this->getFullRequestUri($request);
 
-        // Parse successfull loa3
-        $samlResponse = $this->mockStepupGateway->handleSsoSuccess($request, $this->getFullRequestUri($request));
-        $results['success'] = $this->getResponseData($request, $samlResponse);
+        // Parse successful loa3
+        $results['success'] = $this->getResponseData(
+            $request,
+            $this->mockStepupGateway->handleSsoSuccess($request, $fullRequestUri)
+        );
 
-        // Parse successfull loa3 with changed audience
-        $samlResponse = $this->mockStepupGateway->handleSsoSuccess($request, $this->getFullRequestUri($request), true);
-        $results['success-audience'] = $this->getResponseData($request, $samlResponse);
+        // Parse successful loa3 with changed audience
+        $results['success-audience'] = $this->getResponseData(
+            $request,
+            $this->mockStepupGateway->handleSsoSuccess($request, $fullRequestUri, true)
+        );
 
-        // Parse successfull loa2
-        $samlResponse = $this->mockStepupGateway->handleSsoSuccessLoa2($request, $this->getFullRequestUri($request));
-        $results['loa2'] = $this->getResponseData($request, $samlResponse);
+        // Parse successful loa2
+        $results['loa2'] = $this->getResponseData(
+            $request,
+            $this->mockStepupGateway->handleSsoSuccessLoa2($request, $fullRequestUri)
+        );
 
         // Parse user cancelled
-        $samlResponse = $this->mockStepupGateway->handleSsoFailure(
+        $results['user-cancelled'] = $this->getResponseData(
             $request,
-            $this->getFullRequestUri($request),
-            Constants::STATUS_RESPONDER,
-            Constants::STATUS_AUTHN_FAILED,
-            'Authentication cancelled by user'
+            $this->mockStepupGateway->handleSsoFailure(
+                $request,
+                $fullRequestUri,
+                Constants::STATUS_RESPONDER,
+                Constants::STATUS_AUTHN_FAILED,
+                'Authentication cancelled by user'
+            )
         );
-        $results['user-cancelled'] = $this->getResponseData($request, $samlResponse);
 
         // Parse unmet Loa
-        $samlResponse = $this->mockStepupGateway->handleSsoFailure(
+        $results['unmet-loa'] = $this->getResponseData(
             $request,
-            $this->getFullRequestUri($request),
-            Constants::STATUS_RESPONDER,
-            Constants::STATUS_NO_AUTHN_CONTEXT
+            $this->mockStepupGateway->handleSsoFailure(
+                $request,
+                $fullRequestUri,
+                Constants::STATUS_RESPONDER,
+                Constants::STATUS_NO_AUTHN_CONTEXT
+            )
         );
-        $results['unmet-loa'] = $this->getResponseData($request, $samlResponse);
 
         // Parse unknown
-        $samlResponse = $this->mockStepupGateway->handleSsoFailure(
+        $results['unknown'] = $this->getResponseData(
             $request,
-            $this->getFullRequestUri($request),
-            Constants::STATUS_RESPONDER,
-            Constants::STATUS_AUTHN_FAILED
+            $this->mockStepupGateway->handleSsoFailure(
+                $request,
+                $fullRequestUri,
+                Constants::STATUS_RESPONDER,
+                Constants::STATUS_AUTHN_FAILED
+            )
         );
-        $results['unknown'] = $this->getResponseData($request, $samlResponse);
 
         return $results;
     }
