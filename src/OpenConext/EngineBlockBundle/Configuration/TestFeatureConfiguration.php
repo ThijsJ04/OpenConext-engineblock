@@ -65,21 +65,10 @@ class TestFeatureConfiguration implements FeatureConfigurationInterface
     public function isEnabled($featureKey)
     {
         if (!$this->hasFeature($featureKey)) {
-            $features = implode(
-                ', ',
-                array_map(
-                    function (Feature $feature) {
-                        return $feature->getFeatureKey();
-                    },
-                    $this->features
-                )
-            );
             throw new LogicException(
                 sprintf(
-                    'Cannot state if feature "%s" is enabled as it does not exist. Please ensure that you configured it '
-                    .'correctly or verify with hasFeature() that the feature exists. Features configured: "%s"',
-                    $featureKey,
-                    $features
+                    'Feature "%s" does not exist. Use hasFeature() to verify existence first.',
+                    $featureKey
                 )
             );
         }

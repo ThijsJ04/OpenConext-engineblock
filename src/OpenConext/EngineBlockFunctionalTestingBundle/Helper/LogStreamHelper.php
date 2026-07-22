@@ -53,30 +53,37 @@ class LogStreamHelper
 
     public function foreachLineReverse($fn)
     {
+        // Move to end of file
+        fseek($this->stream, 0, SEEK_END);
+        $position = ftell($this->stream);
+        
         $line = '';
-        $pos = -2;
-
-        if (feof($this->stream)) {
-            fseek($this->stream, -1, SEEK_CUR);
-            $line = fgetc($this->stream);
-        }
-
-        while (fseek($this->stream, $pos, SEEK_CUR) !== -1) {
+        $char = '';
+        
+        // Read file backwards character by character
+        while ($position > 0) {
+            $position--;
+            fseek($this->stream, $position, SEEK_SET);
             $char = fgetc($this->stream);
-
+            
             if ($char !== "\n") {
                 $line = $char . $line;
-                continue;
+            } else {
+                $line = $char . $line;
+                
+                if ($fn($line) === static::STOP) {
+                    $this->rewind();
+                    return $this;
+                }
+                
+                $line = '';
             }
-            $line = $line . $char;
-
-            if ($fn($line) === static::STOP) {
-                return $this;
-            }
-
-            $line = '';
         }
-        $fn($line);
+        
+        // Handle the first line (or entire file if no newlines)
+        if ($line !== '' || $char !== "\n") {
+            $fn($line);
+        }
 
         $this->rewind();
 

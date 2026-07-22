@@ -90,30 +90,33 @@ class CortoDisassembler
      */
     public function translateIdentityProvider(IdentityProvider $entity)
     {
-        $cortoEntity = array();
+        $cortoEntity = $this->translateCommon($entity, array());
 
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
-
-        foreach ($entity->singleSignOnServices as $service) {
-            if (!isset($cortoEntity['SingleSignOnService'])) {
-                $cortoEntity['SingleSignOnService'] = array();
+        // Process SingleSignOnServices
+        if (!empty($entity->singleSignOnServices)) {
+            $cortoEntity['SingleSignOnService'] = array();
+            foreach ($entity->singleSignOnServices as $service) {
+                $cortoEntity['SingleSignOnService'][] = array(
+                    'Binding'  => $service->binding,
+                    'Location' => $service->location,
+                );
             }
-
-            $cortoEntity[] = array(
-                'Binding'  => $service->binding,
-                'Location' => $service->location,
-            );
         }
 
+        // Set GuestQualifier
         $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
 
-        if ($entity->getCoins()->schacHomeOrganization()) {
-            $cortoEntity['SchacHomeOrganization'] = $entity->getCoins()->schacHomeOrganization();
+        // Set SchacHomeOrganization if available
+        $schacHomeOrganization = $entity->getCoins()->schacHomeOrganization();
+        if (!empty($schacHomeOrganization)) {
+            $cortoEntity['SchacHomeOrganization'] = $schacHomeOrganization;
         }
 
+        // Set consent and visibility settings
         $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
         $cortoEntity['isHidden'] = $entity->getCoins()->hidden();
 
+        // Process shibmd:scopes
         $cortoEntity['shibmd:scopes'] = array();
         foreach ($entity->shibMdScopes as $scope) {
             $cortoEntity['shibmd:scopes'][] = array(
@@ -122,8 +125,10 @@ class CortoDisassembler
             );
         }
 
-        if ($entity->getCoins()->defaultRAC()) {
-            $cortoEntity['DefaultRAC'] = $entity->getCoins()->defaultRAC();
+        // Set DefaultRAC if available
+        $defaultRAC = $entity->getCoins()->defaultRAC();
+        if (!empty($defaultRAC)) {
+            $cortoEntity['DefaultRAC'] = $defaultRAC;
         }
 
         return $cortoEntity;
@@ -201,25 +206,19 @@ class CortoDisassembler
      */
     private function translateOrganization(AbstractRole $entity, array $cortoEntity)
     {
-        // @codingStandardsIgnoreStart
-        if ($entity->organizationEn) {
-            $this->mapMultilang($entity->organizationEn->name       , $cortoEntity, 'Organization', 'Name'       , 'en');
-            $this->mapMultilang($entity->organizationEn->displayName, $cortoEntity, 'Organization', 'DisplayName', 'en');
-            $this->mapMultilang($entity->organizationEn->url        , $cortoEntity, 'Organization', 'URL'        , 'en');
+        $languages = ['en', 'nl', 'pt'];
+        $properties = ['name', 'displayName', 'url'];
+        
+        foreach ($languages as $lang) {
+            $organizationProperty = 'organization' . ucfirst($lang);
+            if ($entity->$organizationProperty) {
+                $organization = $entity->$organizationProperty;
+                foreach ($properties as $property) {
+                    $this->mapMultilang($organization->$property, $cortoEntity, 'Organization', ucfirst($property), $lang);
+                }
+            }
         }
-
-        if ($entity->organizationNl) {
-            $this->mapMultilang($entity->organizationNl->name       , $cortoEntity, 'Organization', 'Name'       , 'nl');
-            $this->mapMultilang($entity->organizationNl->displayName, $cortoEntity, 'Organization', 'DisplayName', 'nl');
-            $this->mapMultilang($entity->organizationNl->url        , $cortoEntity, 'Organization', 'URL'        , 'nl');
-        }
-
-        if ($entity->organizationPt) {
-            $this->mapMultilang($entity->organizationPt->name       , $cortoEntity, 'Organization', 'Name'       , 'pt');
-            $this->mapMultilang($entity->organizationPt->displayName, $cortoEntity, 'Organization', 'DisplayName', 'pt');
-            $this->mapMultilang($entity->organizationPt->url        , $cortoEntity, 'Organization', 'URL'        , 'pt');
-        }
-        // @codingStandardsIgnoreEnd
+        
         return $cortoEntity;
     }
 

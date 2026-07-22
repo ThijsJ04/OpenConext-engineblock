@@ -22,6 +22,7 @@ use Assert\AssertionFailedException;
 use Countable;
 use JsonSerializable;
 use OpenConext\EngineBlock\Assert\Assertion;
+use OpenConext\EngineBlock\Exception\InvalidArgumentException;
 
 class MfaEntityCollection implements JsonSerializable, Countable
 {
@@ -42,11 +43,17 @@ class MfaEntityCollection implements JsonSerializable, Countable
         foreach ($data as $mfaEntityData) {
             $entityId = (string) $mfaEntityData['name'];
             $level = (string) $mfaEntityData['level'];
-            Assertion::keyNotExists(
-                $entities,
-                $entityId,
-                sprintf('Duplicate SP entity ids are not allowed in MFA list: %s', $entityId)
-            );
+            
+            // Check for duplicates using native array function for better performance
+            if (array_key_exists($entityId, $entities)) {
+                throw new InvalidArgumentException(
+                    sprintf('Duplicate SP entity ids are not allowed in MFA list: %s', $entityId),
+                    0,
+                    null,
+                    $entityId
+                );
+            }
+            
             $entities[$entityId] = MfaEntityFactory::from($entityId, $level);
         }
         return new self($entities);

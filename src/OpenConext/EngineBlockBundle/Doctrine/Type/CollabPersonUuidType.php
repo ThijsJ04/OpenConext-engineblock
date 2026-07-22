@@ -60,20 +60,19 @@ class CollabPersonUuidType extends Type
         }
 
         try {
-            $collabPersonUuid = new CollabPersonUuid($value);
+            return new CollabPersonUuid($value);
         } catch (InvalidArgumentException $e) {
-            // get nice standard message, so we can throw it keeping the exception chain
-            $doctrineExceptionMessage = sprintf(
-                'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
-                $value,
-                $this->getName(),
-                'valid UUIDv4'
+            throw new ConversionException(
+                sprintf(
+                    'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
+                    $value,
+                    $this->getName(),
+                    'valid UUIDv4'
+                ),
+                0,
+                $e
             );
-
-            throw new ConversionException($doctrineExceptionMessage, 0, $e);
         }
-
-        return $collabPersonUuid;
     }
 
     public function getName(): string

@@ -34,13 +34,8 @@ final class ResourcePathFormatter
     {
         Assertion::string($resourcePathFormat, 'Resource path format "%s" expected to be string, type %s given');
 
-        if (count($parameters) > 0) {
-            $resource = vsprintf($resourcePathFormat, array_map('urlencode', $parameters));
-        } else {
-            $resource = $resourcePathFormat;
-        }
-
-        if (empty($resource)) {
+        // Early check for empty format to avoid unnecessary processing
+        if (empty($resourcePathFormat)) {
             throw new RuntimeException(sprintf(
                 'Could not construct resource path from format "%s", parameters "%s"',
                 $resourcePathFormat,
@@ -48,6 +43,23 @@ final class ResourcePathFormatter
             ));
         }
 
-        return $resource;
+        // Only process parameters if there are any
+        if (!empty($parameters)) {
+            $resource = vsprintf($resourcePathFormat, array_map('urlencode', $parameters));
+            
+            // Validate the result is not empty after formatting
+            if (empty($resource)) {
+                throw new RuntimeException(sprintf(
+                    'Could not construct resource path from format "%s", parameters "%s"',
+                    $resourcePathFormat,
+                    implode('","', $parameters)
+                ));
+            }
+            
+            return $resource;
+        }
+
+        // No parameters case - return the format as-is
+        return $resourcePathFormat;
     }
 }

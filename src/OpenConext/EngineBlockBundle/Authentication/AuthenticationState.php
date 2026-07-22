@@ -53,45 +53,28 @@ final class AuthenticationState implements AuthenticationStateInterface
     public function startAuthenticationOnBehalfOf(string $requestId, Entity $serviceProvider): void
     {
         Assertion::string($requestId, 'The requestId must be a string (XML ID) value');
-        $currentAuthenticationProcedure = AuthenticationProcedure::onBehalfOf($serviceProvider);
-
-        // Validate if the processed authentications this session do not exceed the configured maximum of authentications
-        $authenticationLimitExceeded = $this->authenticationLoopGuard->detectsAuthenticationLimit(
-            $this->authenticationProcedures
-        );
-
-        if ($authenticationLimitExceeded) {
+        
+        // Validate authentication limits before creating procedure
+        if ($this->authenticationLoopGuard->detectsAuthenticationLimit($this->authenticationProcedures)) {
             session_destroy();
-
             throw new AuthenticationSessionLimitExceededException(
-                'More than the configured maximum authentication procedures for this session'
-                    . ' the user seems to have started too much authentications this session. '
-                    . ' Resetting the session.'
+                'Authentication session limit exceeded. Resetting session.'
             );
         }
 
-        // Validate if the processed authentications for the service provider for this session do not exceed
-        // the configured maximum authentications in a configured time frame.
-        $inAuthenticationLoop = $this->authenticationLoopGuard->detectsAuthenticationLoop(
-            $serviceProvider,
-            $this->authenticationProcedures
-        );
-
-        if ($inAuthenticationLoop) {
+        if ($this->authenticationLoopGuard->detectsAuthenticationLoop($serviceProvider, $this->authenticationProcedures)) {
             throw new StuckInAuthenticationLoopException(
                 sprintf(
-                    'More than the configured maximum authentication procedures for the current user from SP "%s"'
-                    . ' occurred within the configured amount of seconds,'
-                    . ' the user seems to be stuck in an authentication loop. '
-                    . ' Aborting the current authentication procedure.',
+                    'Authentication loop detected for SP "%s". Aborting procedure.',
                     $serviceProvider->getEntityId()
                 )
             );
         }
 
+        // Only create and add procedure if all validations pass
         $this->authenticationProcedures = $this->authenticationProcedures->add(
             $requestId,
-            $currentAuthenticationProcedure
+            AuthenticationProcedure::onBehalfOf($serviceProvider)
         );
     }
 

@@ -223,24 +223,18 @@ class ServiceProvider extends AbstractRole
     {
         $entity = new self($serviceProvider->getEntityId(), $serviceProvider->getMdui());
         $entity->id = $serviceProvider->getId();
-        $entity->entityId = $serviceProvider->getEntityId();
-        $entity->nameNl = $serviceProvider->getName('nl');
-        $entity->nameEn = $serviceProvider->getName('en');
-        $entity->namePt = $serviceProvider->getName('pt');
-        $entity->descriptionNl = $serviceProvider->getDescription('nl');
-        $entity->descriptionEn = $serviceProvider->getDescription('en');
-        $entity->descriptionPt = $serviceProvider->getDescription('pt');
-        $entity->displayNameNl = $serviceProvider->getDisplayName('nl');
-        $entity->displayNameEn = $serviceProvider->getDisplayName('en');
-        $entity->displayNamePt = $serviceProvider->getDisplayName('pt');
+        
+        // Set localized properties using a loop to reduce redundancy
+        foreach (['nl', 'en', 'pt'] as $locale) {
+            $entity->{'name' . ucfirst($locale)} = $serviceProvider->getName($locale);
+            $entity->{'description' . ucfirst($locale)} = $serviceProvider->getDescription($locale);
+            $entity->{'displayName' . ucfirst($locale)} = $serviceProvider->getDisplayName($locale);
+            $entity->{'organization' . ucfirst($locale)} = $serviceProvider->getOrganization($locale);
+            $entity->{'keywords' . ucfirst($locale)} = $serviceProvider->getKeywords($locale);
+            $entity->{'supportUrl' . ucfirst($locale)} = $serviceProvider->getSupportUrl($locale);
+        }
+        
         $entity->getMdui()->setLogo($serviceProvider->getLogo());
-
-        $entity->organizationNl = $serviceProvider->getOrganization('nl');
-        $entity->organizationEn = $serviceProvider->getOrganization('en');
-        $entity->organizationPt = $serviceProvider->getOrganization('pt');
-        $entity->keywordsNl = $serviceProvider->getKeywords('nl');
-        $entity->keywordsEn = $serviceProvider->getKeywords('en');
-        $entity->keywordsPt = $serviceProvider->getKeywords('pt');
         $entity->certificates = $serviceProvider->getCertificates();
         $entity->workflowState = $serviceProvider->getWorkflowState();
         $entity->contactPersons = $serviceProvider->getContactPersons();
@@ -255,9 +249,6 @@ class ServiceProvider extends AbstractRole
         $entity->allowedIdpEntityIds = $serviceProvider->getAllowedIdpEntityIds();
         $entity->allowAll = $serviceProvider->isAllowAll();
         $entity->requestedAttributes = $serviceProvider->getRequestedAttributes();
-        $entity->supportUrlNl = $serviceProvider->getSupportUrl('nl');
-        $entity->supportUrlEn = $serviceProvider->getSupportUrl('en');
-        $entity->supportUrlPt = $serviceProvider->getSupportUrl('pt');
 
         return $entity;
     }
@@ -297,26 +288,32 @@ class ServiceProvider extends AbstractRole
      */
     public function getDisplayName(string $preferredLocale = 'en'): string
     {
-
-        $preferredName = $this->mdui->getDisplayName($preferredLocale);
-        $fallback = 'name' . ucfirst($preferredLocale);
-
-        if ($preferredName !== '') {
-            $spName = $preferredName;
-        } elseif (isset($this->$fallback)) {
-            $spName = $this->$fallback;
+        // Try preferred locale display name first
+        $displayName = $this->mdui->getDisplayName($preferredLocale);
+        if ($displayName !== '') {
+            return $displayName;
         }
 
-        if ($preferredLocale !== 'en' & empty($spName)) {
+        // Fallback to preferred locale name
+        $nameProperty = 'name' . ucfirst($preferredLocale);
+        if (isset($this->$nameProperty) && $this->$nameProperty !== '') {
+            return $this->$nameProperty;
+        }
+
+        // If preferred locale is not English, try English fallbacks
+        if ($preferredLocale !== 'en') {
             $englishDisplayName = $this->mdui->getDisplayName('en');
-            $spName = !empty($englishDisplayName) ? $englishDisplayName : $this->nameEn;
+            if ($englishDisplayName !== '') {
+                return $englishDisplayName;
+            }
+            
+            if (isset($this->nameEn) && $this->nameEn !== '') {
+                return $this->nameEn;
+            }
         }
 
-        if (empty($spName)) {
-            $spName = $this->entityId;
-        }
-
-        return $spName;
+        // Final fallback to entity ID
+        return $this->entityId;
     }
 
     /**
