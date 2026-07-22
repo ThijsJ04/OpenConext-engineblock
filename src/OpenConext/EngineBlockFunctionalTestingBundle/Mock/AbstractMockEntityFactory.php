@@ -38,6 +38,12 @@ abstract class AbstractMockEntityFactory
      */
     protected function generateDefaultSigningKeyPair()
     {
+        static $cachedKeyDescriptor = null;
+        
+        if ($cachedKeyDescriptor !== null) {
+            return $cachedKeyDescriptor;
+        }
+
         $signingKey = new KeyDescriptor();
         $signingKey->setUse('signing');
 
@@ -48,22 +54,17 @@ abstract class AbstractMockEntityFactory
         $keyName->setName('snakeoil');
 
         $x509Data = new X509Data();
-
         $certificate = new X509Certificate();
         $certificate->setCertificate(trim(file_get_contents(__DIR__ . '/../Resources/keys/snakeoil.certData')));
-
-        $domElement = new DOMElement('PrivateKey');
-        $domElement->nodeValue = trim(file_get_contents(__DIR__ . '/../Resources/keys/snakeoil.key'));
-
-        $document = new DOMDocument();
-        $document->appendChild($domElement);
-        $privateKeyChunk = new Chunk($domElement);
-
         $x509Data->setData([$certificate]);
-        $info = [$keyName, $x509Data, $privateKeyChunk];
-        $keyInfo->setInfo($info);
+
+        $privateKeyChunk = new Chunk();
+        $privateKeyChunk->setTextContent(trim(file_get_contents(__DIR__ . '/../Resources/keys/snakeoil.key')));
+
+        $keyInfo->setInfo([$keyName, $x509Data, $privateKeyChunk]);
         $signingKey->setKeyInfo($keyInfo);
 
+        $cachedKeyDescriptor = $signingKey;
         return $signingKey;
     }
 }

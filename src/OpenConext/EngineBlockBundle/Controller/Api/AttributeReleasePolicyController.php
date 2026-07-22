@@ -89,6 +89,7 @@ final class AttributeReleasePolicyController
             ));
         }
 
+        // Validate entityIds existence and structure
         if (!isset($body['entityIds'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "entityIds" not found');
         }
@@ -97,6 +98,7 @@ final class AttributeReleasePolicyController
             throw new BadApiRequestHttpException('Invalid JSON structure: "entityIds" must be a non-empty array');
         }
 
+        // Validate attributes existence and structure
         if (!isset($body['attributes'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "attributes" not found');
         }
@@ -105,12 +107,7 @@ final class AttributeReleasePolicyController
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }
 
-        if (!isset($body['showSources']) || !is_bool($body['showSources'])) {
-            $showSources = false;
-        } else {
-            $showSources = $body['showSources'];
-        }
-
+        // Validate individual attributes
         foreach ($body['attributes'] as $attributeName => $attributeValues) {
             if (!is_string($attributeName) || !is_array($attributeValues)) {
                 throw new BadApiRequestHttpException(
@@ -119,6 +116,10 @@ final class AttributeReleasePolicyController
             }
         }
 
+        // Handle optional showSources parameter
+        $showSources = isset($body['showSources']) && is_bool($body['showSources']) ? $body['showSources'] : false;
+
+        // Process ARP for each entity
         $releasedAttributes = [];
         foreach ($body['entityIds'] as $entityId) {
             $arp = $this->metadataService->findArpForServiceProviderByEntityId(new EntityId($entityId));

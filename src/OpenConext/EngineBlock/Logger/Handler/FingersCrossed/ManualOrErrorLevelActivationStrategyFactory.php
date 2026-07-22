@@ -49,10 +49,11 @@ final class ManualOrErrorLevelActivationStrategyFactory implements ActivationStr
         Assertion::keyIsset($config, 'action_level', 'Missing configuration value, configuration key "%s" not found');
         Assertion::string($config['action_level']);
 
-        $config['action_level'] = strtolower($config['action_level']);
+        $actionLevel = strtolower($config['action_level']);
+        $config['action_level'] = $actionLevel;
 
         Assertion::choice(
-            $config['action_level'],
+            $actionLevel,
             [
                 LogLevel::EMERGENCY,
                 LogLevel::ALERT,

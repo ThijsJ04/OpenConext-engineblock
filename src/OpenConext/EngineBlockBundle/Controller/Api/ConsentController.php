@@ -116,10 +116,12 @@ final class ConsentController
      */
     public function removeAction(Request $request): JsonResponse
     {
+        // Validate HTTP method
         if (!$request->isMethod(Request::METHOD_POST)) {
             throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_POST]);
         }
 
+        // Check feature flags
         if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent')) {
             throw new ApiNotFoundHttpException('Consent feature is disabled');
         }
@@ -128,11 +130,14 @@ final class ConsentController
             throw new ApiNotFoundHttpException('Consent remove API is disabled');
         }
 
+        // Assert authorization
         $this->assertAuthorized();
 
-        // The data is posted json encoded from EngineBlock
+        // Process request data
         $data = json_decode($request->getContent(), true);
-        if (!$data || !array_key_exists('collabPersonId', $data) || !array_key_exists('serviceProviderEntityId', $data)) {
+        
+        // Validate required parameters
+        if (!is_array($data) || !isset($data['collabPersonId'], $data['serviceProviderEntityId'])) {
             return new JsonResponse('The required data for removing the consent is not present in the request parameters json', Response::HTTP_FOUND);
         }
 
@@ -142,18 +147,17 @@ final class ConsentController
         try {
             $user = CollabPersonIdFactory::create($userId);
             $removed = $this->consentService->deleteOneConsentFor($user, $serviceProviderEntityId);
+            
+            return new JsonResponse($removed, Response::HTTP_OK);
         } catch (RuntimeException $e) {
             throw new ApiInternalServerErrorHttpException(
                 sprintf(
-                    'An unknown error occurred while removing a service the user has given consent for to ' .
-                    'release attributes to ("%s")',
+                    'An unknown error occurred while removing a service the user has given consent for to release attributes to ("%s")',
                     $e->getMessage()
                 ),
                 $e
             );
         }
-
-        return new JsonResponse($removed, Response::HTTP_OK);
     }
 
     private function assertAuthorized(): void

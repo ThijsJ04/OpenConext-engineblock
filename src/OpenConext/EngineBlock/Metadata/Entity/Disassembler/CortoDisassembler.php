@@ -90,9 +90,17 @@ class CortoDisassembler
      */
     public function translateIdentityProvider(IdentityProvider $entity)
     {
-        $cortoEntity = array();
+        $cortoEntity = $this->translateCommon($entity, array());
 
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
+        $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
+
+        $schacHomeOrganization = $entity->getCoins()->schacHomeOrganization();
+        if ($schacHomeOrganization) {
+            $cortoEntity['SchacHomeOrganization'] = $schacHomeOrganization;
+        }
+
+        $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
+        $cortoEntity['isHidden'] = $entity->getCoins()->hidden();
 
         foreach ($entity->singleSignOnServices as $service) {
             if (!isset($cortoEntity['SingleSignOnService'])) {
@@ -105,25 +113,21 @@ class CortoDisassembler
             );
         }
 
-        $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
-
-        if ($entity->getCoins()->schacHomeOrganization()) {
-            $cortoEntity['SchacHomeOrganization'] = $entity->getCoins()->schacHomeOrganization();
+        if (!empty($entity->shibMdScopes)) {
+            $cortoEntity['shibmd:scopes'] = array();
+            foreach ($entity->shibMdScopes as $scope) {
+                $cortoEntity['shibmd:scopes'][] = array(
+                    'allowed' => $scope->allowed,
+                    'regexp'  => $scope->regexp,
+                );
+            }
+        } else {
+            $cortoEntity['shibmd:scopes'] = array();
         }
 
-        $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
-        $cortoEntity['isHidden'] = $entity->getCoins()->hidden();
-
-        $cortoEntity['shibmd:scopes'] = array();
-        foreach ($entity->shibMdScopes as $scope) {
-            $cortoEntity['shibmd:scopes'][] = array(
-                'allowed' => $scope->allowed,
-                'regexp'  => $scope->regexp,
-            );
-        }
-
-        if ($entity->getCoins()->defaultRAC()) {
-            $cortoEntity['DefaultRAC'] = $entity->getCoins()->defaultRAC();
+        $defaultRAC = $entity->getCoins()->defaultRAC();
+        if ($defaultRAC) {
+            $cortoEntity['DefaultRAC'] = $defaultRAC;
         }
 
         return $cortoEntity;

@@ -43,12 +43,9 @@ class MetadataCoinType extends Type
         }
 
         if (!$value instanceof Coins) {
+            $valueType = is_object($value) ? get_class($value) : (string)$value;
             throw new ConversionException(
-                sprintf(
-                    'Value "%s" must be null or an instance of Coins to be able to ' .
-                    'convert it to a database value',
-                    is_object($value) ? get_class($value) : (string)$value
-                )
+                'Value "' . $valueType . '" must be null or an instance of Coins to be able to convert it to a database value'
             );
         }
 

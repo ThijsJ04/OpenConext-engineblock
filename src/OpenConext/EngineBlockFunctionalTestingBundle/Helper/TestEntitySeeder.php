@@ -239,13 +239,19 @@ class TestEntitySeeder
     private static function findIdentityProvidersByEntityId(array $idpEntityIds): array
     {
         $idps = [];
+        $sharedLogo = new Logo('/images/logo.png');
+        $sharedKeywords = 'Awesome IdP, Another keyword, Example';
+        
         foreach ($idpEntityIds as $idpEntityId => $idpData) {
             $idp = new IdentityProvider($idpEntityId);
-            $idp->getMdui()->setLogo(new Logo('/images/logo.png'));
-            $idp->nameEn = $idpData['name'];
-            $idp->nameNl = $idpData['name'];
-            $idp->namePt = $idpData['name'];
-            $idp->keywordsEn = 'Awesome IdP, Another keyword, Example';
+            $idp->getMdui()->setLogo($sharedLogo);
+            
+            $name = $idpData['name'];
+            $idp->nameEn = $name;
+            $idp->nameNl = $name;
+            $idp->namePt = $name;
+            
+            $idp->keywordsEn = $sharedKeywords;
             $idp->enabledInWayf = $idpData['enabled'];
             $idp->setDiscoveries($idpData['discoveries'] ?? []);
 

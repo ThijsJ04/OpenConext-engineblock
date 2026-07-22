@@ -51,86 +51,98 @@ class StepupMockController extends AbstractController
      */
     public function ssoAction(Request $request)
     {
-        try {
-            // Check binding
-            if (!$request->isMethod(Request::METHOD_GET)) {
-                throw new BadRequestHttpException(sprintf(
-                    'Could not receive AuthnRequest from HTTP Request: expected a GET method, got %s',
-                    $request->getMethod()
-                ));
-            }
+        // Validate request method
+        if (!$request->isMethod(Request::METHOD_GET)) {
+            return new Response(sprintf(
+                'Could not receive AuthnRequest from HTTP Request: expected a GET method, got %s',
+                $request->getMethod()
+            ), Response::HTTP_BAD_REQUEST);
+        }
 
+        try {
+            // Cache the full request URI to avoid repeated calculations
+            $fullRequestUri = $this->getFullRequestUri($request);
+            
             // Parse available responses
-            $responses = $this->getAvailableResponses($request);
+            $responses = $this->getAvailableResponses($request, $fullRequestUri);
 
             $redirectBinding = new HTTPRedirect();
             $message = $redirectBinding->receive();
 
             // Present response
-            $body = $this->twig->render(
+            return new Response($this->twig->render(
                 '@OpenConextEngineBlockFunctionalTesting/Sso/consumeAssertion.html.twig',
                 [
                     'receivedAuthnRequest' => $message->toUnsignedXML()->ownerDocument->saveXml(),
                     'responses' => $responses,
                 ]
-            );
-
-            return new Response($body);
-        } catch (BadRequestHttpException $e) {
-            return new Response($e->getMessage(), $e->getStatusCode());
+            ));
         } catch (Exception $e) {
-            return new Response($e->getMessage(), 500);
+            return new Response($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
      * @param Request $request
-     * @return mixed
+     * @param string $fullRequestUri
+     * @return array
      * @throws Exception
      */
-    private function getAvailableResponses(Request $request)
+    private function getAvailableResponses(Request $request, string $fullRequestUri)
     {
         $results = [];
 
-        // Parse successfull loa3
-        $samlResponse = $this->mockStepupGateway->handleSsoSuccess($request, $this->getFullRequestUri($request));
-        $results['success'] = $this->getResponseData($request, $samlResponse);
+        // Parse successful loa3
+        $results['success'] = $this->getResponseData(
+            $request,
+            $this->mockStepupGateway->handleSsoSuccess($request, $fullRequestUri)
+        );
 
-        // Parse successfull loa3 with changed audience
-        $samlResponse = $this->mockStepupGateway->handleSsoSuccess($request, $this->getFullRequestUri($request), true);
-        $results['success-audience'] = $this->getResponseData($request, $samlResponse);
+        // Parse successful loa3 with changed audience
+        $results['success-audience'] = $this->getResponseData(
+            $request,
+            $this->mockStepupGateway->handleSsoSuccess($request, $fullRequestUri, true)
+        );
 
-        // Parse successfull loa2
-        $samlResponse = $this->mockStepupGateway->handleSsoSuccessLoa2($request, $this->getFullRequestUri($request));
-        $results['loa2'] = $this->getResponseData($request, $samlResponse);
+        // Parse successful loa2
+        $results['loa2'] = $this->getResponseData(
+            $request,
+            $this->mockStepupGateway->handleSsoSuccessLoa2($request, $fullRequestUri)
+        );
 
         // Parse user cancelled
-        $samlResponse = $this->mockStepupGateway->handleSsoFailure(
+        $results['user-cancelled'] = $this->getResponseData(
             $request,
-            $this->getFullRequestUri($request),
-            Constants::STATUS_RESPONDER,
-            Constants::STATUS_AUTHN_FAILED,
-            'Authentication cancelled by user'
+            $this->mockStepupGateway->handleSsoFailure(
+                $request,
+                $fullRequestUri,
+                Constants::STATUS_RESPONDER,
+                Constants::STATUS_AUTHN_FAILED,
+                'Authentication cancelled by user'
+            )
         );
-        $results['user-cancelled'] = $this->getResponseData($request, $samlResponse);
 
         // Parse unmet Loa
-        $samlResponse = $this->mockStepupGateway->handleSsoFailure(
+        $results['unmet-loa'] = $this->getResponseData(
             $request,
-            $this->getFullRequestUri($request),
-            Constants::STATUS_RESPONDER,
-            Constants::STATUS_NO_AUTHN_CONTEXT
+            $this->mockStepupGateway->handleSsoFailure(
+                $request,
+                $fullRequestUri,
+                Constants::STATUS_RESPONDER,
+                Constants::STATUS_NO_AUTHN_CONTEXT
+            )
         );
-        $results['unmet-loa'] = $this->getResponseData($request, $samlResponse);
 
         // Parse unknown
-        $samlResponse = $this->mockStepupGateway->handleSsoFailure(
+        $results['unknown'] = $this->getResponseData(
             $request,
-            $this->getFullRequestUri($request),
-            Constants::STATUS_RESPONDER,
-            Constants::STATUS_AUTHN_FAILED
+            $this->mockStepupGateway->handleSsoFailure(
+                $request,
+                $fullRequestUri,
+                Constants::STATUS_RESPONDER,
+                Constants::STATUS_AUTHN_FAILED
+            )
         );
-        $results['unknown'] = $this->getResponseData($request, $samlResponse);
 
         return $results;
     }
@@ -140,14 +152,15 @@ class StepupMockController extends AbstractController
      * @param SamlResponse $samlResponse
      * @return array
      */
-    private function getResponseData(Request $request, SamlResponse $samlResponse)
+    private function getResponseData(Request $request, SamlResponse $samlResponse): array
     {
         $rawResponse = $this->mockStepupGateway->parsePostResponse($samlResponse);
+        $encodedResponse = base64_encode($rawResponse);
 
         return [
             'acu' => $samlResponse->getDestination(),
             'rawResponse' => $rawResponse,
-            'encodedResponse' => base64_encode($rawResponse),
+            'encodedResponse' => $encodedResponse,
             'relayState' => $request->request->get(MockStepupGateway::PARAMETER_RELAY_STATE),
         ];
     }

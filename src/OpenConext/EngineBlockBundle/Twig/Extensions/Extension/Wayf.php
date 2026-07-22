@@ -138,21 +138,20 @@ class Wayf extends AbstractExtension
         array $formattedList,
         array $previousSelectionIndex
     ): array {
-        return array_filter(
-            array_map(
-                function (array $idp) use ($previousSelectionIndex) {
-                    $entryKey = $this->idpDiscoveryHash($idp['entityId'], $idp['discoveryHash']);
-                    if (!isset($previousSelectionIndex[$entryKey])) {
-                        return null;
-                    }
-                    return array_merge(
-                        $previousSelectionIndex[$entryKey],
-                        $idp
-                    );
-                },
-                $formattedList
-            )
-        );
+        $result = [];
+        
+        foreach ($formattedList as $idp) {
+            $entryKey = $this->idpDiscoveryHash($idp['entityId'], $idp['discoveryHash']);
+            
+            if (isset($previousSelectionIndex[$entryKey])) {
+                $result[] = array_merge(
+                    $previousSelectionIndex[$entryKey],
+                    $idp
+                );
+            }
+        }
+        
+        return $result;
     }
 
     /**
