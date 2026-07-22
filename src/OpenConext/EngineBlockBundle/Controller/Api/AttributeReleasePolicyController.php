@@ -105,12 +105,6 @@ final class AttributeReleasePolicyController
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }
 
-        if (!isset($body['showSources']) || !is_bool($body['showSources'])) {
-            $showSources = false;
-        } else {
-            $showSources = $body['showSources'];
-        }
-
         foreach ($body['attributes'] as $attributeName => $attributeValues) {
             if (!is_string($attributeName) || !is_array($attributeValues)) {
                 throw new BadApiRequestHttpException(
@@ -118,6 +112,9 @@ final class AttributeReleasePolicyController
                 );
             }
         }
+
+        // Efficiently set showSources with default false if not provided or invalid
+        $showSources = isset($body['showSources']) && is_bool($body['showSources']) ? $body['showSources'] : false;
 
         $releasedAttributes = [];
         foreach ($body['entityIds'] as $entityId) {

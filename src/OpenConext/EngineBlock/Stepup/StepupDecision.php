@@ -112,32 +112,75 @@ class StepupDecision
     {
         $this->logger->debug('StepupDecision: determine highest LoA');
 
-        $desiredLevels = $this->pdpLoas;
-        $desiredLevels += $this->authnRequestLoas;
-        if ($this->spLoa) {
-            $desiredLevels[] = $this->spLoa;
-        }
-        if ($this->idpLoa) {
-            $desiredLevels[] = $this->idpLoa;
+        $highestLevel = null;
+        $allLoas = [];
+
+        // Check PDP LoAs
+        foreach ($this->pdpLoas as $loa) {
+            $allLoas[] = $loa;
+            if ($highestLevel === null || $loa->levelIsHigherOrEqualTo($highestLevel)) {
+                $highestLevel = $loa;
+                // Early exit if we find the maximum possible LoA level
+                if ($highestLevel->getLevel() === Loa::LOA_3) {
+                    break;
+                }
+            }
         }
 
-        if (count($desiredLevels) == 0) {
+        // Check AuthnRequest LoAs
+        foreach ($this->authnRequestLoas as $loa) {
+            $allLoas[] = $loa;
+            if ($highestLevel === null || $loa->levelIsHigherOrEqualTo($highestLevel)) {
+                $highestLevel = $loa;
+                // Early exit if we find the maximum possible LoA level
+                if ($highestLevel->getLevel() === Loa::LOA_3) {
+                    break;
+                }
+            }
+        }
+
+        // Check SP LoA
+        if ($this->spLoa) {
+            $allLoas[] = $this->spLoa;
+            if ($highestLevel === null || $this->spLoa->levelIsHigherOrEqualTo($highestLevel)) {
+                $highestLevel = $this->spLoa;
+                // Early exit if we find the maximum possible LoA level
+                if ($highestLevel->getLevel() === Loa::LOA_3) {
+                    return $this->logAndReturnResult($highestLevel, $allLoas);
+                }
+            }
+        }
+
+        // Check IdP LoA
+        if ($this->idpLoa) {
+            $allLoas[] = $this->idpLoa;
+            if ($highestLevel === null || $this->idpLoa->levelIsHigherOrEqualTo($highestLevel)) {
+                $highestLevel = $this->idpLoa;
+                // Early exit if we find the maximum possible LoA level
+                if ($highestLevel->getLevel() === Loa::LOA_3) {
+                    return $this->logAndReturnResult($highestLevel, $allLoas);
+                }
+            }
+        }
+
+        if ($highestLevel === null) {
             $this->logger->info('StepupDecision: no level set, no Stepup required');
             return null;
         }
 
-        $highestLevel = reset($desiredLevels);
-        foreach ($desiredLevels as $level) {
-            if ($level->levelIsHigherOrEqualTo($highestLevel)) {
-                $highestLevel = $level;
-            }
-        }
+        return $this->logAndReturnResult($highestLevel, $allLoas);
+    }
 
+    /**
+     * Helper method to log the decision and return the result.
+     */
+    private function logAndReturnResult(Loa $highestLevel, array $allLoas): Loa
+    {
         $logData = [
-            'pdp' => array_map(function (Loa $l):string {
+            'pdp' => array_map(function (Loa $l): string {
                 return $l->getIdentifier();
             }, $this->pdpLoas),
-            'authnRequest' => array_map(function (Loa $l):string {
+            'authnRequest' => array_map(function (Loa $l): string {
                 return $l->getIdentifier();
             }, $this->authnRequestLoas),
             'metadata_sp' => $this->spLoa ? [$this->spLoa->getIdentifier()] : [],

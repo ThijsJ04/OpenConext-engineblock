@@ -273,32 +273,20 @@ class MockStepupGateway
      */
     private function createFailureResponse($destination, $requestId, $status, $subStatus = null, $message = null)
     {
-        $response = new Response();
-        $response->setDestination($destination);
-        $issuer = new Issuer();
-        $issuer->setValue($this->gatewayConfiguration->getIdentityProviderEntityId());
-        $response->setIssuer($issuer);
-        $response->setIssueInstant($this->getTimestamp());
-        $response->setInResponseTo($requestId);
-
-
         if (!$this->isValidResponseStatus($status)) {
-            throw new LogicException(sprintf('Trying to set invalid Response Status'));
+            throw new LogicException(sprintf('Trying to set invalid Response Status: "%s"', $status));
         }
 
         if ($subStatus && !$this->isValidResponseSubStatus($subStatus)) {
-            throw new LogicException(sprintf('Trying to set invalid Response SubStatus'));
+            throw new LogicException(sprintf('Trying to set invalid Response SubStatus: "%s"', $subStatus));
         }
 
-        $status = ['Code' => $status];
-        if ($subStatus) {
-            $status['SubCode'] = $subStatus;
-        }
-        if ($message) {
-            $status['Message'] = $message;
-        }
-
-        $response->setStatus($status);
+        $response = new Response();
+        $response->setDestination($destination);
+        $response->setIssuer($this->createIssuer());
+        $response->setIssueInstant($this->getTimestamp());
+        $response->setInResponseTo($requestId);
+        $response->setStatus($this->buildStatusArray($status, $subStatus, $message));
 
         return $response;
     }
@@ -313,14 +301,43 @@ class MockStepupGateway
     {
         $response = new Response();
         $response->setAssertions([$newAssertion]);
-        $issuer = new Issuer();
-        $issuer->setValue($this->gatewayConfiguration->getIdentityProviderEntityId());
-        $response->setIssuer($issuer);
+        $response->setIssuer($this->createIssuer());
         $response->setIssueInstant($this->getTimestamp());
         $response->setDestination($destination);
         $response->setInResponseTo($requestId);
 
         return $response;
+    }
+
+    /**
+     * @return Issuer
+     */
+    private function createIssuer()
+    {
+        $issuer = new Issuer();
+        $issuer->setValue($this->gatewayConfiguration->getIdentityProviderEntityId());
+        return $issuer;
+    }
+
+    /**
+     * @param string $status
+     * @param string|null $subStatus
+     * @param string|null $message
+     * @return array
+     */
+    private function buildStatusArray($status, $subStatus = null, $message = null)
+    {
+        $statusArray = ['Code' => $status];
+        
+        if ($subStatus !== null) {
+            $statusArray['SubCode'] = $subStatus;
+        }
+        
+        if ($message !== null) {
+            $statusArray['Message'] = $message;
+        }
+        
+        return $statusArray;
     }
 
     /**

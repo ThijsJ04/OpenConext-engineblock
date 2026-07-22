@@ -195,40 +195,44 @@ class TestEntitySeeder
         $discoveryService = new DiscoverySelectionService();
         $identityProviders = self::findIdentityProvidersByEntityId($idpEntityIds);
 
-        $wayfIdps = array();
-        foreach ($identityProviders as $identityProvider) {
-            $name = 'name' . ucfirst($currentLocale);
-            $wayfIdp = array(
-                'Name' => $identityProvider->$name,
-                'Logo' => $identityProvider->logo ? $identityProvider->logo->url : '/images/placeholder.png',
-                'Keywords' => $identityProvider->keywordsEn,
-                'Access' => ($identityProvider->enabledInWayf) ? '1' : '0',
-                'ID' => md5($identityProvider->entityId),
-                'EntityID' => $identityProvider->entityId,
-                'isDefaultIdp' => $idpEntityIds[$identityProvider->entityId]['isDefaultIdp'],
-            );
-            $wayfIdps[] = $wayfIdp;
+        $wayfIdps = [];
+        $nameProperty = 'name' . ucfirst($currentLocale);
 
+        foreach ($identityProviders as $identityProvider) {
+            $entityId = $identityProvider->entityId;
+            $isDefaultIdp = $idpEntityIds[$entityId]['isDefaultIdp'];
+            $accessValue = $identityProvider->enabledInWayf ? '1' : '0';
+            $idHash = md5($entityId);
+
+            // Add the main identity provider entry
+            $wayfIdps[] = self::createWayfIdpEntry(
+                $identityProvider->$nameProperty,
+                $identityProvider->logo ? $identityProvider->logo->url : '/images/placeholder.png',
+                $identityProvider->keywordsEn,
+                $accessValue,
+                $idHash,
+                $entityId,
+                $isDefaultIdp,
+                null
+            );
+
+            // Add discovery entries
             foreach ($identityProvider->getDiscoveries() as $discovery) {
-                $wayfIdps[] = array(
-                    'Name' => $discovery->getName($currentLocale),
-                    'Logo' => $discovery->getLogo() ? $discovery->getLogo()->url : '/images/placeholder.png',
-                    'Keywords' => $discovery->getKeywords('en'),
-                    'Access' => ($identityProvider->enabledInWayf) ? '1' : '0',
-                    'ID' => md5($identityProvider->entityId),
-                    'EntityID' => $identityProvider->entityId,
-                    'isDefaultIdp' => $idpEntityIds[$identityProvider->entityId]['isDefaultIdp'],
-                    'DiscoveryHash' => $discoveryService->hash($discovery),
+                $wayfIdps[] = self::createWayfIdpEntry(
+                    $discovery->getName($currentLocale),
+                    $discovery->getLogo() ? $discovery->getLogo()->url : '/images/placeholder.png',
+                    $discovery->getKeywords('en'),
+                    $accessValue,
+                    $idHash,
+                    $entityId,
+                    $isDefaultIdp,
+                    $discoveryService->hash($discovery)
                 );
             }
         }
 
-        $nameSort = static function ($a, $b) {
-            return strcmp(strtolower($a['Name']), strtolower($b['Name']));
-        };
-
         // Sort the IdP entries by name
-        usort($wayfIdps, $nameSort);
+        usort($wayfIdps, self::getNameSortFunction());
 
         return $wayfIdps;
     }
@@ -253,6 +257,58 @@ class TestEntitySeeder
         }
 
         return $idps;
+    }
+
+    /**
+     * Creates a WAYF IDP entry array
+     *
+     * @param string $name
+     * @param string $logo
+     * @param string $keywords
+     * @param string $access
+     * @param string $id
+     * @param string $entityId
+     * @param bool $isDefaultIdp
+     * @param string|null $discoveryHash
+     * @return array
+     */
+    private static function createWayfIdpEntry(
+        string $name,
+        string $logo,
+        string $keywords,
+        string $access,
+        string $id,
+        string $entityId,
+        bool $isDefaultIdp,
+        ?string $discoveryHash
+    ): array {
+        $entry = [
+            'Name' => $name,
+            'Logo' => $logo,
+            'Keywords' => $keywords,
+            'Access' => $access,
+            'ID' => $id,
+            'EntityID' => $entityId,
+            'isDefaultIdp' => $isDefaultIdp,
+        ];
+
+        if ($discoveryHash !== null) {
+            $entry['DiscoveryHash'] = $discoveryHash;
+        }
+
+        return $entry;
+    }
+
+    /**
+     * Returns the sorting function for WAYF IDP entries
+     *
+     * @return callable
+     */
+    private static function getNameSortFunction(): callable
+    {
+        return static function ($a, $b) {
+            return strcmp(strtolower($a['Name']), strtolower($b['Name']));
+        };
     }
 
     /**

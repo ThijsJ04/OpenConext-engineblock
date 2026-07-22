@@ -56,6 +56,7 @@ class UserDirectoryAdapter
      */
     public function identifyUser(array $attributes)
     {
+        // Validate required fields with early throws for better efficiency
         if (!isset($attributes[Uid::URN_MACE][0])) {
             throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
                 'Missing required SAML2 field "%s" in attributes',
@@ -69,20 +70,19 @@ class UserDirectoryAdapter
             ));
         }
 
-        $uid                   = $attributes[Uid::URN_MACE][0];
+        // Extract values and create identifiers in a more concise way
+        $uid = $attributes[Uid::URN_MACE][0];
         $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
-
-        $collabPersonUuid      = CollabPersonUuid::generate();
-        $collabPersonId        = CollabPersonId::generateWithReplacedAtSignFrom(
+        $collabPersonId = CollabPersonId::generateWithReplacedAtSignFrom(
             new Uid($uid),
             new SchacHomeOrganization($schacHomeOrganization)
         );
 
+        // Find existing user or create new one
         $user = $this->userDirectory->findUserBy($collabPersonId);
         if ($user === null) {
             $this->logger->debug('User not found in database UserDirectory, registering User in database');
-
-            $user = new User($collabPersonId, $collabPersonUuid);
+            $user = new User($collabPersonId, CollabPersonUuid::generate());
             $this->userDirectory->register($user);
         }
 

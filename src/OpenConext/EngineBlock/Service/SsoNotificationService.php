@@ -117,32 +117,37 @@ class SsoNotificationService
      */
     private function parseSsoNotification(string $ssoNotification): array
     {
-        $data = [];
+        // Early validation: check if input is valid base64 and has minimum length
+        if (empty($ssoNotification) || !preg_match('/^[a-zA-Z0-9\/+=]+$/', $ssoNotification)) {
+            $this->logger->warning('Invalid SSO notification format - not valid base64');
+            return [];
+        }
 
-        // Extract cipher and initialization vector
-        $base64Decoded = base64_decode($ssoNotification);
+        $base64Decoded = base64_decode($ssoNotification, true);
+        if ($base64Decoded === false || strlen($base64Decoded) < self::IV_SIZE) {
+            $this->logger->warning('Failed to decode SSO notification or invalid length');
+            return [];
+        }
+
+        // Extract IV and cipher text in a single operation
         $iv = substr($base64Decoded, 0, self::IV_SIZE);
         $cipherText = substr($base64Decoded, self::IV_SIZE);
-        // Construct encryption key
-        $key = hash_pbkdf2(
-            'sha256',
-            $this->encryptionKey,
-            $this->encryptionSalt,
-            self::ITERATION_COUNT,
-            self::KEY_SIZE,
-            true
-        );
+        
+        // Generate encryption key
+        $key = hash_pbkdf2('sha256', $this->encryptionKey, $this->encryptionSalt, self::ITERATION_COUNT, self::KEY_SIZE, true);
 
+        // Decrypt and parse JSON
         $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
+
         try {
-            $data = JsonResponseParser::parse($jsonString);
+            return JsonResponseParser::parse($jsonString);
         } catch (InvalidJsonException $exception) {
             $this->logger->error(
-                "Failed to parse JSON string '$jsonString' from SSO notification",
-                array('exception' => $exception)
+                "Failed to parse JSON string from SSO notification",
+                ['exception' => $exception]
             );
+            return [];
         }
-        return $data;
     }
 
     /**

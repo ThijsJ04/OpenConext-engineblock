@@ -62,20 +62,19 @@ class MetadataMduiType extends Type
         }
 
         try {
-            $mdui = Mdui::fromJson($value);
+            return Mdui::fromJson($value);
         } catch (InvalidArgumentException $e) {
-            // get nice standard message, so we can throw it keeping the exception chain
-            $doctrineExceptionMessage = sprintf(
-                'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
-                $value,
-                $this->getName(),
-                'valid serialized mdui json'
+            throw new ConversionException(
+                sprintf(
+                    'Could not convert database value "%s" to Doctrine Type %s. Expected format: %s',
+                    $value,
+                    $this->getName(),
+                    'valid serialized mdui json'
+                ),
+                0,
+                $e
             );
-
-            throw new ConversionException($doctrineExceptionMessage, 0, $e);
         }
-
-        return $mdui;
     }
 
     public function getName(): string

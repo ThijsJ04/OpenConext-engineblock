@@ -190,11 +190,10 @@ class DoctrineMetadataRepository extends AbstractMetadataRepository
     }
 
     /**
-     * @param $entityId
-     * @param LoggerInterface|null $logger
-     * @return null|ServiceProvider
+     * @param string $entityId
+     * @return ServiceProvider|null
      */
-    public function findServiceProviderByEntityId(string $entityId, LoggerInterface $logger = null)
+    public function findServiceProviderByEntityId(string $entityId): ?ServiceProvider
     {
         $queryBuilder = $this->spRepository->createQueryBuilder('role')
             ->andWhere('role.entityId = :id')

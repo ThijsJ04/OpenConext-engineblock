@@ -70,26 +70,17 @@ class DiscoveryAssembler
 
     private function assembleLogo(stdClass $discovery): ?Logo
     {
-        $logoFields = [];
-        $logoProperties = ['logo_url', 'logo_height', 'logo_width'];
-
-        foreach ($logoProperties as $property) {
-            if (isset($discovery->$property)) {
-                $logoFields[$property] = $discovery->$property;
-            }
-        }
-
-        if (!isset($logoFields['logo_url']) || trim($logoFields['logo_url']) === '') {
+        if (!isset($discovery->logo_url) || trim($discovery->logo_url) === '') {
             return null;
         }
 
-        $logo = new Logo($logoFields['logo_url']);
+        $logo = new Logo($discovery->logo_url);
 
-        if (isset($logoFields['logo_height'])) {
-            $logo->height = $logoFields['logo_height'];
+        if (isset($discovery->logo_height)) {
+            $logo->height = $discovery->logo_height;
         }
-        if (isset($logoFields['logo_width'])) {
-            $logo->width = $logoFields['logo_width'];
+        if (isset($discovery->logo_width)) {
+            $logo->width = $discovery->logo_width;
         }
 
         return $logo;

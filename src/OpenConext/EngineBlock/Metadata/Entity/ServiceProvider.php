@@ -297,26 +297,34 @@ class ServiceProvider extends AbstractRole
      */
     public function getDisplayName(string $preferredLocale = 'en'): string
     {
-
-        $preferredName = $this->mdui->getDisplayName($preferredLocale);
-        $fallback = 'name' . ucfirst($preferredLocale);
-
-        if ($preferredName !== '') {
-            $spName = $preferredName;
-        } elseif (isset($this->$fallback)) {
-            $spName = $this->$fallback;
+        $spName = '';
+        
+        // Try display name in preferred locale
+        $displayName = $this->mdui->getDisplayName($preferredLocale);
+        if ($displayName !== '') {
+            $spName = $displayName;
         }
 
-        if ($preferredLocale !== 'en' & empty($spName)) {
+        // Try name in preferred locale if we don't have a display name yet
+        if ($spName === '') {
+            $nameProperty = 'name' . ucfirst($preferredLocale);
+            if (isset($this->$nameProperty)) {
+                $spName = $this->$nameProperty;
+            }
+        }
+
+        // Fallback to English if preferred locale is not English and we still don't have a name
+        if ($spName === '' && $preferredLocale !== 'en') {
             $englishDisplayName = $this->mdui->getDisplayName('en');
-            $spName = !empty($englishDisplayName) ? $englishDisplayName : $this->nameEn;
+            $spName = $englishDisplayName !== '' ? $englishDisplayName : ($this->nameEn ?? '');
         }
 
-        if (empty($spName)) {
-            $spName = $this->entityId;
+        // Final fallback to entity ID if we still don't have a name
+        if ($spName === '') {
+            $spName = $this->entityId ?? '';
         }
 
-        return $spName;
+        return (string) $spName;
     }
 
     /**

@@ -162,9 +162,7 @@ class ServiceRegistryFixture
         $this->setCoin($sp, 'termsOfServiceUrl', 'http://welcome.dev.openconext.local');
         $sp->getMdui()->setLogo(new Logo('/images/placeholder.png'));
 
-
-        // The repository does not allow us to retrieve all SP's for good reason. In functional testing mode the total
-        // number of SP's should always be limited.
+        // Optimized: Fetch only entity IDs directly from database without creating full objects
         $idpEntityIDQuery = <<<QUERY
         SELECT `entity_id`
         FROM `sso_provider_roles_eb5`
@@ -173,12 +171,10 @@ QUERY;
         $query = $this->entityManager->getConnection()->prepare($idpEntityIDQuery);
         assert($query instanceof Statement);
         $result = $query->executeQuery();
-        $idps = $result->fetchAllAssociative();
+        $idpEntityIds = $result->fetchFirstColumn();
 
-        foreach ($idps as $idpEntityId) {
-            $idp = $this->repository->findIdentityProviderByEntityId($idpEntityId['entity_id']);
-            $sp->allowedIdpEntityIds[] = $idp->entityId;
-        }
+        // Directly add entity IDs to allowedIdpEntityIds without fetching full objects
+        $sp->allowedIdpEntityIds = array_merge($sp->allowedIdpEntityIds, $idpEntityIds);
 
         $this->entityManager->persist($sp);
 
