@@ -117,12 +117,27 @@ class SsoNotificationService
      */
     private function parseSsoNotification(string $ssoNotification): array
     {
-        $data = [];
+        // Early return for empty or invalid input
+        if (empty($ssoNotification)) {
+            $this->logger->warning("Empty SSO notification provided");
+            return [];
+        }
 
         // Extract cipher and initialization vector
-        $base64Decoded = base64_decode($ssoNotification);
+        $base64Decoded = base64_decode($ssoNotification, true);
+        if ($base64Decoded === false) {
+            $this->logger->error("Failed to base64 decode SSO notification");
+            return [];
+        }
+
+        if (strlen($base64Decoded) < self::IV_SIZE) {
+            $this->logger->error("SSO notification too short to contain IV and cipher text");
+            return [];
+        }
+
         $iv = substr($base64Decoded, 0, self::IV_SIZE);
         $cipherText = substr($base64Decoded, self::IV_SIZE);
+
         // Construct encryption key
         $key = hash_pbkdf2(
             'sha256',
@@ -134,15 +149,17 @@ class SsoNotificationService
         );
 
         $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
+
+        // Parse JSON and handle exceptions
         try {
-            $data = JsonResponseParser::parse($jsonString);
+            return JsonResponseParser::parse($jsonString);
         } catch (InvalidJsonException $exception) {
             $this->logger->error(
-                "Failed to parse JSON string '$jsonString' from SSO notification",
-                array('exception' => $exception)
+                "Failed to parse JSON string from SSO notification",
+                ['exception' => $exception, 'json_string' => $jsonString]
             );
+            return [];
         }
-        return $data;
     }
 
     /**

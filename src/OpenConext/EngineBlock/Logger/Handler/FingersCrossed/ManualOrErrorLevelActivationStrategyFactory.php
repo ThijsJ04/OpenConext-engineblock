@@ -46,26 +46,46 @@ final class ManualOrErrorLevelActivationStrategyFactory implements ActivationStr
      */
     private static function validateAndNormalizeConfig(array $config)
     {
-        Assertion::keyIsset($config, 'action_level', 'Missing configuration value, configuration key "%s" not found');
-        Assertion::string($config['action_level']);
+        // Extract and validate action_level in a more efficient way
+        if (!isset($config['action_level'])) {
+            throw new InvalidArgumentException(
+                'Missing configuration value, configuration key "action_level" not found',
+                0,
+                'action_level'
+            );
+        }
+        
+        $actionLevel = $config['action_level'];
+        
+        if (!is_string($actionLevel)) {
+            throw new InvalidArgumentException(
+                'Configuration value "action_level" must be a string',
+                0,
+                'action_level'
+            );
+        }
+        
+        $actionLevel = strtolower($actionLevel);
 
-        $config['action_level'] = strtolower($config['action_level']);
+        $validLevels = [
+            LogLevel::EMERGENCY,
+            LogLevel::ALERT,
+            LogLevel::CRITICAL,
+            LogLevel::ERROR,
+            LogLevel::WARNING,
+            LogLevel::NOTICE,
+            LogLevel::INFO,
+            LogLevel::DEBUG,
+        ];
+        
+        if (!in_array($actionLevel, $validLevels, true)) {
+            throw new InvalidArgumentException(
+                sprintf('Configured action level must be a valid PSR-compliant log level: "%s"', $actionLevel),
+                0,
+                'action_level'
+            );
+        }
 
-        Assertion::choice(
-            $config['action_level'],
-            [
-                LogLevel::EMERGENCY,
-                LogLevel::ALERT,
-                LogLevel::CRITICAL,
-                LogLevel::ERROR,
-                LogLevel::WARNING,
-                LogLevel::NOTICE,
-                LogLevel::INFO,
-                LogLevel::DEBUG,
-            ],
-            'Configured action level must be a valid PSR-compliant log level: "%s"'
-        );
-
-        return $config;
+        return ['action_level' => $actionLevel];
     }
 }

@@ -60,38 +60,37 @@ class SamlResponseValidator implements RequestValidator
         $assertionId = $assertion->getAttribute('ID');
         $signatures = $assertion->getElementsByTagName('Signature');
 
-        // Verify if the assertion is signed
-        if ($signatures->count() > 0) {
-            // Allow only one SignedInfo per Signature
-            $signature = $signatures->item(0);
-
-            // First child of the signature MUST be the SignedInfo element
-            $signedInfo = $signature->firstChild;
-            if ($signedInfo->localName !== 'SignedInfo') {
-                throw new InvalidSamlResponseException('The first child of the Signature must be the SignedInfo element.');
-            }
-
-            // SignedInfo contains a Reference element which should have an URI attribute that matches the ID of the
-            // assertion
-            $referenceUri = $signedInfo->getElementsByTagName('Reference')->item(0)->getAttribute('URI');
-            // Remove the hash from the URI, to compare it to the assertion id
-            if (preg_match('/^\#?' . $assertionId . '$/', $referenceUri) !== 1) {
-                throw new InvalidSamlResponseException('The Assertion ID must match the Reference URI value of the SignedInfo element.');
-            }
-
-            // The second child is the SignatureValue
-            $signatureValue = $signature->childNodes->item(1);
-            if ($signatureValue->localName !== 'SignatureValue') {
-                throw new InvalidSamlResponseException('The second child of the Signature must be the SignatureValue element.');
-            }
-
-            // Verify there only is one SignedInfo element in the signature
-            $signedInfoElements = $signature->getElementsByTagName('SignedInfo');
-            if ($signedInfoElements->count() > 1) {
-                throw new InvalidSamlResponseException('Only one SignedInfo element is allowed per Signature');
-            }
+        // No signatures means unsigned assertion, which is allowed
+        if ($signatures->count() === 0) {
+            return;
         }
-        // We allow unsigned assertions
+
+        $signature = $signatures->item(0);
+        
+        // Validate only one SignedInfo element exists in the signature
+        $signedInfoElements = $signature->getElementsByTagName('SignedInfo');
+        if ($signedInfoElements->count() !== 1) {
+            throw new InvalidSamlResponseException('Only one SignedInfo element is allowed per Signature');
+        }
+
+        $signedInfo = $signedInfoElements->item(0);
+        
+        // Validate SignedInfo element (must be first child)
+        if ($signedInfo !== $signature->firstChild) {
+            throw new InvalidSamlResponseException('The first child of the Signature must be the SignedInfo element.');
+        }
+
+        // Validate Reference URI matches assertion ID
+        $referenceUri = $signedInfo->getElementsByTagName('Reference')->item(0)->getAttribute('URI');
+        if (!str_starts_with($referenceUri, '#') || substr($referenceUri, 1) !== $assertionId) {
+            throw new InvalidSamlResponseException('The Assertion ID must match the Reference URI value of the SignedInfo element.');
+        }
+
+        // Validate SignatureValue element (must be second child)
+        $signatureValue = $signature->childNodes->item(1);
+        if ($signatureValue->localName !== 'SignatureValue') {
+            throw new InvalidSamlResponseException('The second child of the Signature must be the SignatureValue element.');
+        }
     }
 
     /**

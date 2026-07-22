@@ -100,131 +100,37 @@ class RedirectToFeedbackPageExceptionListener
 
     /**
      * @param \Symfony\Component\HttpKernel\Event\ExceptionEvent $event
-     *
-     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) - See comment in class doc block
      */
     public function onKernelException(ExceptionEvent $event)
     {
         $exception = $event->getThrowable();
 
-        $redirectParams = [];
-        if ($exception instanceof EngineBlock_Corto_Module_Bindings_UnableToReceiveMessageException) {
-            $message         = 'Unable to receive message';
-            $redirectToRoute = 'authentication_feedback_unable_to_receive_message';
-        } elseif ($exception instanceof EngineBlock_Corto_Module_Services_SessionLostException) {
-            $message         = 'Session lost';
-            $redirectToRoute = 'authentication_feedback_session_lost';
-        } elseif ($exception instanceof EngineBlock_Corto_Module_Services_SessionNotStartedException) {
-            $message         = 'Session not started';
-            $redirectToRoute = 'authentication_feedback_session_not_started';
-        } elseif ($exception instanceof EngineBlock_Corto_Module_Service_SingleSignOn_NoIdpsException) {
-            $message         = 'No Identity Provider';
-            $redirectToRoute = 'authentication_feedback_no_idps';
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_InvalidAcsLocation) {
-            $message         = 'Invalid ACS location';
-            $redirectToRoute = 'authentication_feedback_invalid_acs_location';
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_MissingRequiredFields) {
-            $message         = 'Missing Required Fields';
-            $redirectToRoute = 'authentication_feedback_missing_required_fields';
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_AuthnContextClassRefBlacklisted) {
-            $message = $exception->getMessage();
-            $redirectToRoute = 'authentication_authn_context_class_ref_blacklisted';
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_InvalidMfaAuthnContextClassRef) {
-            $message         = $exception->getMessage();
-            $redirectToRoute = 'authentication_invalid_mfa_authn_context_class_ref';
-        } elseif ($exception instanceof EngineBlock_Attributes_Manipulator_CustomException) {
-            // @todo this must be done differently, for now don't see how as state is managed by EB.
+        $exceptionHandlers = $this->getExceptionHandlers();
+        
+        if (!isset($exceptionHandlers[get_class($exception)])) {
+            return;
+        }
+
+        $handler = $exceptionHandlers[get_class($exception)];
+        
+        // Handle special cases that need session manipulation
+        if ($exception instanceof EngineBlock_Attributes_Manipulator_CustomException) {
             $event->getRequest()->getSession()->set('feedback_custom', $exception->getFeedback());
-            $message         = 'Custom Exception thrown from Attribute Manipulator';
-            $redirectToRoute = 'authentication_feedback_custom';
-        } elseif ($exception instanceof EngineBlock_Corto_Module_Bindings_UnsupportedBindingException) {
-            $message         = 'Unsupported Binding';
-            $redirectToRoute = 'authentication_feedback_invalid_acs_binding';
-        } elseif ($exception instanceof EngineBlock_Corto_Module_Bindings_UnsupportedSignatureMethodException) {
-            $message         = 'Unsupported signature method';
-            $redirectToRoute = 'authentication_feedback_unsupported_signature_method';
-            $redirectParams  = [
-                'signature-method' => $exception->getSignatureMethod(),
-            ];
-        } elseif ($exception instanceof EngineBlock_Corto_Module_Bindings_UnsupportedAcsLocationSchemeException) {
-            $message         = 'Unsupported URI scheme in ACS location';
-            $redirectToRoute = 'authentication_feedback_unsupported_acs_location_uri_scheme';
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_ReceivedErrorStatusCode) {
-            $message         = 'Received Error Status Code';
-            $redirectToRoute = 'authentication_feedback_received_error_status_code';
-        } elseif ($exception instanceof EngineBlock_Corto_Module_Bindings_SignatureVerificationException) {
-            $message         = 'Unable to verify signature, cert wrong?';
-            $redirectToRoute = 'authentication_feedback_signature_verification_failed';
-        } elseif ($exception instanceof EngineBlock_Corto_Module_Bindings_VerificationException) {
-            $message         = 'Unable to verify message';
-            $redirectToRoute = 'authentication_feedback_verification_failed';
-        } elseif ($exception instanceof EngineBlock_Exception_UnknownServiceProvider) {
-            $message         = 'Unknown Service Provider';
-            $redirectToRoute = 'authentication_feedback_unknown_service_provider';
-
-            $redirectParams  = [
-                'entity-id'   => $exception->getEntityId(),
-            ];
-        } elseif ($exception instanceof EngineBlock_Exception_UnknownIdentityProvider) {
-            $message         = 'Unknown Identity Provider';
-            $redirectToRoute = 'authentication_feedback_unknown_identity_provider';
-
-            $redirectParams  = [
-                'entity-id'   => $exception->getEntityId(),
-                'destination' => $exception->getDestination()
-            ];
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_UnknownIdentityProviderSigningKey) {
-            $message         = $exception->getMessage();
-            $redirectToRoute = 'authentication_feedback_unknown_signing_key';
-        } elseif ($exception instanceof EngineBlock_Exception_UnknownRequesterIdInAuthnRequest) {
-            $message         = 'Encountered unknown RequesterID for the Service Provider (transparant proxying)';
-            $redirectToRoute = 'authentication_feedback_unknown_requesterid_in_authnrequest';
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_PEPNoAccess) {
-            $message         = 'PEP authorization rule violation';
-            $redirectToRoute = 'authentication_feedback_pep_violation';
-        } elseif ($exception instanceof UnknownKeyIdException) {
-            $message         = $exception->getMessage();
-            $redirectToRoute = 'authentication_feedback_unknown_keyid';
-
-            $redirectParams = ['keyid' => $exception->getRequestedKeyId()];
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_UnknownPreselectedIdp) {
-            $message         = $exception->getMessage();
-            $redirectToRoute = 'authentication_feedback_unknown_preselected_idp';
-
-            $redirectParams = ['idp-hash' => $exception->getRemoteIdpMd5Hash()];
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_InvalidAttributeValue) {
-            $message         = $exception->getMessage();
-            $redirectToRoute = 'authentication_feedback_invalid_attribute_value';
-        } elseif ($exception instanceof StuckInAuthenticationLoopException) {
-            $message         = 'Stuck in authentication loop';
-            $redirectToRoute = 'authentication_feedback_stuck_in_authentication_loop';
-        } elseif ($exception instanceof AuthenticationSessionLimitExceededException) {
-            $message         = 'Authentication procedure limit exceeded';
-            $redirectToRoute = 'authentication_feedback_authentication_limit_exceeded';
         } elseif ($exception instanceof InvalidRequestMethodException ||
             $exception instanceof InvalidBindingException ||
-            $exception instanceof  MissingParameterException
+            $exception instanceof MissingParameterException ||
+            $exception instanceof EntityCanNotBeFoundException
         ) {
-            $message = $exception->getMessage();
             $event->getRequest()->getSession()->set('feedback_custom', $exception->getMessage());
-            $redirectToRoute = 'authentication_feedback_no_authentication_request_received';
-        } elseif ($exception instanceof \EngineBlock_Corto_Module_Bindings_ClockIssueException) {
-            $message = $exception->getMessage();
-            $redirectToRoute = 'authentication_feedback_response_clock_issue';
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_UserCancelledStepupCallout) {
-            $message = $exception->getMessage();
-            $redirectToRoute = 'authentication_feedback_stepup_callout_user_cancelled';
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_InvalidStepupLoaLevel) {
-            $message = $exception->getMessage();
-            $redirectToRoute = 'authentication_feedback_stepup_callout_unmet_loa';
-        } elseif ($exception instanceof EngineBlock_Corto_Exception_InvalidStepupCalloutResponse) {
-            $message = $exception->getMessage();
-            $redirectToRoute = 'authentication_feedback_stepup_callout_unknown';
-        } elseif ($exception instanceof EntityCanNotBeFoundException) {
-            $event->getRequest()->getSession()->set('feedback_custom', $exception->getMessage());
-            $redirectToRoute = 'authentication_feedback_metadata_entity_not_found';
-        } else {
-            return;
+        }
+
+        $message = $handler['message'];
+        $redirectToRoute = $handler['route'];
+        $redirectParams = $handler['params'] ?? [];
+
+        // Handle dynamic parameters
+        if (isset($handler['param_callback'])) {
+            $redirectParams = $handler['param_callback']($exception);
         }
 
         $this->logger->debug(sprintf(
@@ -243,5 +149,188 @@ class RedirectToFeedbackPageExceptionListener
         $event->setResponse(new RedirectResponse(
             $this->urlGenerator->generate($redirectToRoute, $redirectParams, UrlGeneratorInterface::ABSOLUTE_PATH)
         ));
+    }
+
+    /**
+     * @return array
+     */
+    private function getExceptionHandlers(): array
+    {
+        return [
+            EngineBlock_Corto_Module_Bindings_UnableToReceiveMessageException::class => [
+                'message' => 'Unable to receive message',
+                'route' => 'authentication_feedback_unable_to_receive_message',
+            ],
+            EngineBlock_Corto_Module_Services_SessionLostException::class => [
+                'message' => 'Session lost',
+                'route' => 'authentication_feedback_session_lost',
+            ],
+            EngineBlock_Corto_Module_Services_SessionNotStartedException::class => [
+                'message' => 'Session not started',
+                'route' => 'authentication_feedback_session_not_started',
+            ],
+            EngineBlock_Corto_Module_Service_SingleSignOn_NoIdpsException::class => [
+                'message' => 'No Identity Provider',
+                'route' => 'authentication_feedback_no_idps',
+            ],
+            EngineBlock_Corto_Exception_InvalidAcsLocation::class => [
+                'message' => 'Invalid ACS location',
+                'route' => 'authentication_feedback_invalid_acs_location',
+            ],
+            EngineBlock_Corto_Exception_MissingRequiredFields::class => [
+                'message' => 'Missing Required Fields',
+                'route' => 'authentication_feedback_missing_required_fields',
+            ],
+            EngineBlock_Corto_Exception_AuthnContextClassRefBlacklisted::class => [
+                'message' => null,
+                'route' => 'authentication_authn_context_class_ref_blacklisted',
+                'param_callback' => function ($exception) {
+                    return ['message' => $exception->getMessage()];
+                }
+            ],
+            EngineBlock_Corto_Exception_InvalidMfaAuthnContextClassRef::class => [
+                'message' => null,
+                'route' => 'authentication_invalid_mfa_authn_context_class_ref',
+                'param_callback' => function ($exception) {
+                    return ['message' => $exception->getMessage()];
+                }
+            ],
+            EngineBlock_Attributes_Manipulator_CustomException::class => [
+                'message' => 'Custom Exception thrown from Attribute Manipulator',
+                'route' => 'authentication_feedback_custom',
+            ],
+            EngineBlock_Corto_Module_Bindings_UnsupportedBindingException::class => [
+                'message' => 'Unsupported Binding',
+                'route' => 'authentication_feedback_invalid_acs_binding',
+            ],
+            EngineBlock_Corto_Module_Bindings_UnsupportedSignatureMethodException::class => [
+                'message' => 'Unsupported signature method',
+                'route' => 'authentication_feedback_unsupported_signature_method',
+                'param_callback' => function ($exception) {
+                    return ['signature-method' => $exception->getSignatureMethod()];
+                }
+            ],
+            EngineBlock_Corto_Module_Bindings_UnsupportedAcsLocationSchemeException::class => [
+                'message' => 'Unsupported URI scheme in ACS location',
+                'route' => 'authentication_feedback_unsupported_acs_location_uri_scheme',
+            ],
+            EngineBlock_Corto_Exception_ReceivedErrorStatusCode::class => [
+                'message' => 'Received Error Status Code',
+                'route' => 'authentication_feedback_received_error_status_code',
+            ],
+            EngineBlock_Corto_Module_Bindings_SignatureVerificationException::class => [
+                'message' => 'Unable to verify signature, cert wrong?',
+                'route' => 'authentication_feedback_signature_verification_failed',
+            ],
+            EngineBlock_Corto_Module_Bindings_VerificationException::class => [
+                'message' => 'Unable to verify message',
+                'route' => 'authentication_feedback_verification_failed',
+            ],
+            EngineBlock_Exception_UnknownServiceProvider::class => [
+                'message' => 'Unknown Service Provider',
+                'route' => 'authentication_feedback_unknown_service_provider',
+                'param_callback' => function ($exception) {
+                    return ['entity-id' => $exception->getEntityId()];
+                }
+            ],
+            EngineBlock_Exception_UnknownIdentityProvider::class => [
+                'message' => 'Unknown Identity Provider',
+                'route' => 'authentication_feedback_unknown_identity_provider',
+                'param_callback' => function ($exception) {
+                    return [
+                        'entity-id' => $exception->getEntityId(),
+                        'destination' => $exception->getDestination()
+                    ];
+                }
+            ],
+            EngineBlock_Corto_Exception_UnknownIdentityProviderSigningKey::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_unknown_signing_key',
+                'param_callback' => function ($exception) {
+                    return ['message' => $exception->getMessage()];
+                }
+            ],
+            EngineBlock_Exception_UnknownRequesterIdInAuthnRequest::class => [
+                'message' => 'Encountered unknown RequesterID for the Service Provider (transparant proxying)',
+                'route' => 'authentication_feedback_unknown_requesterid_in_authnrequest',
+            ],
+            EngineBlock_Corto_Exception_PEPNoAccess::class => [
+                'message' => 'PEP authorization rule violation',
+                'route' => 'authentication_feedback_pep_violation',
+            ],
+            UnknownKeyIdException::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_unknown_keyid',
+                'param_callback' => function ($exception) {
+                    return ['keyid' => $exception->getRequestedKeyId()];
+                }
+            ],
+            EngineBlock_Corto_Exception_UnknownPreselectedIdp::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_unknown_preselected_idp',
+                'param_callback' => function ($exception) {
+                    return ['idp-hash' => $exception->getRemoteIdpMd5Hash()];
+                }
+            ],
+            EngineBlock_Corto_Exception_InvalidAttributeValue::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_invalid_attribute_value',
+                'param_callback' => function ($exception) {
+                    return ['message' => $exception->getMessage()];
+                }
+            ],
+            StuckInAuthenticationLoopException::class => [
+                'message' => 'Stuck in authentication loop',
+                'route' => 'authentication_feedback_stuck_in_authentication_loop',
+            ],
+            AuthenticationSessionLimitExceededException::class => [
+                'message' => 'Authentication procedure limit exceeded',
+                'route' => 'authentication_feedback_authentication_limit_exceeded',
+            ],
+            InvalidRequestMethodException::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_no_authentication_request_received',
+            ],
+            InvalidBindingException::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_no_authentication_request_received',
+            ],
+            MissingParameterException::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_no_authentication_request_received',
+            ],
+            \EngineBlock_Corto_Module_Bindings_ClockIssueException::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_response_clock_issue',
+                'param_callback' => function ($exception) {
+                    return ['message' => $exception->getMessage()];
+                }
+            ],
+            EngineBlock_Corto_Exception_UserCancelledStepupCallout::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_stepup_callout_user_cancelled',
+                'param_callback' => function ($exception) {
+                    return ['message' => $exception->getMessage()];
+                }
+            ],
+            EngineBlock_Corto_Exception_InvalidStepupLoaLevel::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_stepup_callout_unmet_loa',
+                'param_callback' => function ($exception) {
+                    return ['message' => $exception->getMessage()];
+                }
+            ],
+            EngineBlock_Corto_Exception_InvalidStepupCalloutResponse::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_stepup_callout_unknown',
+                'param_callback' => function ($exception) {
+                    return ['message' => $exception->getMessage()];
+                }
+            ],
+            EntityCanNotBeFoundException::class => [
+                'message' => null,
+                'route' => 'authentication_feedback_metadata_entity_not_found',
+            ],
+        ];
     }
 }

@@ -261,16 +261,16 @@ class TestEntitySeeder
      */
     public static function buildSp(?string $spName = null)
     {
-        if (!$spName) {
-            $spName = 'DisplayName';
-        }
+        $spName = $spName ?? 'DisplayName';
         $serviceProvider = new ServiceProvider('https://acme-sp.example.com');
-        $serviceProvider->nameNl = $spName . ' NL';
-        $serviceProvider->nameEn = $spName . ' EN';
-        $serviceProvider->namePt = $spName . ' PT';
-        $serviceProvider->displayNameNl = $spName . '';
-        $serviceProvider->displayNameEn = $spName . '';
-        $serviceProvider->displayNamePt = $spName . '';
+        
+        // Set name properties using a loop for efficiency
+        $locales = ['Nl', 'En', 'Pt'];
+        foreach ($locales as $locale) {
+            $serviceProvider->{'name' . $locale} = $spName . ' ' . $locale;
+            $serviceProvider->{'displayName' . $locale} = $spName;
+        }
+        
         $serviceProvider->getMdui()->setLogo(new Logo('/images/logo.png'));
         return $serviceProvider;
     }

@@ -90,40 +90,44 @@ class CortoDisassembler
      */
     public function translateIdentityProvider(IdentityProvider $entity)
     {
-        $cortoEntity = array();
+        $cortoEntity = $this->translateCommon($entity, array());
+        $coins = $entity->getCoins();
 
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
-
+        // Process SingleSignOnServices more efficiently
+        $singleSignOnServices = array();
         foreach ($entity->singleSignOnServices as $service) {
-            if (!isset($cortoEntity['SingleSignOnService'])) {
-                $cortoEntity['SingleSignOnService'] = array();
-            }
-
-            $cortoEntity[] = array(
+            $singleSignOnServices[] = array(
                 'Binding'  => $service->binding,
                 'Location' => $service->location,
             );
         }
+        if (!empty($singleSignOnServices)) {
+            $cortoEntity['SingleSignOnService'] = $singleSignOnServices;
+        }
 
-        $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
+        $cortoEntity['GuestQualifier'] = $coins->guestQualifier();
 
-        if ($entity->getCoins()->schacHomeOrganization()) {
-            $cortoEntity['SchacHomeOrganization'] = $entity->getCoins()->schacHomeOrganization();
+        $schacHomeOrganization = $coins->schacHomeOrganization();
+        if (!empty($schacHomeOrganization)) {
+            $cortoEntity['SchacHomeOrganization'] = $schacHomeOrganization;
         }
 
         $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
-        $cortoEntity['isHidden'] = $entity->getCoins()->hidden();
+        $cortoEntity['isHidden'] = $coins->hidden();
 
-        $cortoEntity['shibmd:scopes'] = array();
+        // Process shibmd:scopes more efficiently
+        $shibMdScopes = array();
         foreach ($entity->shibMdScopes as $scope) {
-            $cortoEntity['shibmd:scopes'][] = array(
+            $shibMdScopes[] = array(
                 'allowed' => $scope->allowed,
                 'regexp'  => $scope->regexp,
             );
         }
+        $cortoEntity['shibmd:scopes'] = $shibMdScopes;
 
-        if ($entity->getCoins()->defaultRAC()) {
-            $cortoEntity['DefaultRAC'] = $entity->getCoins()->defaultRAC();
+        $defaultRAC = $coins->defaultRAC();
+        if (!empty($defaultRAC)) {
+            $cortoEntity['DefaultRAC'] = $defaultRAC;
         }
 
         return $cortoEntity;
@@ -181,16 +185,17 @@ class CortoDisassembler
     private function translateCommonCertificates(AbstractRole $entity, array $cortoEntity)
     {
         $cortoEntity['certificates'] = array();
-        if (isset($entity->certificates[0])) {
-            $cortoEntity['certificates']['public'] = $entity->certificates[0]->toPem();
+        
+        // Define certificate types in order
+        $certificateTypes = ['public', 'public-fallback', 'public-fallback2'];
+        
+        // Process certificates more efficiently using a loop
+        foreach ($certificateTypes as $index => $type) {
+            if (isset($entity->certificates[$index])) {
+                $cortoEntity['certificates'][$type] = $entity->certificates[$index]->toPem();
+            }
         }
-        if (isset($entity->certificates[1])) {
-            $cortoEntity['certificates']['public-fallback'] = $entity->certificates[1]->toPem();
-        }
-        if (isset($entity->certificates[2])) {
-            $cortoEntity['certificates']['public-fallback2'] = $entity->certificates[2]->toPem();
-            return $cortoEntity;
-        }
+        
         return $cortoEntity;
     }
 
@@ -340,9 +345,14 @@ class CortoDisassembler
      */
     private function translateContactPersons(AbstractRole $entity, array $cortoEntity)
     {
-        $cortoEntity['ContactPersons'] = array();
+        // Early return if no contact persons exist
+        if (empty($entity->contactPersons)) {
+            return $cortoEntity;
+        }
+
+        $contactPersons = array();
         foreach ($entity->contactPersons as $contactPerson) {
-            $cortoEntity['ContactPersons'][] = array(
+            $contactPersons[] = array(
                 'ContactType' => $contactPerson->contactType,
                 'EmailAddress' => $contactPerson->emailAddress,
                 'TelephoneNumber' => $contactPerson->telephoneNumber,
@@ -350,10 +360,12 @@ class CortoDisassembler
                 'SurName' => $contactPerson->surName,
             );
         }
-        if (empty($cortoEntity['ContactPersons'])) {
-            unset($cortoEntity['ContactPersons']);
-            return $cortoEntity;
+
+        // Only set ContactPersons if we have data
+        if (!empty($contactPersons)) {
+            $cortoEntity['ContactPersons'] = $contactPersons;
         }
+
         return $cortoEntity;
     }
 

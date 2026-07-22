@@ -101,6 +101,8 @@ final class AttributeReleasePolicyController
             throw new BadApiRequestHttpException('Invalid JSON structure: key "attributes" not found');
         }
 
+
+
         if (!is_array($body['attributes'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }

@@ -64,11 +64,7 @@ class NotFoundHttpExceptionListener
     public function onKernelException(ExceptionEvent $event)
     {
         $exception = $event->getThrowable();
-        if (!$exception instanceof NotFoundHttpException) {
-            return;
-        }
-
-        if ($exception instanceof ApiHttpException) {
+        if (!$exception instanceof NotFoundHttpException || $exception instanceof ApiHttpException) {
             return;
         }
 
@@ -78,13 +74,10 @@ class NotFoundHttpExceptionListener
             $this->engineBlockApplicationSingleton->getHttpRequest()->getUri()
         ));
 
-        $response = new Response(
+        $event->setResponse(new Response(
             $this->twig->render('@theme/Default/View/Error/not-found.html.twig'),
             404
-        );
-
-        $event->setResponse($response);
-        // once we've handled it, we don't want anything else to interfere.
+        ));
         $event->stopPropagation();
     }
 }
