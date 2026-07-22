@@ -229,9 +229,11 @@ class XmlToArray
         }
 
         xml_parser_free($parser);
+        $singularsBackup = self::$_singulars;
         self::$_singulars = array_fill_keys(self::$_singulars, 1);
-        $return = self::xml2arrayRecursive($values);
-        self::$_singulars = array_keys(self::$_singulars);
+        $counter = 0;
+        $return = self::xml2arrayRecursive($values, 1, [], $counter);
+        self::$_singulars = $singularsBackup;
         return $return[0];
     }
 
@@ -245,15 +247,13 @@ class XmlToArray
      * @return array
      */
 
-    protected static $counter = 0;
-
-    protected static function xml2arrayRecursive(&$elements, $level = 1, $namespaceMapping = [])
+    protected static function xml2arrayRecursive(&$elements, $level = 1, $namespaceMapping = [], &$counter = 0)
     {
         $newElement = [];
 
-        while(isset($elements[self::$counter])) {
-            $value = $elements[self::$counter];
-            self::$counter++;
+        while(isset($elements[$counter])) {
+            $value = $elements[$counter];
+            $counter++;
 
             if ($value['type'] == 'close') {
                 return $newElement;
@@ -276,13 +276,15 @@ class XmlToArray
 
             $complete[self::TAG_NAME_PFX] = $tagName;
             if ($hashedAttributes) {
-                $complete = array_merge($complete, $hashedAttributes);
+                foreach ($hashedAttributes as $key => $value) {
+                    $complete[$key] = $value;
+                }
             }
             if (isset($value['value']) && $attributeValue = trim($value['value'])) {
                 $complete[self::VALUE_PFX] = $attributeValue;
             }
             if ($value['type'] == 'open') {
-                $cs = self::xml2arrayRecursive($elements, $level + 1, $namespaceMapping);
+                $cs = self::xml2arrayRecursive($elements, $level + 1, $namespaceMapping, $counter);
                 foreach($cs as $c) {
                     $tagName = $c[self::TAG_NAME_PFX];
                     unset($c[self::TAG_NAME_PFX]);
@@ -297,7 +299,6 @@ class XmlToArray
             }
             $newElement[] = $complete;
         }
-        self::$counter = 0;
         return $newElement;
     }
 
@@ -310,12 +311,12 @@ class XmlToArray
     private static function mapNamespacesToSaml($tagName)
     {
         // find prefix and elementname. Prefix is lookup of the namespace within self::_namespaces
-        $fullNamespace =  substr($tagName, 0, strrpos($tagName, ':'));
-        if ($fullNamespace != "") {
-            // search _namespaces for namespace_prefix
+        $colonPos = strrpos($tagName, ':');
+        if ($colonPos !== false && $colonPos > 0) {
+            $fullNamespace = substr($tagName, 0, $colonPos);
             if (isset(self::$_namespaces[$fullNamespace])) {
                 // prefix is found, replaces tagName with prefix:elementName
-                $tagName =  self::$_namespaces[$fullNamespace] . ":" . substr($tagName, strrpos($tagName, ':') +1 );
+                $tagName = self::$_namespaces[$fullNamespace] . ':' . substr($tagName, $colonPos + 1);
             }
         }
 

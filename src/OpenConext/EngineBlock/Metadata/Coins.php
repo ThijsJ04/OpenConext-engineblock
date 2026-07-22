@@ -79,18 +79,18 @@ class Coins
         $defaultRAC,
         $policyEnforcementDecisionRequired
     ) {
-        return new self([
-            'guestQualifier' => $guestQualifier,
-            'schacHomeOrganization' => $schacHomeOrganization,
-            'hidden' => $hidden,
-            'disableScoping' => $disableScoping,
-            'additionalLogging' => $additionalLogging,
-            'signatureMethod' => $signatureMethod,
-            'stepupConnections' => $stepupConnections,
-            'mfaEntities' => $mfaEntities,
-            'defaultRAC' => $defaultRAC,
-            'policyEnforcementDecisionRequired' => $policyEnforcementDecisionRequired,
-        ]);
+        return new self(compact(
+            'guestQualifier',
+            'schacHomeOrganization',
+            'hidden',
+            'stepupConnections',
+            'disableScoping',
+            'additionalLogging',
+            'signatureMethod',
+            'mfaEntities',
+            'defaultRAC',
+            'policyEnforcementDecisionRequired'
+        ));
     }
 
     private function __construct(array $values)

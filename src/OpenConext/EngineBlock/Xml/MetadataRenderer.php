@@ -40,58 +40,19 @@ class MetadataRenderer
     const METADATA_EXPIRATION_TIME = 86400;
 
     /**
-     * @var Environment
-     */
-    private $twig;
-
-    /**
-     * @var EngineBlock_Saml2_IdGenerator
-     */
-    private $samlIdGenerator;
-
-    /**
      * @var X509KeyPair
      */
     private $signingKeyPair;
 
-    /**
-     * @var KeyPairFactory
-     */
-    private $keyPairFactory;
-
-    /**
-     * @var DocumentSigner
-     */
-    private $documentSigner;
-    /**
-     * @var TimeProvider
-     */
-    private $timeProvider;
-    /**
-     * @var LanguageSupportProvider
-     */
-    private $languageSupportProvider;
-    /**
-     * @var string
-     */
-    private $addRequestedAttributes;
-
     public function __construct(
-        LanguageSupportProvider $languageSupportProvider,
-        Environment $twig,
-        EngineBlock_Saml2_IdGenerator $samlIdGenerator,
-        KeyPairFactory $keyPairFactory,
-        DocumentSigner $documentSigner,
-        TimeProvider $timeProvider,
-        string $addRequestedAttributes
+        private LanguageSupportProvider $languageSupportProvider,
+        private Environment $twig,
+        private EngineBlock_Saml2_IdGenerator $samlIdGenerator,
+        private KeyPairFactory $keyPairFactory,
+        private DocumentSigner $documentSigner,
+        private TimeProvider $timeProvider,
+        private string $addRequestedAttributes
     ) {
-        $this->languageSupportProvider = $languageSupportProvider;
-        $this->twig = $twig;
-        $this->samlIdGenerator = $samlIdGenerator;
-        $this->keyPairFactory = $keyPairFactory;
-        $this->documentSigner = $documentSigner;
-        $this->timeProvider = $timeProvider;
-        $this->addRequestedAttributes = $addRequestedAttributes;
     }
 
     public function fromServiceProviderEntity(ServiceProviderEntityInterface $sp, string $keyId) : string

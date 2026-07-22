@@ -162,23 +162,9 @@ class ServiceRegistryFixture
         $this->setCoin($sp, 'termsOfServiceUrl', 'http://welcome.dev.openconext.local');
         $sp->getMdui()->setLogo(new Logo('/images/placeholder.png'));
 
-
-        // The repository does not allow us to retrieve all SP's for good reason. In functional testing mode the total
-        // number of SP's should always be limited.
-        $idpEntityIDQuery = <<<QUERY
-        SELECT `entity_id`
-        FROM `sso_provider_roles_eb5`
-        WHERE `type` = 'idp'
-QUERY;
-        $query = $this->entityManager->getConnection()->prepare($idpEntityIDQuery);
-        assert($query instanceof Statement);
-        $result = $query->executeQuery();
-        $idps = $result->fetchAllAssociative();
-
-        foreach ($idps as $idpEntityId) {
-            $idp = $this->repository->findIdentityProviderByEntityId($idpEntityId['entity_id']);
-            $sp->allowedIdpEntityIds[] = $idp->entityId;
-        }
+        // Optimized: Get all IDP entity IDs in a single query and add them directly
+        $idpEntityIDs = $this->getAllIdpEntityIds();
+        $sp->allowedIdpEntityIds = $idpEntityIDs;
 
         $this->entityManager->persist($sp);
 
@@ -225,6 +211,30 @@ QUERY;
         $this->entityManager->persist($idp);
 
         return $this;
+    }
+
+    /**
+     * Get all Identity Provider entity IDs from the database
+     * @return array
+     */
+    private function getAllIdpEntityIds(): array
+    {
+        $idpEntityIDQuery = <<<QUERY
+        SELECT `entity_id`
+        FROM `sso_provider_roles_eb5`
+        WHERE `type` = 'idp'
+QUERY;
+        $query = $this->entityManager->getConnection()->prepare($idpEntityIDQuery);
+        assert($query instanceof Statement);
+        $result = $query->executeQuery();
+        $idps = $result->fetchAllAssociative();
+
+        $entityIds = [];
+        foreach ($idps as $idpEntityId) {
+            $entityIds[] = $idpEntityId['entity_id'];
+        }
+
+        return $entityIds;
     }
 
     /**

@@ -52,20 +52,27 @@ final class FilesystemAdapter implements FileHandler
     {
         Assertion::nonEmptyString($filePath, 'filePath');
 
-        if (!$this->filesystem->exists($filePath)) {
-            throw new RuntimeException(sprintf('Cannot read from file "%s" as it does not exist', $filePath));
-        }
-
-        if (!is_readable($filePath)) {
+        if (!$this->filesystem->exists($filePath) || !is_readable($filePath)) {
+            if (!$this->filesystem->exists($filePath)) {
+                throw new RuntimeException(sprintf('Cannot read from file "%s" as it does not exist', $filePath));
+            }
             throw new RuntimeException(sprintf('Cannot read from file "%s" as it is not readable', $filePath));
         }
 
-        $data = file_get_contents($filePath);
-        if ($data === false) {
+        $handle = fopen($filePath, 'rb');
+        if ($handle === false) {
             throw new RuntimeException(sprintf('Could not read data from file "%s"', $filePath));
         }
 
-        return $data;
+        try {
+            $data = '';
+            while (!feof($handle)) {
+                $data .= fread($handle, 8192);
+            }
+            return $data;
+        } finally {
+            fclose($handle);
+        }
     }
 
     public function remove($filePath)

@@ -61,43 +61,54 @@ final class Request implements JsonSerializable
         Assertion::allIsArray($responseAttributes, 'The values of the Response attributes must be arrays');
 
         $request = new self;
+        $request->accessSubject = new AccessSubject;
+        $request->resource = new Resource;
 
+        // Initialize attributes arrays
+        $accessSubjectAttributes = [];
+        $resourceAttributes = [];
+
+        // Create subject ID attribute
         $subjectIdAttribute = new Attribute;
         $subjectIdAttribute->attributeId = NameIdFormat::UNSPECIFIED;
         $subjectIdAttribute->value = $subjectId;
+        $accessSubjectAttributes[] = $subjectIdAttribute;
 
-        $request->accessSubject = new AccessSubject;
-        $request->accessSubject->attributes = [$subjectIdAttribute];
-
-        $clientIdAttribute  = new Attribute;
+        // Create resource attributes
+        $clientIdAttribute = new Attribute;
         $clientIdAttribute->attributeId = 'ClientID';
         $clientIdAttribute->value = $clientId;
+        $resourceAttributes[] = $clientIdAttribute;
 
-        $spEntityIdAttribute  = new Attribute;
+        $spEntityIdAttribute = new Attribute;
         $spEntityIdAttribute->attributeId = 'SPentityID';
         $spEntityIdAttribute->value = $spEntityId;
+        $resourceAttributes[] = $spEntityIdAttribute;
 
         $idpEntityIdAttribute = new Attribute;
         $idpEntityIdAttribute->attributeId = 'IDPentityID';
         $idpEntityIdAttribute->value = $idpEntityId;
+        $resourceAttributes[] = $idpEntityIdAttribute;
 
-        $request->resource = new Resource;
-        $request->resource->attributes = [$clientIdAttribute, $spEntityIdAttribute, $idpEntityIdAttribute];
-
+        // Process response attributes in a single loop
         foreach ($responseAttributes as $id => $values) {
             foreach ($values as $value) {
                 $attribute = new Attribute;
                 $attribute->attributeId = $id;
                 $attribute->value = $value;
-
-                $request->accessSubject->attributes[] = $attribute;
+                $accessSubjectAttributes[] = $attribute;
             }
         }
 
-        $attribute = new Attribute;
-        $attribute->attributeId = 'urn:mace:surfnet.nl:collab:xacml-attribute:ip-address';
-        $attribute->value = $remoteIp;
-        $request->accessSubject->attributes[] = $attribute;
+        // Add IP address attribute
+        $ipAttribute = new Attribute;
+        $ipAttribute->attributeId = 'urn:mace:surfnet.nl:collab:xacml-attribute:ip-address';
+        $ipAttribute->value = $remoteIp;
+        $accessSubjectAttributes[] = $ipAttribute;
+
+        // Assign attributes to request objects
+        $request->accessSubject->attributes = $accessSubjectAttributes;
+        $request->resource->attributes = $resourceAttributes;
 
         return $request;
     }

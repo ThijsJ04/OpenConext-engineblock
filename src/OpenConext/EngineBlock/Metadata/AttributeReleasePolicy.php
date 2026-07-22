@@ -47,6 +47,8 @@ class AttributeReleasePolicy
      */
     public function __construct(array $attributeRules)
     {
+        $validatedRules = [];
+        
         foreach ($attributeRules as $key => $rules) {
             if (!is_string($key)) {
                 throw new InvalidArgumentException(sprintf('Invalid key: "%s"', var_export($key, true)));
@@ -58,52 +60,52 @@ class AttributeReleasePolicy
                 );
             }
 
+            $validatedRules[$key] = [];
             foreach ($rules as $rule) {
-                $this->validateRule($key, $rule);
+                $validatedRules[$key][] = $this->validateAndNormalizeRule($key, $rule);
             }
         }
 
-        $this->attributeRules = $attributeRules;
+        $this->attributeRules = $validatedRules;
     }
 
     /**
      * @param string $key
      * @param mixed $rule
+     * @return array|string
      * @throws InvalidArgumentException
      */
-    private function validateRule($key, $rule)
+    private function validateAndNormalizeRule($key, $rule)
     {
         if (is_array($rule)) {
             if (!isset($rule['value'])) {
                 throw new InvalidArgumentException(
-                    sprintf(
-                        'Invalid value for attribute "%s", rule must contain a value key, got: "%s"',
-                        $key,
-                        var_export($rule, true)
-                    )
+                    sprintf('Invalid rule for attribute "%s", missing "value" key', $key)
                 );
             }
 
             if (isset($rule['release_as']) && is_numeric($rule['release_as'])) {
                 throw new InvalidArgumentException(
-                    sprintf(
-                        'Invalid release as for attribute "%s", attribute cannot be numeric, got: "%s"',
-                        $key,
-                        (string)$rule['release_as']
-                    )
+                    sprintf('Invalid release as for attribute "%s", attribute cannot be numeric, got: "%s"', $key, (string)$rule['release_as'])
                 );
             }
 
-            $value = $rule['value'];
-        } else {
-            $value = $rule;
+            if (!is_string($rule['value'])) {
+                throw new InvalidArgumentException(
+                    sprintf('Invalid value for attribute "%s", not a string', $key)
+                );
+            }
+
+            return $rule;
         }
 
-        if (!is_string($value)) {
+        if (!is_string($rule)) {
             throw new InvalidArgumentException(
-                sprintf('Invalid value for attribute "%s", not a string: "%s"', $key, var_export($value, true))
+                sprintf('Invalid value for attribute "%s", not a string', $key)
             );
         }
+
+        return $rule;
     }
 
     /**

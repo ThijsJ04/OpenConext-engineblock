@@ -73,24 +73,18 @@ final class DeprovisionService implements DeprovisionServiceInterface
     public function read(CollabPersonId $id)
     {
         $user = $this->userDirectory->findUserBy($id);
-
+        
         if ($user === null) {
             return [];
         }
 
+        $persistentIds = $this->findPersistentIds($user);
+        $consent = $this->findConsent($user);
+
         return [
-            [
-                'name'  => 'user',
-                'value' => $user,
-            ],
-            [
-                'name'  => 'saml_persistent_id',
-                'value' => $this->findPersistentIds($user),
-            ],
-            [
-                'name'  => 'consent',
-                'value' => $this->findConsent($user),
-            ],
+            ['name' => 'user', 'value' => $user],
+            ['name' => 'saml_persistent_id', 'value' => $persistentIds],
+            ['name' => 'consent', 'value' => $consent],
         ];
     }
 
