@@ -97,14 +97,26 @@ final class ConsentService implements ConsentServiceInterface
     public function deleteOneConsentFor(CollabPersonId $id, string $serviceProviderEntityId): bool
     {
         $collabPersonId = $id->getCollabPersonId();
+        
+        // Validate input parameters
+        if (empty($collabPersonId) || empty($serviceProviderEntityId)) {
+            throw new RuntimeException(
+                sprintf(
+                    'Cannot delete consent: %s and service provider entity ID must not be empty',
+                    empty($collabPersonId) ? 'CollabPersonId' : 'ServiceProviderEntityId'
+                )
+            );
+        }
+        
         try {
             return $this->consentRepository->deleteOneFor($collabPersonId, $serviceProviderEntityId);
         } catch (Exception $e) {
             throw new RuntimeException(
                 sprintf(
-                    'An exception occurred while removing consent for a service provider("%s") and user ("%s").',
+                    'An exception occurred while removing consent for service provider "%s" and user "%s": %s',
                     $serviceProviderEntityId,
-                    $collabPersonId
+                    $collabPersonId,
+                    $e->getMessage()
                 ),
                 0,
                 $e

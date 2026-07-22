@@ -176,7 +176,7 @@ class DoctrineMetadataRepository extends AbstractMetadataRepository
 
         $this->compositeFilter->toQueryBuilder($queryBuilder, $this->idpRepository->getClassName());
 
-        $result = $queryBuilder->getQuery()->execute();
+        $result = $queryBuilder->getQuery()->execute(null, AbstractQuery::HYDRATE_ARRAY);
 
         if (empty($result)) {
             return null;
@@ -186,7 +186,7 @@ class DoctrineMetadataRepository extends AbstractMetadataRepository
             throw new RuntimeException(sprintf('Multiple Identity Providers found for entityId MD5 hash: "%s"', $hash));
         }
 
-        return reset($result)['entityId'];
+        return $result[0]['entityId'];
     }
 
     /**

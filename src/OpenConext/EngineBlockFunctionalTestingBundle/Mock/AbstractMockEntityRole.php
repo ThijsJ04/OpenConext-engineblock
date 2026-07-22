@@ -109,21 +109,18 @@ abstract class AbstractMockEntityRole
     public function setPrivateKey($privateKeyFile)
     {
         $role = $this->getSsoRole();
+        $keyInfoElements = $role->getKeyDescriptor()[0]->getKeyInfo()->getInfo();
 
-        foreach ($role->getKeyDescriptor()[0]->getKeyInfo()->getInfo() as $info) {
-            if (!$info instanceof Chunk) {
-                continue;
-            }
+        $privateKeyChunk = array_filter($keyInfoElements, function ($info) {
+            return $info instanceof Chunk && $info->getLocalName() === 'PrivateKey';
+        });
 
-            if ($info->getLocalName() !== 'PrivateKey') {
-                continue;
-            }
-
-            $info->getXML()->nodeValue = $this->readFile($privateKeyFile);
-            return;
+        if (empty($privateKeyChunk)) {
+            throw new RuntimeException("Unable to set private key, no KeyInfo with PrivateKey element set");
         }
 
-        throw new RuntimeException("Unable to set private key, no KeyInfo with PrivateKey element set");
+        $chunk = reset($privateKeyChunk);
+        $chunk->getXML()->nodeValue = $this->readFile($privateKeyFile);
     }
 
     public function getPrivateKeyPem()

@@ -37,71 +37,18 @@ use Twig\Environment;
  */
 class IdentityProviderController implements AuthenticationLoopThrottlingController
 {
-    /**
-     * @var EngineBlock_ApplicationSingleton
-     */
-    private $engineBlockApplicationSingleton;
-
-    /**
-     * @var Environment
-     */
-    private $twig;
-
-    /**
-     * @var LoggerInterface
-     */
-    private $logger;
-
-    /**
-     * @var RequestAccessMailer
-     */
-    private $requestAccessMailer;
-
-    /**
-     * @var AuthenticationStateHelperInterface
-     */
-    private $authenticationStateHelper;
-
-    /**
-     * @var RequestValidator
-     */
-    private $requestValidator;
-
-    /**
-     * @var RequestValidator
-     */
-    private $unsolicitedRequestValidator;
-
-    /**
-     * @var RequestValidator
-     */
-    private $bindingValidator;
-
-    /**
-     * @var FeatureConfigurationInterface
-     */
-    private $featureConfiguration;
-
     public function __construct(
-        EngineBlock_ApplicationSingleton $engineBlockApplicationSingleton,
-        Environment $twig,
-        LoggerInterface $loggerInterface,
-        RequestAccessMailer $requestAccessMailer,
-        RequestValidator $requestValidator,
-        RequestValidator $bindingValidator,
-        RequestValidator $unsolicitedRequestValidator,
-        AuthenticationStateHelperInterface $authenticationStateHelper,
-        FeatureConfigurationInterface $featureConfiguration
+        private EngineBlock_ApplicationSingleton $engineBlockApplicationSingleton,
+        private Environment $twig,
+        private LoggerInterface $logger,
+        private RequestAccessMailer $requestAccessMailer,
+        private RequestValidator $requestValidator,
+        private RequestValidator $bindingValidator,
+        private RequestValidator $unsolicitedRequestValidator,
+        private AuthenticationStateHelperInterface $authenticationStateHelper,
+        private FeatureConfigurationInterface $featureConfiguration
     ) {
-        $this->engineBlockApplicationSingleton = $engineBlockApplicationSingleton;
-        $this->twig = $twig;
-        $this->logger = $loggerInterface;
-        $this->requestAccessMailer = $requestAccessMailer;
-        $this->requestValidator = $requestValidator;
-        $this->bindingValidator = $bindingValidator;
-        $this->unsolicitedRequestValidator = $unsolicitedRequestValidator;
-        $this->authenticationStateHelper = $authenticationStateHelper;
-        $this->featureConfiguration = $featureConfiguration;
+        // Constructor body intentionally left empty - using property promotion
     }
 
     /**
