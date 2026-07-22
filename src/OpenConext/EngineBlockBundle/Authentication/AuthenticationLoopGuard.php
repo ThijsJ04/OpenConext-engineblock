@@ -40,26 +40,13 @@ final class AuthenticationLoopGuard implements AuthenticationLoopGuardInterface
     private $maximumAuthenticationsPerSession;
 
     public function __construct(
-        $maximumAuthenticationProceduresAllowed,
-        $timeFrameForAuthenticationLoopInSeconds,
-        $maximumAuthenticationsPerSession
+        int $maximumAuthenticationProceduresAllowed,
+        int $timeFrameForAuthenticationLoopInSeconds,
+        int $maximumAuthenticationsPerSession
     ) {
-        Assertion::integer(
-            $maximumAuthenticationProceduresAllowed,
-            'Expected maximum authentication procedures allowed to be an integer, got "%s"'
-        );
-        Assertion::integer(
-            $timeFrameForAuthenticationLoopInSeconds,
-            'Expected time frame for determining authentication loop in seconds to be an integer, got "%s"'
-        );
-        Assertion::integer(
-            $maximumAuthenticationsPerSession,
-            'Expected maximum authentication per session to be an integer, got "%s"'
-        );
-
-        $this->maximumAuthenticationProceduresAllowed  = $maximumAuthenticationProceduresAllowed;
+        $this->maximumAuthenticationProceduresAllowed = $maximumAuthenticationProceduresAllowed;
         $this->timeFrameForAuthenticationLoopInSeconds = $timeFrameForAuthenticationLoopInSeconds;
-        $this->maximumAuthenticationsPerSession  = $maximumAuthenticationsPerSession;
+        $this->maximumAuthenticationsPerSession = $maximumAuthenticationsPerSession;
     }
 
     public function detectsAuthenticationLoop(

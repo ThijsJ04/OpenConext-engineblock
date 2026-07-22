@@ -90,40 +90,44 @@ class CortoDisassembler
      */
     public function translateIdentityProvider(IdentityProvider $entity)
     {
-        $cortoEntity = array();
+        $cortoEntity = $this->translateCommon($entity, array());
 
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
-
+        // Process SingleSignOnServices more efficiently
+        $singleSignOnServices = array();
         foreach ($entity->singleSignOnServices as $service) {
-            if (!isset($cortoEntity['SingleSignOnService'])) {
-                $cortoEntity['SingleSignOnService'] = array();
-            }
-
-            $cortoEntity[] = array(
+            $singleSignOnServices[] = array(
                 'Binding'  => $service->binding,
                 'Location' => $service->location,
             );
         }
-
-        $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
-
-        if ($entity->getCoins()->schacHomeOrganization()) {
-            $cortoEntity['SchacHomeOrganization'] = $entity->getCoins()->schacHomeOrganization();
+        if (!empty($singleSignOnServices)) {
+            $cortoEntity['SingleSignOnService'] = $singleSignOnServices;
         }
 
+        // Set required fields
+        $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
         $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
         $cortoEntity['isHidden'] = $entity->getCoins()->hidden();
 
-        $cortoEntity['shibmd:scopes'] = array();
+        // Set optional fields only if they have values
+        $schacHomeOrganization = $entity->getCoins()->schacHomeOrganization();
+        if (!empty($schacHomeOrganization)) {
+            $cortoEntity['SchacHomeOrganization'] = $schacHomeOrganization;
+        }
+
+        // Process shibmd:scopes more efficiently
+        $shibMdScopes = array();
         foreach ($entity->shibMdScopes as $scope) {
-            $cortoEntity['shibmd:scopes'][] = array(
+            $shibMdScopes[] = array(
                 'allowed' => $scope->allowed,
                 'regexp'  => $scope->regexp,
             );
         }
+        $cortoEntity['shibmd:scopes'] = $shibMdScopes;
 
-        if ($entity->getCoins()->defaultRAC()) {
-            $cortoEntity['DefaultRAC'] = $entity->getCoins()->defaultRAC();
+        $defaultRAC = $entity->getCoins()->defaultRAC();
+        if (!empty($defaultRAC)) {
+            $cortoEntity['DefaultRAC'] = $defaultRAC;
         }
 
         return $cortoEntity;

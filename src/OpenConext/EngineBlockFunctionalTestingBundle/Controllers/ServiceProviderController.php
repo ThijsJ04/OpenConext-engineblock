@@ -50,10 +50,22 @@ class ServiceProviderController extends AbstractController
      */
     private $engineBlock;
 
+    /**
+     * @var AuthnRequestFactory
+     */
+    private $authnRequestFactory;
+
+    /**
+     * @var HTTPRedirect
+     */
+    private $httpRedirect;
+
     public function __construct(EntityRegistry $spRegistry, EngineBlock $engineBlock)
     {
         $this->mockSpRegistry = $spRegistry;
         $this->engineBlock = $engineBlock;
+        $this->authnRequestFactory = new AuthnRequestFactory();
+        $this->httpRedirect = new HTTPRedirect();
     }
 
     /**
@@ -70,14 +82,12 @@ class ServiceProviderController extends AbstractController
         /** @var MockServiceProvider $sp */
         $sp = $this->mockSpRegistry->get($spName);
 
-        $factory = new AuthnRequestFactory();
-        $authnRequest = $factory->createForRequestFromTo(
+        $authnRequest = $this->authnRequestFactory->createForRequestFromTo(
             $sp,
             $this->engineBlock
         );
 
-        $redirect = new HTTPRedirect();
-        $url = $redirect->getRedirectURL($authnRequest);
+        $url = $this->httpRedirect->getRedirectURL($authnRequest);
 
         if (isset($sp->getEntityDescriptor()->getExtensions()['Malformed'])) {
             $url = str_replace('SAMLRequest', 'AuthNRequest', $url);

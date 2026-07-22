@@ -314,39 +314,11 @@ class IdentityProvider extends AbstractRole
      */
     public function __sleep()
     {
-        return [
-            'enabledInWayf',
-            'singleSignOnServices',
-            'consentSettings',
-            'shibMdScopes',
-            'discoveries',
-            'id',
-            'entityId',
-            'nameNl',
-            'nameEn',
-            'namePt',
-            'descriptionNl',
-            'descriptionEn',
-            'descriptionPt',
-            'displayNameNl',
-            'displayNameEn',
-            'displayNamePt',
-            'logo',
-            'organizationNl',
-            'organizationEn',
-            'organizationPt',
-            'keywordsNl',
-            'keywordsEn',
-            'keywordsPt',
-            'workflowState',
-            'contactPersons',
-            'nameIdFormat',
-            'supportedNameIdFormats',
-            'singleLogoutService',
-            'requestsMustBeSigned',
-            'manipulation',
-            'coins',
-            'mdui',
-        ];
+        $allProperties = array_keys(get_object_vars($this));
+        
+        // Filter out properties that should not be serialized
+        return array_filter($allProperties, function($property) {
+            return $property !== 'certificates';
+        });
     }
 }

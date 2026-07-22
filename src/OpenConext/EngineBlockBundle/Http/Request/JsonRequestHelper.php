@@ -39,10 +39,7 @@ final class JsonRequestHelper
      */
     public static function decodeContentOf(Request $request)
     {
-        $stream = $request->getContent(true);
-        $contents = stream_get_contents($stream);
-        fclose($stream);
-
+        $contents = $request->getContent();
         $data     = json_decode($contents);
 
         if (json_last_error() === JSON_ERROR_NONE) {

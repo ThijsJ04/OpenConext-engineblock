@@ -46,13 +46,19 @@ final class ManualOrErrorLevelActivationStrategyFactory implements ActivationStr
      */
     private static function validateAndNormalizeConfig(array $config)
     {
+        // Validate required key exists
         Assertion::keyIsset($config, 'action_level', 'Missing configuration value, configuration key "%s" not found');
+        
+        // Validate the value is a string
         Assertion::string($config['action_level']);
 
-        $config['action_level'] = strtolower($config['action_level']);
+        // Normalize the action level to lowercase
+        $normalizedConfig = $config;
+        $normalizedConfig['action_level'] = strtolower($config['action_level']);
 
+        // Validate against allowed PSR log levels
         Assertion::choice(
-            $config['action_level'],
+            $normalizedConfig['action_level'],
             [
                 LogLevel::EMERGENCY,
                 LogLevel::ALERT,
@@ -66,6 +72,6 @@ final class ManualOrErrorLevelActivationStrategyFactory implements ActivationStr
             'Configured action level must be a valid PSR-compliant log level: "%s"'
         );
 
-        return $config;
+        return $normalizedConfig;
     }
 }

@@ -79,31 +79,26 @@ final class ConsentController
     /**
      * @Route("/consent/{userId}", name="api_consent_user", defaults={"_format"="json"})
      */
-    public function userAction($userId, Request $request)
+    public function userAction(string $userId, Request $request): JsonResponse
     {
         if (!$request->isMethod(Request::METHOD_GET)) {
             throw ApiMethodNotAllowedHttpException::methodNotAllowed($request->getMethod(), [Request::METHOD_GET]);
         }
 
-        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent')) {
-            throw new ApiNotFoundHttpException('Consent feature is disabled');
-        }
-
-        if (!$this->featureConfiguration->isEnabled('api.consent_listing')) {
-            throw new ApiNotFoundHttpException('Consent listing API is disabled');
-        }
-
+        // Fail fast: check authorization before doing other checks
         $this->assertAuthorized();
+
+        // Combine feature configuration checks
+        if (!$this->featureConfiguration->isEnabled('eb.feature_enable_consent') ||
+            !$this->featureConfiguration->isEnabled('api.consent_listing')) {
+            throw new ApiNotFoundHttpException('Consent feature or API is disabled');
+        }
 
         try {
             $consentList = $this->consentService->findAllFor($userId)->jsonSerialize();
         } catch (RuntimeException $e) {
             throw new ApiInternalServerErrorHttpException(
-                sprintf(
-                    'An unknown error occurred while fetching a list of services the user has given consent for to ' .
-                    'release attributes to ("%s")',
-                    $e->getMessage()
-                ),
+                'An unknown error occurred while fetching consent list: ' . $e->getMessage(),
                 $e
             );
         }

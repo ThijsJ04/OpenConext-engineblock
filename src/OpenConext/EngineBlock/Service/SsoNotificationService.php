@@ -117,12 +117,18 @@ class SsoNotificationService
      */
     private function parseSsoNotification(string $ssoNotification): array
     {
-        $data = [];
-
         // Extract cipher and initialization vector
         $base64Decoded = base64_decode($ssoNotification);
+        
+        // Check if decoded data is long enough for IV
+        if (strlen($base64Decoded) < self::IV_SIZE) {
+            $this->logger->error("SSO notification is too short to contain a valid initialization vector");
+            return [];
+        }
+        
         $iv = substr($base64Decoded, 0, self::IV_SIZE);
         $cipherText = substr($base64Decoded, self::IV_SIZE);
+        
         // Construct encryption key
         $key = hash_pbkdf2(
             'sha256',
@@ -134,15 +140,17 @@ class SsoNotificationService
         );
 
         $jsonString = $this->decryptSsoNotification($cipherText, $key, $this->encryptionAlgorithm, $iv);
+        
         try {
-            $data = JsonResponseParser::parse($jsonString);
+            return JsonResponseParser::parse($jsonString);
         } catch (InvalidJsonException $exception) {
             $this->logger->error(
                 "Failed to parse JSON string '$jsonString' from SSO notification",
                 array('exception' => $exception)
             );
         }
-        return $data;
+        
+        return [];
     }
 
     /**

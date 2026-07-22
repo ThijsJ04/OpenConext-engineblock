@@ -81,7 +81,7 @@ final class AttributeReleasePolicyController
         $this->assertAuthorized();
 
         $body = JsonRequestHelper::decodeContentAsArrayOf($request);
-
+        
         if (!is_array($body)) {
             throw new BadApiRequestHttpException(sprintf(
                 'Unrecognized structure for JSON: expected decoded root value to be an array, got "%s"',
@@ -105,12 +105,13 @@ final class AttributeReleasePolicyController
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }
 
-        if (!isset($body['showSources']) || !is_bool($body['showSources'])) {
-            $showSources = false;
-        } else {
-            $showSources = $body['showSources'];
+        // Validate and process showSources flag
+        $showSources = $body['showSources'] ?? false;
+        if ($showSources !== false && !is_bool($showSources)) {
+            throw new BadApiRequestHttpException('Invalid JSON structure: "showSources" must be a boolean value');
         }
 
+        // Validate attributes structure in a single pass
         foreach ($body['attributes'] as $attributeName => $attributeValues) {
             if (!is_string($attributeName) || !is_array($attributeValues)) {
                 throw new BadApiRequestHttpException(
@@ -119,6 +120,7 @@ final class AttributeReleasePolicyController
             }
         }
 
+        // Process ARP for each entity
         $releasedAttributes = [];
         foreach ($body['entityIds'] as $entityId) {
             $arp = $this->metadataService->findArpForServiceProviderByEntityId(new EntityId($entityId));

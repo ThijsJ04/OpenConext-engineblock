@@ -40,8 +40,8 @@ class MfaEntityCollection implements JsonSerializable, Countable
     {
         $entities = [];
         foreach ($data as $mfaEntityData) {
-            $entityId = (string) $mfaEntityData['name'];
-            $level = (string) $mfaEntityData['level'];
+            $entityId = $mfaEntityData['name'];
+            $level = $mfaEntityData['level'];
             Assertion::keyNotExists(
                 $entities,
                 $entityId,

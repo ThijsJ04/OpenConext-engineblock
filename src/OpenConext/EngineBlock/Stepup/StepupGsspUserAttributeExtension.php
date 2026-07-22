@@ -31,12 +31,16 @@ class StepupGsspUserAttributeExtension
     public static function add(Message $message, Assertion $assertion, array $userAttributes)
     {
         $assertionAttributes = $assertion->getAttributes();
-        $stepupUserAttributes = array_filter($assertionAttributes, function ($attributeKey) use ($userAttributes) {
-            return in_array($attributeKey, $userAttributes);
-        }, ARRAY_FILTER_USE_KEY);
+        $stepupUserAttributes = [];
+        
+        // More efficient filtering - iterate through userAttributes instead of all assertion attributes
+        foreach ($userAttributes as $attributeKey) {
+            if (array_key_exists($attributeKey, $assertionAttributes)) {
+                $stepupUserAttributes[$attributeKey] = $assertionAttributes[$attributeKey];
+            }
+        }
 
-
-        if (count($stepupUserAttributes) === 0) {
+        if (empty($stepupUserAttributes)) {
             return;
         }
 
@@ -51,7 +55,6 @@ class StepupGsspUserAttributeExtension
 
         $ext = $message->getExtensions();
         $ext['saml:Extensions'] = new Chunk($ce);
-
         $message->setExtensions($ext);
     }
 
