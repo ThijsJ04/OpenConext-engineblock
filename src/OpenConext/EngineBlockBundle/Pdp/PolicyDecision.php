@@ -76,7 +76,6 @@ final class PolicyDecision
         }
 
         if (isset($response->associatedAdvices)) {
-            $localizedDenyMessages = [];
             foreach ($response->associatedAdvices as $associatedAdvice) {
                 foreach ($associatedAdvice->attributeAssignments as $attributeAssignment) {
                     $parts = explode(':', $attributeAssignment->attributeId);
@@ -84,31 +83,32 @@ final class PolicyDecision
                         list($identifier, $locale) = $parts;
 
                         if ($identifier === 'DenyMessage') {
-                            $localizedDenyMessages[$locale] = $attributeAssignment->value;
+                            $policyDecision->localizedDenyMessages[$locale] = $attributeAssignment->value;
                         }
                     }
 
                     self::setAttributeAssignmentSource($attributeAssignment, $policyDecision);
                 }
             }
-            $policyDecision->localizedDenyMessages = $localizedDenyMessages;
         }
 
         return $policyDecision;
     }
 
     /**
-     * Checks obgligations for any stepup LoA requirements, returns all found.
+     * Checks obligations for any stepup LoA requirements, returns all found.
      * @return Obligation[]
      */
     private static function findStepupObligations(?array $obligations) : array
     {
+        if ($obligations === null) {
+            return [];
+        }
+
         $stepupObligations = [];
-        if ($obligations !== null) {
-            foreach ($obligations as $obligation) {
-                if ($obligation->id === 'urn:openconext:stepup:loa') {
-                    $stepupObligations[] = $obligation->attributeAssignments[0]->value;
-                }
+        foreach ($obligations as $obligation) {
+            if ($obligation->id === 'urn:openconext:stepup:loa') {
+                $stepupObligations[] = $obligation->attributeAssignments[0]->value;
             }
         }
         return $stepupObligations;
@@ -122,16 +122,11 @@ final class PolicyDecision
         AttributeAssignment $attributeAssignment,
         PolicyDecision $policyDecision
     ) : void {
-
-        if ($attributeAssignment->attributeId !== 'IdPOnly') {
-            return;
-        }
-
-        if (isset($attributeAssignment->value) && $attributeAssignment->value === true) {
+        if ($attributeAssignment->attributeId === 'IdPOnly' && 
+            isset($attributeAssignment->value) && 
+            $attributeAssignment->value === true) {
             $policyDecision->isIdpSpecific = true;
         }
-
-        return;
     }
 
     public function permitsAccess() : bool

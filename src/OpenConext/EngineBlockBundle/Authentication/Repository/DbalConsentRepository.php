@@ -129,7 +129,7 @@ final class DbalConsentRepository extends ServiceEntityRepository implements Con
             UPDATE
                 consent
             SET
-                deleted_at = NOW()
+                deleted_at = :deleted_at
             WHERE
                 hashed_user_id = :hashed_user_id
             AND
@@ -137,23 +137,30 @@ final class DbalConsentRepository extends ServiceEntityRepository implements Con
             AND deleted_at IS NULL
         ';
         try {
+            $deletedAt = new DateTime();
             $result = $this->connection->executeQuery(
                 $sql,
                 [
                     'hashed_user_id' => sha1($userId),
-                    'service_id' => $serviceProviderEntityId
+                    'service_id' => $serviceProviderEntityId,
+                    'deleted_at' => $deletedAt->format('Y-m-d H:i:s')
                 ]
             );
-            $this->logger->info(
-                sprintf(
-                    'Removed (soft delete) consent for hashed user id %s (%s), for service %s',
-                    sha1($userId),
-                    $userId,
-                    $serviceProviderEntityId
-                )
-            );
+            
+            $rowsAffected = $result->rowCount() > 0;
+            
+            if ($rowsAffected) {
+                $this->logger->info(
+                    sprintf(
+                        'Removed (soft delete) consent for hashed user id %s (%s), for service %s',
+                        sha1($userId),
+                        $userId,
+                        $serviceProviderEntityId
+                    )
+                );
+            }
 
-            return $result->rowCount() > 0;
+            return $rowsAffected;
         } catch (\Doctrine\DBAL\Exception $exception) {
             throw new RuntimeException(
                 sprintf(

@@ -53,20 +53,21 @@ class Utils
     public static function instantiate($className, array $namedArguments)
     {
         $reflectionClass = new ReflectionClass($className);
-        $parameters = $reflectionClass->getConstructor()->getParameters();
-
-        $positionalDefaultFilledArguments = array();
-        foreach ($parameters as $parameter) {
-            // Do we have an argument set? If so use that.
-            if (isset($namedArguments[$parameter->name])) {
-                $positionalDefaultFilledArguments[] = $namedArguments[$parameter->name];
-                continue;
-            }
-
-            // Otherwise use the default.
-            $positionalDefaultFilledArguments[] = $parameter->getDefaultValue();
+        $constructor = $reflectionClass->getConstructor();
+        
+        if ($constructor === null) {
+            return $reflectionClass->newInstance();
         }
+        
+        $parameters = $constructor->getParameters();
+        
+        // Use array_map for more efficient processing
+        $positionalArguments = array_map(function($parameter) use ($namedArguments) {
+            return isset($namedArguments[$parameter->name]) 
+                ? $namedArguments[$parameter->name] 
+                : $parameter->getDefaultValue();
+        }, $parameters);
 
-        return $reflectionClass->newInstanceArgs($positionalDefaultFilledArguments);
+        return $reflectionClass->newInstanceArgs($positionalArguments);
     }
 }

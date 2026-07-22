@@ -168,21 +168,23 @@ abstract class AbstractMockEntityRole
 
     protected function findFile($filePath)
     {
+        // Check if file exists at the given path
         if (file_exists($filePath)) {
             return $filePath;
         }
 
-        $componentPath = __DIR__ . '/../../../../';
-        $fullFilePath = realpath($componentPath . $filePath);
-        if (file_exists($fullFilePath)) {
-            return $fullFilePath;
+        // Check component path
+        $componentPath = __DIR__ . '/../../../../' . $filePath;
+        if (file_exists($componentPath)) {
+            return realpath($componentPath);
         }
 
+        // Check path from root
         $pathFromRoot = ENGINEBLOCK_FOLDER_ROOT . $filePath;
         if (file_exists($pathFromRoot)) {
             return $pathFromRoot;
         }
 
-        throw new RuntimeException(sprintf('Unable to find file: "%s" ("%s")', $filePath, $fullFilePath));
+        throw new RuntimeException(sprintf('Unable to find file: "%s"', $filePath));
     }
 }

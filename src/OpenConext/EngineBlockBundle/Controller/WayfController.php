@@ -79,6 +79,8 @@ class WayfController
      */
     public function processWayfAction(Request $request)
     {
+        $this->logger->debug('Processing WAYF action');
+        
         $proxyServer = new EngineBlock_Corto_Adapter();
         $proxyServer->processWayf();
 
@@ -86,15 +88,16 @@ class WayfController
 
         $session = $request->getSession();
         if ($session === null) {
+            $this->logger->error('Could not set discovery override, no session available!');
             throw new EngineBlock_Exception('Could not set discovery override, no session available!');
         }
 
-        if ($request->request->get(DiscoverySelectionService::USED_DISCOVERY_HASH_PARAM, '') !== '') {
-            $this->discoverySelectionService->registerDiscoveryHash(
-                $session,
-                $request->request->get(DiscoverySelectionService::USED_DISCOVERY_HASH_PARAM)
-            );
+        $discoveryHash = $request->request->get(DiscoverySelectionService::USED_DISCOVERY_HASH_PARAM, '');
+        if ($discoveryHash !== '') {
+            $this->logger->debug('Registering discovery hash: ' . $discoveryHash);
+            $this->discoverySelectionService->registerDiscoveryHash($session, $discoveryHash);
         } else {
+            $this->logger->debug('Clearing discovery hash');
             $this->discoverySelectionService->clearDiscoveryHash($session);
         }
 

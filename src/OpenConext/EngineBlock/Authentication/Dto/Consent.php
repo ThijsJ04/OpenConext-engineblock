@@ -114,6 +114,8 @@ final class Consent
     private function getOrganizationDisplayNameFields(): array
     {
         $fields = [];
+        
+        // Process English
         if (!empty($this->serviceProvider->organizationEn->displayName)) {
             $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->displayName;
         } elseif (!empty($this->serviceProvider->organizationEn->name)) {
@@ -121,7 +123,8 @@ final class Consent
         } else {
             $fields['organization_display_name']['en'] = "unknown";
         }
-
+        
+        // Process Dutch
         if (!empty($this->serviceProvider->organizationNl->displayName)) {
             $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->displayName;
         } elseif (!empty($this->serviceProvider->organizationNl->name)) {
@@ -129,7 +132,8 @@ final class Consent
         } else {
             $fields['organization_display_name']['nl'] = $fields['organization_display_name']['en'];
         }
-
+        
+        // Process Portuguese
         if (!empty($this->serviceProvider->organizationPt->displayName)) {
             $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->displayName;
         } elseif (!empty($this->serviceProvider->organizationPt->name)) {

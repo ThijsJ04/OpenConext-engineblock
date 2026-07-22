@@ -56,37 +56,49 @@ class UserDirectoryAdapter
      */
     public function identifyUser(array $attributes)
     {
-        if (!isset($attributes[Uid::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                Uid::URN_MACE
-            ));
-        }
-        if (!isset($attributes[SchacHomeOrganization::URN_MACE][0])) {
-            throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
-                'Missing required SAML2 field "%s" in attributes',
-                SchacHomeOrganization::URN_MACE
-            ));
-        }
+        $this->validateRequiredAttributes($attributes);
 
-        $uid                   = $attributes[Uid::URN_MACE][0];
+        $uid = $attributes[Uid::URN_MACE][0];
         $schacHomeOrganization = $attributes[SchacHomeOrganization::URN_MACE][0];
-
-        $collabPersonUuid      = CollabPersonUuid::generate();
-        $collabPersonId        = CollabPersonId::generateWithReplacedAtSignFrom(
+        $collabPersonId = CollabPersonId::generateWithReplacedAtSignFrom(
             new Uid($uid),
             new SchacHomeOrganization($schacHomeOrganization)
         );
 
         $user = $this->userDirectory->findUserBy($collabPersonId);
         if ($user === null) {
-            $this->logger->debug('User not found in database UserDirectory, registering User in database');
-
-            $user = new User($collabPersonId, $collabPersonUuid);
+            $this->logger->debug(sprintf(
+                'User with collabPersonId "%s" not found in database UserDirectory, registering new user',
+                $collabPersonId
+            ));
+            $user = new User($collabPersonId, CollabPersonUuid::generate());
             $this->userDirectory->register($user);
         }
 
         return $user;
+    }
+
+    /**
+     * Validates that required attributes are present in the attributes array.
+     *
+     * @param array $attributes
+     * @throws EngineBlock_Exception_MissingRequiredFields
+     */
+    private function validateRequiredAttributes(array $attributes)
+    {
+        $requiredFields = [
+            Uid::URN_MACE => 'UID',
+            SchacHomeOrganization::URN_MACE => 'SchacHomeOrganization'
+        ];
+
+        foreach ($requiredFields as $field => $fieldName) {
+            if (!isset($attributes[$field][0])) {
+                throw new EngineBlock_Exception_MissingRequiredFields(sprintf(
+                    'Missing required SAML2 field "%s" in attributes',
+                    $field
+                ));
+            }
+        }
     }
 
     /**

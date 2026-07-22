@@ -297,26 +297,33 @@ class ServiceProvider extends AbstractRole
      */
     public function getDisplayName(string $preferredLocale = 'en'): string
     {
-
-        $preferredName = $this->mdui->getDisplayName($preferredLocale);
-        $fallback = 'name' . ucfirst($preferredLocale);
-
-        if ($preferredName !== '') {
-            $spName = $preferredName;
-        } elseif (isset($this->$fallback)) {
-            $spName = $this->$fallback;
-        }
-
-        if ($preferredLocale !== 'en' & empty($spName)) {
-            $englishDisplayName = $this->mdui->getDisplayName('en');
-            $spName = !empty($englishDisplayName) ? $englishDisplayName : $this->nameEn;
-        }
-
+        // Try preferred locale display name first
+        $spName = $this->mdui->getDisplayName($preferredLocale);
+        
+        // Fallback to preferred locale name if display name is empty
         if (empty($spName)) {
-            $spName = $this->entityId;
+            $spName = $this->getNameForLocale($preferredLocale);
         }
+        
+        // Fallback to English if preferred locale didn't yield a result and it's not English
+        if (empty($spName) && $preferredLocale !== 'en') {
+            $englishDisplayName = $this->mdui->getDisplayName('en');
+            $spName = !empty($englishDisplayName) ? $englishDisplayName : ($this->nameEn ?? '');
+        }
+        
+        // Final fallback to entityId (should never happen)
+        return !empty($spName) ? $spName : $this->entityId;
+    }
 
-        return $spName;
+    /**
+     * Helper method to get name for a specific locale
+     * @param string $locale
+     * @return string
+     */
+    private function getNameForLocale(string $locale): string
+    {
+        $propertyName = 'name' . ucfirst($locale);
+        return $this->$propertyName ?? '';
     }
 
     /**
@@ -330,24 +337,19 @@ class ServiceProvider extends AbstractRole
     public function getOrganizationName(string $preferredLocale = 'en'): string
     {
         $orgLocale = 'organization' . ucfirst($preferredLocale);
-        // Load the preferred locale org. display name, falling back on org. name
-        if (isset($this->$orgLocale)) {
-            $orgName = !empty($this->$orgLocale->displayName)
-                ? $this->$orgLocale->displayName
-                : $this->$orgLocale->name;
+        
+        // Try preferred locale organization display name first, then name
+        if (isset($this->$orgLocale) && (!empty($this->$orgLocale->displayName) || !empty($this->$orgLocale->name))) {
+            return !empty($this->$orgLocale->displayName) ? $this->$orgLocale->displayName : $this->$orgLocale->name;
         }
 
-        // Fallback to EN naming preferences when the preferred locale was not set or yielded no value
-        if ((($preferredLocale !== 'en' && empty($orgName)) || empty($orgName)) && isset($this->organizationEn)) {
-            $orgName = !empty($this->organizationEn->displayName) ? $this->organizationEn->displayName : $this->organizationEn->name;
+        // Fallback to English organization display name, then name
+        if (isset($this->organizationEn) && (!empty($this->organizationEn->displayName) || !empty($this->organizationEn->name))) {
+            return !empty($this->organizationEn->displayName) ? $this->organizationEn->displayName : $this->organizationEn->name;
         }
 
-        // Show empty string when no translation was found (virtually impossible)
-        if (empty($orgName)) {
-            $orgName = '';
-        }
-
-        return $orgName;
+        // No organization name found
+        return '';
     }
 
     /**
