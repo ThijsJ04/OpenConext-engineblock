@@ -42,17 +42,47 @@ class DiscoveryAssembler
         }
 
         $discoveries = [];
+        $supportedLanguages = $this->languageSupportProvider->getSupportedLanguages();
+        
         foreach ($connection->metadata->discoveries as $discovery) {
-            $names = $this->extractLocalizedFields($discovery, 'name');
-            $keywords = $this->extractLocalizedFields($discovery, 'keywords');
-            $logo = $this->assembleLogo($discovery);
-
-            if (isset($names['en'])) {
-                $discoveries[] = Discovery::create($names, $keywords, $logo);
+            $names = [];
+            $keywords = [];
+            
+            // Extract names and keywords in a single loop
+            foreach ($supportedLanguages as $language) {
+                $nameAccessor = 'name_' . $language;
+                $keywordAccessor = 'keywords_' . $language;
+                
+                if (isset($discovery->$nameAccessor) && trim($discovery->$nameAccessor) !== '') {
+                    $names[$language] = trim($discovery->$nameAccessor);
+                }
+                
+                if (isset($discovery->$keywordAccessor) && trim($discovery->$keywordAccessor) !== '') {
+                    $keywords[$language] = trim($discovery->$keywordAccessor);
+                }
             }
+            
+            // Skip if no English name
+            if (!isset($names['en'])) {
+                continue;
+            }
+            
+            // Assemble logo efficiently
+            $logo = null;
+            if (isset($discovery->logo_url) && trim($discovery->logo_url) !== '') {
+                $logo = new Logo(trim($discovery->logo_url));
+                if (isset($discovery->logo_height)) {
+                    $logo->height = $discovery->logo_height;
+                }
+                if (isset($discovery->logo_width)) {
+                    $logo->width = $discovery->logo_width;
+                }
+            }
+            
+            $discoveries[] = Discovery::create($names, $keywords, $logo);
         }
 
-        return empty($discoveries) ? [] : ['discoveries' => $discoveries];
+        return $discoveries === [] ? [] : ['discoveries' => $discoveries];
     }
 
     private function extractLocalizedFields(stdClass $discovery, string $fieldPrefix): array

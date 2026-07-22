@@ -89,29 +89,28 @@ final class AttributeReleasePolicyController
             ));
         }
 
+        // Extract and validate entityIds
         if (!isset($body['entityIds'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "entityIds" not found');
         }
-
-        if (!is_array($body['entityIds']) || empty($body['entityIds'])) {
+        
+        $entityIds = $body['entityIds'];
+        if (!is_array($entityIds) || empty($entityIds)) {
             throw new BadApiRequestHttpException('Invalid JSON structure: "entityIds" must be a non-empty array');
         }
 
+        // Extract and validate attributes
         if (!isset($body['attributes'])) {
             throw new BadApiRequestHttpException('Invalid JSON structure: key "attributes" not found');
         }
-
-        if (!is_array($body['attributes'])) {
+        
+        $attributes = $body['attributes'];
+        if (!is_array($attributes)) {
             throw new BadApiRequestHttpException('Invalid JSON structure: "attributes" must be a JSON object');
         }
 
-        if (!isset($body['showSources']) || !is_bool($body['showSources'])) {
-            $showSources = false;
-        } else {
-            $showSources = $body['showSources'];
-        }
-
-        foreach ($body['attributes'] as $attributeName => $attributeValues) {
+        // Validate attributes structure
+        foreach ($attributes as $attributeName => $attributeValues) {
             if (!is_string($attributeName) || !is_array($attributeValues)) {
                 throw new BadApiRequestHttpException(
                     'Invalid JSON structure: attributes should have strings as keys and an array of values'
@@ -119,10 +118,16 @@ final class AttributeReleasePolicyController
             }
         }
 
+        // Handle showSources parameter
+        $showSources = isset($body['showSources']) && is_bool($body['showSources']) 
+            ? $body['showSources'] 
+            : false;
+
+        // Process each entity ID
         $releasedAttributes = [];
-        foreach ($body['entityIds'] as $entityId) {
+        foreach ($entityIds as $entityId) {
             $arp = $this->metadataService->findArpForServiceProviderByEntityId(new EntityId($entityId));
-            $releasedAttributes[$entityId] = $this->arpEnforcer->enforceArp($body['attributes'], $arp, $showSources);
+            $releasedAttributes[$entityId] = $this->arpEnforcer->enforceArp($attributes, $arp, $showSources);
         }
 
         return new JsonResponse(json_encode($releasedAttributes));

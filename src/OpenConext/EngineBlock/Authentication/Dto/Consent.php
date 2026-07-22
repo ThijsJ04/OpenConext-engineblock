@@ -114,30 +114,31 @@ final class Consent
     private function getOrganizationDisplayNameFields(): array
     {
         $fields = [];
-        if (!empty($this->serviceProvider->organizationEn->displayName)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->displayName;
-        } elseif (!empty($this->serviceProvider->organizationEn->name)) {
-            $fields['organization_display_name']['en'] = $this->serviceProvider->organizationEn->name;
-        } else {
-            $fields['organization_display_name']['en'] = "unknown";
-        }
-
-        if (!empty($this->serviceProvider->organizationNl->displayName)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->displayName;
-        } elseif (!empty($this->serviceProvider->organizationNl->name)) {
-            $fields['organization_display_name']['nl'] = $this->serviceProvider->organizationNl->name;
-        } else {
-            $fields['organization_display_name']['nl'] = $fields['organization_display_name']['en'];
-        }
-
-        if (!empty($this->serviceProvider->organizationPt->displayName)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->displayName;
-        } elseif (!empty($this->serviceProvider->organizationPt->name)) {
-            $fields['organization_display_name']['pt'] = $this->serviceProvider->organizationPt->name;
-        } else {
-            $fields['organization_display_name']['pt'] = $fields['organization_display_name']['en'];
-        }
+        
+        // Process English
+        $fields['organization_display_name']['en'] = $this->getOrganizationDisplayNameForLanguage('En', 'unknown');
+        
+        // Process Dutch
+        $fields['organization_display_name']['nl'] = $this->getOrganizationDisplayNameForLanguage('Nl', $fields['organization_display_name']['en']);
+        
+        // Process Portuguese
+        $fields['organization_display_name']['pt'] = $this->getOrganizationDisplayNameForLanguage('Pt', $fields['organization_display_name']['en']);
 
         return $fields;
+    }
+    
+    private function getOrganizationDisplayNameForLanguage(string $languageSuffix, string $fallbackValue): string
+    {
+        $organization = $this->serviceProvider->{"organization$languageSuffix"};
+        
+        if (!empty($organization->displayName)) {
+            return $organization->displayName;
+        }
+        
+        if (!empty($organization->name)) {
+            return $organization->name;
+        }
+        
+        return $fallbackValue;
     }
 }

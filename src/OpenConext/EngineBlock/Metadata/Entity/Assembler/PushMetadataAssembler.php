@@ -223,27 +223,32 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     {
         $properties = $this->assembleCommon($connection);
 
-        $properties += $this->assembleAttributeReleasePolicy($connection);
-        $properties += $this->assembleAssertionConsumerServices($connection);
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:transparant_issuer'], 'isTransparentIssuer');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:trusted_proxy'], 'isTrustedProxy');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:display_unconnected_idps_wayf'], 'displayUnconnectedIdpsWayf');
+        // Use array_merge for better performance with multiple arrays
+        $spProperties = [
+            $this->assembleAttributeReleasePolicy($connection),
+            $this->assembleAssertionConsumerServices($connection),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:transparant_issuer'], 'isTransparentIssuer'),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:trusted_proxy'], 'isTrustedProxy'),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:display_unconnected_idps_wayf'], 'displayUnconnectedIdpsWayf'),
+            $this->assembleIsConsentRequired($connection),
+            $this->setPathFromObjectString([$connection, 'metadata:coin:eula'], 'termsOfServiceUrl'),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:do_not_add_attribute_aliases'], 'skipDenormalization'),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:policy_enforcement_decision_required'], 'policyEnforcementDecisionRequired'),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:requesterid_required'], 'requesteridRequired'),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:sign_response'], 'signResponse'),
+            $this->setPathFromObjectString([$connection, 'metadata:coin:stepup:requireloa'], 'stepupRequireLoa'),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:stepup:allow_no_token'], 'stepupAllowNoToken'),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:stepup:forceauthn'], 'stepupForceAuthn'),
+            $this->setPathFromObjectBool([$connection, 'metadata:coin:collab_enabled'], 'collabEnabled'),
+        ];
 
-        $properties += $this->assembleIsConsentRequired($connection);
+        // Filter out empty arrays to reduce memory usage
+        $filteredProperties = array_filter($spProperties, function($prop) {
+            return !empty($prop);
+        });
 
-        $properties += $this->setPathFromObjectString([$connection, 'metadata:coin:eula'], 'termsOfServiceUrl');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:do_not_add_attribute_aliases'], 'skipDenormalization');
-        $properties += $this->setPathFromObjectBool(
-            [$connection, 'metadata:coin:policy_enforcement_decision_required'],
-            'policyEnforcementDecisionRequired'
-        );
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:requesterid_required'], 'requesteridRequired');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:sign_response'], 'signResponse');
-        $properties += $this->setPathFromObjectString([$connection, 'metadata:coin:stepup:requireloa'], 'stepupRequireLoa');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:stepup:allow_no_token'], 'stepupAllowNoToken');
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:stepup:forceauthn'], 'stepupForceAuthn');
-
-        $properties += $this->setPathFromObjectBool([$connection, 'metadata:coin:collab_enabled'], 'collabEnabled');
+        // Merge all properties at once instead of multiple += operations
+        $properties = array_merge($properties, ...$filteredProperties);
 
         return Utils::instantiate(
             ServiceProvider::class,
@@ -287,40 +292,43 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     {
         $properties = array();
 
+        // Basic entity information
         $properties += $this->setPathFromObjectString(array($connection, 'name'), 'entityId');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:nl'), 'nameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:en'), 'nameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:pt'), 'namePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:nl'), 'displayNameNl');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:en'), 'displayNameEn');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:pt'), 'displayNamePt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:nl'), 'descriptionNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:en'), 'descriptionEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:pt'), 'descriptionPt', true);
-        $properties += $this->assembleLogo($connection);
-        $properties += $this->assembleOrganization($connection, 'nl');
-        $properties += $this->assembleOrganization($connection, 'en');
-        $properties += $this->assembleOrganization($connection, 'pt');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:en'), 'keywordsEn', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:nl'), 'keywordsNl', true);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:pt'), 'keywordsPt', true);
-
-        $properties += $this->assembleCertificates($connection);
         $properties += $this->setPathFromObjectString(array($connection, 'state'), 'workflowState');
-        $properties += $this->assembleContactPersons($connection);
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:NameIDFormat'), 'nameIdFormat');
-        $properties += $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats');
-        $properties += $this->assembleSingleLogoutServices($connection);
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping');
-
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:additional_logging'), 'additionalLogging');
-        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:signature_method'), 'signatureMethod');
-        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:redirect:sign'), 'requestsMustBeSigned');
         $properties += $this->setPathFromObjectString(array($connection, 'manipulation_code'), 'manipulation');
+
+        // Language-specific fields (nl, en, pt)
+        $languages = array('nl', 'en', 'pt');
+        foreach ($languages as $lang) {
+            $properties += $this->setPathFromObjectString(array($connection, 'metadata:name:' . $lang), 'name' . ucfirst($lang));
+            $properties += $this->setPathFromObjectString(array($connection, 'metadata:displayName:' . $lang), 'displayName' . ucfirst($lang));
+            $properties += $this->setPathFromObjectString(array($connection, 'metadata:description:' . $lang), 'description' . ucfirst($lang), true);
+            $properties += $this->setPathFromObjectString(array($connection, 'metadata:keywords:' . $lang), 'keywords' . ucfirst($lang), true);
+            $properties += $this->assembleOrganization($connection, $lang);
+        }
+
+        // Support URLs
         $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:en'), 'supportUrlEn');
         $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:nl'), 'supportUrlNl');
         $properties += $this->setPathFromObjectString(array($connection, 'metadata:url:pt'), 'supportUrlPt');
 
+        // Metadata and service information
+        $properties += $this->assembleLogo($connection);
+        $properties += $this->assembleCertificates($connection);
+        $properties += $this->setPathFromObjectString(array($connection, 'metadata:NameIDFormat'), 'nameIdFormat');
+        $properties += $this->setPathFromObjectArray(array($connection, 'metadata:NameIDFormats'), 'supportedNameIdFormats');
+        $properties += $this->assembleSingleLogoutServices($connection);
+        $properties += $this->assembleContactPersons($connection);
+
+        // Boolean flags
+        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:disable_scoping'), 'disableScoping');
+        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:coin:additional_logging'), 'additionalLogging');
+        $properties += $this->setPathFromObjectBool(array($connection, 'metadata:redirect:sign'), 'requestsMustBeSigned');
+
+        // Signature method
+        $properties += $this->setPathFromObjectString(array($connection, 'metadata:coin:signature_method'), 'signatureMethod');
+
+        // MDUI
         $properties['mdui'] = MduiPushAssemblerFactory::buildFrom($properties, $connection);
 
         return $properties;
@@ -599,25 +607,19 @@ class PushMetadataAssembler implements MetadataAssemblerInterface
     private function assembleAttributeReleasePolicy(stdClass $connection)
     {
         if (empty($connection->arp_attributes)) {
-            return array();
+            return [];
         }
 
-        // EngineBlock expects objects in the metadata in many places so we
-        // can't decode the metadata with assoc=true. ARP rules should always
-        // be arrays so we explicitly cast the ARP rules to arrays here.
-        foreach ($connection->arp_attributes as &$rules) {
-            foreach ($rules as &$rule) {
-                if (is_object($rule)) {
-                    $rule = (array) $rule;
-                }
-            }
+        // Convert ARP rules from objects to arrays for consistency
+        $arpAttributes = (array) $connection->arp_attributes;
+        
+        foreach ($arpAttributes as &$rules) {
+            $rules = array_map(function ($rule) {
+                return is_object($rule) ? (array) $rule : $rule;
+            }, (array) $rules);
         }
 
-        return array(
-            'attributeReleasePolicy' => new AttributeReleasePolicy(
-                (array) $connection->arp_attributes
-            )
-        );
+        return ['attributeReleasePolicy' => new AttributeReleasePolicy($arpAttributes)];
     }
 
     private function assembleMfaEntities(stdClass $connection): array

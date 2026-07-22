@@ -112,30 +112,30 @@ class Container extends AbstractContainer
      */
     public function postRedirect($url, $data = []): void
     {
-        $formData = '';
+        // Build form data efficiently
+        $formInputs = [];
         foreach ($data as $name => $value) {
-            $value = htmlentities($value, ENT_COMPAT, 'utf-8');
-            $formData .= "            <input name=\"$name\" type=\"text\" value=\"$value\" />" . PHP_EOL;
+            if ($name === 'authnRequestXml') continue; // Skip our internal field
+            $formInputs[] = sprintf('            <input name="%s" type="text" value="%s" />',
+                htmlspecialchars($name, ENT_COMPAT, 'utf-8'),
+                htmlspecialchars($value, ENT_COMPAT, 'utf-8')
+            );
         }
+        $formData = implode(PHP_EOL, $formInputs);
 
+        // Process SAMLRequest if present
+        $authnRequestXml = 'N/A';
         if (isset($data['SAMLRequest'])) {
             $requestXml = base64_decode($data['SAMLRequest']);
-
-            $requestXml = self::formatXml($requestXml);
-
-            $data['authnRequestXml'] = $requestXml;
-        }
-        if (!isset($data['authnRequestXml'])) {
-            $data['authnRequestXml'] = 'N/A';
+            $authnRequestXml = self::formatXml($requestXml);
         }
 
+        // Process SAMLResponse if present
         $responseDebug = '';
         if (isset($data['SAMLResponse'])) {
             $responseXml = base64_decode($data['SAMLResponse']);
-
-            $responseXml = self::formatXml($responseXml);
-
-            $responseDebug = '<pre id="responseDebug">' . htmlentities($responseXml, ENT_QUOTES, 'utf-8')  . '</pre>';
+            $formattedResponseXml = self::formatXml($responseXml);
+            $responseDebug = '<pre id="responseDebug">' . htmlentities($formattedResponseXml, ENT_QUOTES, 'utf-8') . '</pre>';
         }
 
         $this->response = new Response(<<<HTML
