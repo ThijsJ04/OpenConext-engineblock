@@ -121,6 +121,11 @@ class SsoNotificationService
 
         // Extract cipher and initialization vector
         $base64Decoded = base64_decode($ssoNotification);
+        if ($base64Decoded === false) {
+            $this->logger->error("Failed to base64 decode SSO notification");
+            return $data;
+        }
+
         $iv = substr($base64Decoded, 0, self::IV_SIZE);
         $cipherText = substr($base64Decoded, self::IV_SIZE);
         // Construct encryption key

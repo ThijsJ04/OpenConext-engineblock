@@ -164,28 +164,33 @@ class MinkContext extends BaseMinkContext
      */
     public function theSessionIndexShouldMatchTheAssertionID()
     {
+        $content = $this->getSession()->getPage()->getContent();
         $document = new DOMDocument();
-        $document->loadXML($this->getSession()->getPage()->getContent());
+        $document->loadXML($content);
+        
         $xpathObj = new DOMXPath($document);
         $xpathObj->registerNamespace('ds', XMLSecurityDSig::XMLDSIGNS);
         $xpathObj->registerNamespace('mdui', Common::NS);
         $xpathObj->registerNamespace('shibmd', Scope::NS);
-        $nodeListAssertion = $xpathObj->query('/samlp:Response/saml:Assertion[@ID]');
-        $nodeListAuthStatement = $xpathObj->query('/samlp:Response/saml:Assertion/saml:AuthnStatement[@SessionIndex]');
+        
+        $assertionNodes = $xpathObj->query('/samlp:Response/saml:Assertion[@ID]');
+        $authStatementNodes = $xpathObj->query('/samlp:Response/saml:Assertion/saml:AuthnStatement[@SessionIndex]');
 
-        if ($nodeListAssertion->count() == 0) {
+        if ($assertionNodes->length === 0) {
             throw new ExpectationException('The assertion ID was not found', $this->getSession());
         }
 
-        if ($nodeListAuthStatement->count() == 0) {
-            throw new ExpectationException('The SessionIndex wasnot found', $this->getSession());
+        if ($authStatementNodes->length === 0) {
+            throw new ExpectationException('The SessionIndex was not found', $this->getSession());
         }
 
-        $assertionID = $nodeListAssertion->item(0)->attributes->getNamedItem('ID')->value;
-        $sessionIndex = $nodeListAuthStatement->item(0)->attributes->getNamedItem('SessionIndex')->value;
-        if ($sessionIndex == "") {
+        $assertionID = $assertionNodes->item(0)->getAttribute('ID');
+        $sessionIndex = $authStatementNodes->item(0)->getAttribute('SessionIndex');
+        
+        if (empty($sessionIndex)) {
             throw new ExpectationException('The SessionIndex was empty', $this->getSession());
         }
+        
         if ($assertionID !== $sessionIndex) {
             throw new ExpectationException('The SessionIndex was not the same as the assertion ID', $this->getSession());
         }

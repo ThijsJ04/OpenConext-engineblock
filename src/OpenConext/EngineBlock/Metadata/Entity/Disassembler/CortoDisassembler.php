@@ -90,16 +90,12 @@ class CortoDisassembler
      */
     public function translateIdentityProvider(IdentityProvider $entity)
     {
-        $cortoEntity = array();
+        $cortoEntity = $this->translateCommon($entity, array());
 
-        $cortoEntity = $this->translateCommon($entity, $cortoEntity);
-
+        // Process SingleSignOnServices
+        $cortoEntity['SingleSignOnService'] = array();
         foreach ($entity->singleSignOnServices as $service) {
-            if (!isset($cortoEntity['SingleSignOnService'])) {
-                $cortoEntity['SingleSignOnService'] = array();
-            }
-
-            $cortoEntity[] = array(
+            $cortoEntity['SingleSignOnService'][] = array(
                 'Binding'  => $service->binding,
                 'Location' => $service->location,
             );
@@ -107,23 +103,25 @@ class CortoDisassembler
 
         $cortoEntity['GuestQualifier'] = $entity->getCoins()->guestQualifier();
 
-        if ($entity->getCoins()->schacHomeOrganization()) {
-            $cortoEntity['SchacHomeOrganization'] = $entity->getCoins()->schacHomeOrganization();
+        $schacHomeOrganization = $entity->getCoins()->schacHomeOrganization();
+        if (!empty($schacHomeOrganization)) {
+            $cortoEntity['SchacHomeOrganization'] = $schacHomeOrganization;
         }
 
         $cortoEntity['SpsWithoutConsent'] = $entity->getConsentSettings()->getSpEntityIdsWithoutConsent();
         $cortoEntity['isHidden'] = $entity->getCoins()->hidden();
 
-        $cortoEntity['shibmd:scopes'] = array();
-        foreach ($entity->shibMdScopes as $scope) {
-            $cortoEntity['shibmd:scopes'][] = array(
+        // Process shibmd:scopes
+        $cortoEntity['shibmd:scopes'] = array_map(function($scope) {
+            return array(
                 'allowed' => $scope->allowed,
                 'regexp'  => $scope->regexp,
             );
-        }
+        }, $entity->shibMdScopes);
 
-        if ($entity->getCoins()->defaultRAC()) {
-            $cortoEntity['DefaultRAC'] = $entity->getCoins()->defaultRAC();
+        $defaultRAC = $entity->getCoins()->defaultRAC();
+        if (!empty($defaultRAC)) {
+            $cortoEntity['DefaultRAC'] = $defaultRAC;
         }
 
         return $cortoEntity;

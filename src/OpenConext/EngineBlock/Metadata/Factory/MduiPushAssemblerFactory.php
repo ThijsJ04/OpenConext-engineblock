@@ -94,22 +94,14 @@ class MduiPushAssemblerFactory
 
     private static function assemblePrivacyStatement(stdClass $connection): MultilingualElement
     {
-        $privacyStatementUrlElement = new EmptyMduiElement('PrivacyStatementURL');
-        if (!empty($connection->metadata->PrivacyStatementURL)) {
-            $enValue = null;
-            if (!empty($connection->metadata->PrivacyStatementURL->en)) {
-                $enValue = $connection->metadata->PrivacyStatementURL->en;
-            }
-            $nlValue = null;
-            if (!empty($connection->metadata->PrivacyStatementURL->nl)) {
-                $nlValue = $connection->metadata->PrivacyStatementURL->nl;
-            }
-            $ptValue = null;
-            if (!empty($connection->metadata->PrivacyStatementURL->pt)) {
-                $ptValue = $connection->metadata->PrivacyStatementURL->pt;
-            }
-            $privacyStatementUrlElement = self::assembleElement('PrivacyStatementURL', $enValue, $nlValue, $ptValue);
+        if (empty($connection->metadata->PrivacyStatementURL)) {
+            return new EmptyMduiElement('PrivacyStatementURL');
         }
-        return $privacyStatementUrlElement;
+
+        $enValue = $connection->metadata->PrivacyStatementURL->en ?? null;
+        $nlValue = $connection->metadata->PrivacyStatementURL->nl ?? null;
+        $ptValue = $connection->metadata->PrivacyStatementURL->pt ?? null;
+
+        return self::assembleElement('PrivacyStatementURL', $enValue, $nlValue, $ptValue);
     }
 }

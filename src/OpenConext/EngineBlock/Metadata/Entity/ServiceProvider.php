@@ -297,26 +297,44 @@ class ServiceProvider extends AbstractRole
      */
     public function getDisplayName(string $preferredLocale = 'en'): string
     {
+        // Try preferred locale display name first
+        $preferredDisplayName = $this->mdui->getDisplayName($preferredLocale);
+        if ($preferredDisplayName !== '') {
+            return $preferredDisplayName;
+        }
 
-        $preferredName = $this->mdui->getDisplayName($preferredLocale);
-        $fallback = 'name' . ucfirst($preferredLocale);
-
+        // Try preferred locale name
+        $preferredName = $this->getNameForLocale($preferredLocale);
         if ($preferredName !== '') {
-            $spName = $preferredName;
-        } elseif (isset($this->$fallback)) {
-            $spName = $this->$fallback;
+            return $preferredName;
         }
 
-        if ($preferredLocale !== 'en' & empty($spName)) {
+        // Fallback to English if preferred locale is not English
+        if ($preferredLocale !== 'en') {
             $englishDisplayName = $this->mdui->getDisplayName('en');
-            $spName = !empty($englishDisplayName) ? $englishDisplayName : $this->nameEn;
+            if ($englishDisplayName !== '') {
+                return $englishDisplayName;
+            }
+
+            $englishName = $this->nameEn ?? '';
+            if ($englishName !== '') {
+                return $englishName;
+            }
         }
 
-        if (empty($spName)) {
-            $spName = $this->entityId;
-        }
+        // Final fallback to entity ID
+        return $this->entityId;
+    }
 
-        return $spName;
+    /**
+     * Helper method to get name for a specific locale
+     * @param string $locale
+     * @return string
+     */
+    private function getNameForLocale(string $locale): string
+    {
+        $propertyName = 'name' . ucfirst($locale);
+        return $this->$propertyName ?? '';
     }
 
     /**

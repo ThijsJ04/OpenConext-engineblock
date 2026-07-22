@@ -164,14 +164,20 @@ class FakeUserDirectory extends UserDirectoryAdapter
 
         $filePath = self::$directory . self::$fileName;
 
-        $users = $this->users;
-        array_walk($users, function (&$user): void {
-            $user = [
+        // Transform users directly to JSON-serializable format
+        $usersData = [];
+        foreach ($this->users as $user) {
+            $usersData[] = [
                 'collab_person_id' => $user->getCollabPersonId()->getCollabPersonId(),
                 'collab_person_uuid' => $user->getCollabPersonUuid()->getUuid()
             ];
-        });
+        }
 
-        $this->filesystem->dumpFile($filePath, json_encode($users));
+        $jsonContent = json_encode($usersData);
+        if ($jsonContent === false) {
+            throw new RuntimeException('Failed to encode user directory data to JSON');
+        }
+
+        $this->filesystem->dumpFile($filePath, $jsonContent);
     }
 }

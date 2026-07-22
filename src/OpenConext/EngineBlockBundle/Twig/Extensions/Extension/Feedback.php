@@ -207,28 +207,36 @@ class Feedback extends AbstractExtension
     {
         $session = $this->application->getSession();
         $feedbackInfo = $session->get('feedbackInfo');
+        
+        // Early return for empty feedback info
+        if (empty($feedbackInfo)) {
+            return new FeedbackInformationMap();
+        }
+        
         $feedbackInfoMap = new FeedbackInformationMap();
 
-        // Remove the empty valued feedback info entries.
-        if (!empty($feedbackInfo)) {
-            foreach ($feedbackInfo as $key => $value) {
-                if (empty($value)) {
-                    unset($feedbackInfo[$key]);
-                    continue;
-                }
-                if ($value instanceof Issuer) {
-                    $value = $value->getValue();
-                }
-                if ($key === 'AuthnFailedResponse') {
-                    // Don't show the AuthnFailedResponse base64 encoded response message in the feedback info table
-                    continue;
-                }
-                $feedbackInfoMap->add(new FeedbackInformation($key, $value));
+        // Process non-empty feedback info entries
+        foreach ($feedbackInfo as $key => $value) {
+            // Skip empty values
+            if (empty($value)) {
+                continue;
             }
+            
+            // Skip AuthnFailedResponse as it shouldn't be shown in feedback info table
+            if ($key === 'AuthnFailedResponse') {
+                continue;
+            }
+            
+            // Convert Issuer objects to their string value
+            if ($value instanceof Issuer) {
+                $value = $value->getValue();
+            }
+            
+            // Add valid feedback information
+            $feedbackInfoMap->add(new FeedbackInformation($key, $value));
         }
 
         $feedbackInfoMap->sort();
-
         return $feedbackInfoMap;
     }
 }

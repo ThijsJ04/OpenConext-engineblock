@@ -39,6 +39,49 @@ final class HttpClient
     }
 
     /**
+     * Validates HTTP status code and throws appropriate exceptions.
+     *
+     * @param int $statusCode
+     * @param string $resource
+     * @throws AccessDeniedException
+     * @throws UnreadableResourceException
+     */
+    private function validateStatusCode($statusCode, $resource)
+    {
+        // 404 is considered a valid response, the resource may not be there (yet?) intentionally.
+        if ($statusCode == 404) {
+            return;
+        }
+
+        if ($statusCode == 403) {
+            throw new AccessDeniedException($resource);
+        }
+
+        if ($statusCode < 200 || $statusCode >= 300) {
+            throw new UnreadableResourceException(sprintf('Resource could not be read (status code "%d")', $statusCode));
+        }
+    }
+
+    /**
+     * Parses JSON response and handles parsing exceptions.
+     *
+     * @param string $responseBody
+     * @param string $resource
+     * @return mixed
+     * @throws MalformedResponseException
+     */
+    private function parseJsonResponse($responseBody, $resource)
+    {
+        try {
+            return JsonResponseParser::parse((string) $responseBody);
+        } catch (InvalidJsonException $e) {
+            throw new MalformedResponseException(
+                sprintf('Cannot read resource "%s": malformed JSON returned', $resource)
+            );
+        }
+    }
+
+    /**
      * @param string $path A URL path, optionally containing printf parameters. The parameters
      *               will be URL encoded and formatted into the path string.
      *               Example: "connections/%d.json"
@@ -58,28 +101,14 @@ final class HttpClient
         ]);
         $statusCode = $response->getStatusCode();
 
-        // 404 is considered a valid response, the resource may not be there (yet?) intentionally.
+        $this->validateStatusCode($statusCode, $resource);
+
+        // Return null for 404 status
         if ($statusCode == 404) {
             return null;
         }
 
-        if ($statusCode == 403) {
-            throw new AccessDeniedException($resource);
-        }
-
-        if ($statusCode < 200 || $statusCode >= 300) {
-            throw new UnreadableResourceException(sprintf('Resource could not be read (status code "%d")', $statusCode));
-        }
-
-        try {
-            $data = JsonResponseParser::parse((string) $response->getBody());
-        } catch (InvalidJsonException $e) {
-            throw new MalformedResponseException(
-                sprintf('Cannot read resource "%s": malformed JSON returned', $resource)
-            );
-        }
-
-        return $data;
+        return $this->parseJsonResponse($response->getBody(), $resource);
     }
 
     /**
@@ -99,27 +128,13 @@ final class HttpClient
         ]);
         $statusCode = $response->getStatusCode();
 
-        // 404 is considered a valid response, the resource may not be there (yet?) intentionally.
+        $this->validateStatusCode($statusCode, $resource);
+
+        // Return null for 404 status
         if ($statusCode == 404) {
             return null;
         }
 
-        if ($statusCode == 403) {
-            throw new AccessDeniedException($resource);
-        }
-
-        if ($statusCode < 200 || $statusCode >= 300) {
-            throw new UnreadableResourceException(sprintf('Resource could not be read (status code "%d")', $statusCode));
-        }
-
-        try {
-            $data = JsonResponseParser::parse((string) $response->getBody());
-        } catch (InvalidJsonException $e) {
-            throw new MalformedResponseException(
-                sprintf('Cannot read resource "%s": malformed JSON returned', $resource)
-            );
-        }
-
-        return $data;
+        return $this->parseJsonResponse($response->getBody(), $resource);
     }
 }
