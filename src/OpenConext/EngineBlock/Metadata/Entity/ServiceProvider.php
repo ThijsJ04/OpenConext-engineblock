@@ -252,7 +252,6 @@ public static function fromServiceProviderEntity(ServiceProviderEntityInterface 
         $serviceProvider->isAllowAll(),
         $serviceProvider->getAssertionConsumerServices(),
         $serviceProvider->getManipulation() === 'display-unconnected-idps-wayf',
-        $serviceProvider->getCoins()->getTermsOfServiceUrl(),
         $serviceProvider->getCoins()->isConsentRequired(),
         $serviceProvider->getCoins()->isTransparentIssuer(),
         $serviceProvider->getCoins()->isTrustedProxy(),
