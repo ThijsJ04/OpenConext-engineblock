@@ -251,7 +251,6 @@ public static function fromServiceProviderEntity(ServiceProviderEntityInterface 
         $serviceProvider->isAllowAll(),
         $serviceProvider->getAssertionConsumerServices(),
         false,
-        $serviceProvider->getCoins()->getTermsOfServiceUrl(),
         $serviceProvider->getCoins()->isConsentRequired(),
         $serviceProvider->getCoins()->isTransparentIssuer(),
         $serviceProvider->getCoins()->isTrustedProxy(),
