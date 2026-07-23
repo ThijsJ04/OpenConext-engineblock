@@ -252,7 +252,6 @@ public static function fromServiceProviderEntity(ServiceProviderEntityInterface 
         $serviceProvider->isAllowAll(),
         $serviceProvider->getAssertionConsumerServices(),
         false,
-        $serviceProvider->getTermsOfServiceUrl(),
         $serviceProvider->isConsentRequired(),
         $serviceProvider->isTransparentIssuer(),
         $serviceProvider->isTrustedProxy(),
