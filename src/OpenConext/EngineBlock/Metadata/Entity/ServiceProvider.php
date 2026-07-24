@@ -218,64 +218,48 @@ public function __construct(
      * @param ServiceProviderEntityInterface $serviceProvider
      * @return ServiceProvider
      */
-public static function fromServiceProviderEntity(ServiceProviderEntityInterface $serviceProvider): ServiceProvider
-{
-    $entity = new self(
-        $serviceProvider->getEntityId(),
-        $serviceProvider->getMdui(),
-        $serviceProvider->getOrganization('en'),
-        $serviceProvider->getOrganization('nl'),
-        $serviceProvider->getOrganization('pt'),
-        $serviceProvider->getSingleLogoutService(),
-        $serviceProvider->isRequestsMustBeSigned(),
-        $serviceProvider->getCertificates(),
-        $serviceProvider->getContactPersons(),
-        $serviceProvider->getDescription('en'),
-        $serviceProvider->getDescription('nl'),
-        $serviceProvider->getDescription('pt'),
-        false,
-        $serviceProvider->getDisplayName('en'),
-        $serviceProvider->getDisplayName('nl'),
-        $serviceProvider->getDisplayName('pt'),
-        $serviceProvider->getKeywords('en'),
-        $serviceProvider->getKeywords('nl'),
-        $serviceProvider->getKeywords('pt'),
-        $serviceProvider->getLogo(),
-        $serviceProvider->getName('en'),
-        $serviceProvider->getName('nl'),
-        $serviceProvider->getName('pt'),
-        $serviceProvider->getNameIdFormat(),
-        $serviceProvider->getSupportedNameIdFormats(),
-        $serviceProvider->isRequestsMustBeSigned(),
-        $serviceProvider->getWorkflowState(),
-        $serviceProvider->getAllowedIdpEntityIds(),
-        $serviceProvider->isAllowAll(),
-        $serviceProvider->getAssertionConsumerServices(),
-        false,
-        $serviceProvider->isConsentRequired(),
-        $serviceProvider->isTransparentIssuer(),
-        $serviceProvider->isTrustedProxy(),
-        $serviceProvider->getRequestedAttributes(),
-        false,
-        $serviceProvider->isPolicyEnforcementDecisionRequired(),
-        $serviceProvider->isRequesteridRequired(),
-        $serviceProvider->isSignResponse(),
-        $serviceProvider->getManipulation(),
-        $serviceProvider->getAttributeReleasePolicy(),
-        $serviceProvider->getSupportUrl('en'),
-        $serviceProvider->getSupportUrl('nl'),
-        $serviceProvider->getSupportUrl('pt'),
-        $serviceProvider->isStepupAllowNoToken(),
-        $serviceProvider->getStepupRequireLoa(),
-        $serviceProvider->isStepupForceAuthn(),
-        $serviceProvider->isCollabEnabled()
-    );
+    public static function fromServiceProviderEntity(ServiceProviderEntityInterface $serviceProvider): ServiceProvider
+    {
+        $entity = new self($serviceProvider->getEntityId(), $serviceProvider->getMdui());
+        $entity->id = $serviceProvider->getId();
+        $entity->entityId = $serviceProvider->getEntityId();
+        $entity->nameNl = $serviceProvider->getName('nl');
+        $entity->nameEn = $serviceProvider->getName('en');
+        $entity->namePt = $serviceProvider->getName('pt');
+        $entity->descriptionNl = $serviceProvider->getDescription('nl');
+        $entity->descriptionEn = $serviceProvider->getDescription('en');
+        $entity->descriptionPt = $serviceProvider->getDescription('pt');
+        $entity->displayNameNl = $serviceProvider->getDisplayName('nl');
+        $entity->displayNameEn = $serviceProvider->getDisplayName('en');
+        $entity->displayNamePt = $serviceProvider->getDisplayName('pt');
+        $entity->getMdui()->setLogo($serviceProvider->getLogo());
 
-    $entity->id = $serviceProvider->getId();
-    $entity->getMdui()->setLogo($serviceProvider->getLogo());
+        $entity->organizationNl = $serviceProvider->getOrganization('nl');
+        $entity->organizationEn = $serviceProvider->getOrganization('en');
+        $entity->organizationPt = $serviceProvider->getOrganization('pt');
+        $entity->keywordsNl = $serviceProvider->getKeywords('nl');
+        $entity->keywordsEn = $serviceProvider->getKeywords('en');
+        $entity->keywordsPt = $serviceProvider->getKeywords('pt');
+        $entity->certificates = $serviceProvider->getCertificates();
+        $entity->workflowState = $serviceProvider->getWorkflowState();
+        $entity->contactPersons = $serviceProvider->getContactPersons();
+        $entity->nameIdFormat = $serviceProvider->getNameIdFormat();
+        $entity->supportedNameIdFormats = $serviceProvider->getSupportedNameIdFormats();
+        $entity->singleLogoutService = $serviceProvider->getSingleLogoutService();
+        $entity->requestsMustBeSigned = $serviceProvider->isRequestsMustBeSigned();
+        $entity->manipulation = $serviceProvider->getManipulation();
+        $entity->coins = $serviceProvider->getCoins();
+        $entity->attributeReleasePolicy = $serviceProvider->getAttributeReleasePolicy();
+        $entity->assertionConsumerServices = $serviceProvider->getAssertionConsumerServices();
+        $entity->allowedIdpEntityIds = $serviceProvider->getAllowedIdpEntityIds();
+        $entity->allowAll = $serviceProvider->isAllowAll();
+        $entity->requestedAttributes = $serviceProvider->getRequestedAttributes();
+        $entity->supportUrlNl = $serviceProvider->getSupportUrl('nl');
+        $entity->supportUrlEn = $serviceProvider->getSupportUrl('en');
+        $entity->supportUrlPt = $serviceProvider->getSupportUrl('pt');
 
-    return $entity;
-}
+        return $entity;
+    }
 
     /**
      * {@inheritdoc}
