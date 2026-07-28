@@ -153,7 +153,7 @@ class ServiceProvider extends AbstractRole
         bool $collabEnabled = false
     ) {
         $mdui = $mdui ?? Mdui::emptyMdui();
-        
+
         parent::__construct(
             $entityId,
             $mdui,
@@ -271,10 +271,10 @@ class ServiceProvider extends AbstractRole
             $serviceProvider->getSupportUrl('en'),
             $serviceProvider->getSupportUrl('nl'),
             $serviceProvider->getSupportUrl('pt'),
-            $serviceProvider->getCoins()->getStepupAllowNoToken(),
-            $serviceProvider->getCoins()->getStepupRequireLoa(),
+            $serviceProvider->getCoins()->stepupAllowNoToken(),
+            $serviceProvider->getCoins()->stepupRequireLoa(),
             $serviceProvider->getCoins()->isStepupForceAuthn(),
-            $serviceProvider->getCoins()->isCollabEnabled()
+            $serviceProvider->getCoins()->collabEnabled()
         );
 
         $entity->id = $serviceProvider->getId();
@@ -336,7 +336,7 @@ class ServiceProvider extends AbstractRole
             if (!empty($englishDisplayName)) {
                 return $englishDisplayName;
             }
-            
+
             if (!empty($this->nameEn)) {
                 return $this->nameEn;
             }
@@ -357,7 +357,7 @@ class ServiceProvider extends AbstractRole
     public function getOrganizationName(string $preferredLocale = 'en'): string
     {
         $orgLocale = 'organization' . ucfirst($preferredLocale);
-        
+
         // Try preferred locale organization display name first, then organization name
         if (isset($this->$orgLocale) && (!empty($this->$orgLocale->displayName) || !empty($this->$orgLocale->name))) {
             return !empty($this->$orgLocale->displayName) ? $this->$orgLocale->displayName : $this->$orgLocale->name;
@@ -395,13 +395,13 @@ class ServiceProvider extends AbstractRole
     {
         $properties = get_object_vars($this);
         $serializableProperties = array_keys($properties);
-        
+
         // Remove certificates as they should not be serialized
         $certificatesKey = array_search('certificates', $serializableProperties);
         if ($certificatesKey !== false) {
             unset($serializableProperties[$certificatesKey]);
         }
-        
+
         return array_values($serializableProperties);
     }
 }
